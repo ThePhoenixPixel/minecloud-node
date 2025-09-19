@@ -78,6 +78,14 @@ impl LocalServices {
         Service::new_local(task)
     }
 
+    pub fn remove_service(&mut self, id: Uuid) -> Option<Service> {
+        if let Some(pos) = self.services.iter().position(|s| s.get_id() == id) {
+            Some(self.services.remove(pos))
+        } else {
+            None
+        }
+    }
+
     pub fn get_from_id(&self, id: &Uuid) -> Option<Service> {
         self.get_all().into_iter().find(|s| s.get_id() == *id)
     }
@@ -113,8 +121,10 @@ impl LocalServices {
         {
             if let Some(service) = self.services.get_mut(pos) {
                 service.shutdown(shutdown_msg).await;
+                if service.is_delete() {
+                    self.services.remove(pos);
+                }
             }
-            self.services.remove(pos);
         }
     }
 

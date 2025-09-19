@@ -44,16 +44,16 @@ impl NodeService {
                 None => return HttpResponse::NoContent().json("Service not found"),
             }
         };
-
+        let service_name = service.get_name();
         if let Err(e) = service.disconnect_from_network(cloud.get_ref().clone()).await {
             log_error!(
             "Service: {} konnte nicht vom Netzwerk getrennt werden \n Error: {}",
-            service.get_name(),
+            service_name,
             e
         );
             return HttpResponse::InternalServerError().json(format!(
                 "Service: {} not disconnected from Network \n Error: {}",
-                service.get_name(),
+                service_name,
                 e
             ));
         }
@@ -80,17 +80,23 @@ impl NodeService {
                         }
                     }
 
-                    s.save_to_file();
-                    s.delete_files();
+                    if !service.get_task().is_static_service() && service.get_task().is_delete_on_stop() {
+                        s.delete_files();
+                        cloud_guard.get_local_mut().remove_service(service_id);
+                    } else {
+                        s.save_to_file();
+                    }
                 } else {
                     log_error!("Konnte Stop-Status für Service [{}] nicht setzen", service_id);
                 }
+                // check
+                cloud_guard.get_all_mut().check_service().await;
             });
         }
 
         HttpResponse::Ok().json(format!(
             "Service: {} successfully disconnected from Network",
-            service.get_name()
+            service_name
         ))
     }
 

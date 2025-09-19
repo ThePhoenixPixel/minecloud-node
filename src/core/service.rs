@@ -302,18 +302,25 @@ impl Service {
                     Err(..) => log_warning!("Service konnte nicht gekillt werden"),
                 }
             }
-
-            self.delete_files();
-
-            self.set_status(ServiceStatus::Stop);
+            
+            if self.is_delete() {
+                self.delete_files();    
+            } else {
+                self.set_status(ServiceStatus::Stop);
+                self.save_to_file();    
+            }
+            
         } else {
             // TODO: Remote/Cluster shutdown
         }
     }
-
+    
+    pub fn is_delete(&self) -> bool {
+        !self.get_task().is_static_service() && self.get_task().is_delete_on_stop()
+    }
 
     pub fn delete_files(&self) {
-        if !self.get_task().is_static_service() && self.get_task().is_delete_on_stop() {
+        if self.is_delete() {
             if fs::remove_dir_all(self.get_path()).is_err() {
                 log_warning!("Service | {} | folder can't delete", self.get_name());
             }

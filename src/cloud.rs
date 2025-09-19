@@ -89,7 +89,7 @@ impl Cloud {
                 let _ = NodeServer::start(cloud_clone);
             });
         }
-
+        tokio::time::sleep(Duration::from_secs(1)).await;
         #[cfg(feature = "rest-api")]
         {
             let cloud_clone = cloud.clone();
