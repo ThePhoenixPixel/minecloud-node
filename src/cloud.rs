@@ -1,7 +1,6 @@
 use colored::{ColoredString, Colorize};
 use std::env;
 use std::time::Duration;
-//use std::ops::{Deref, DerefMut};
 use bx::network::url::Url;
 use bx::path::Path;
 use std::path::PathBuf;
@@ -18,8 +17,9 @@ use crate::terminal::cmd::Cmd;
 use crate::utils::logger::Logger;
 use crate::{log_error, log_info, log_warning};
 use crate::core::service::Service;
+
 #[cfg(feature = "rest-api")]
-use crate::rest_api::api_main::ApiMain;
+use crate::rest_api::restapi_main::ApiMain;
 use crate::utils::service_status::ServiceStatus;
 
 pub struct Cloud {
@@ -38,6 +38,14 @@ impl Cloud {
     
     pub fn get_all(&self) -> &AllServices {
         &self.services
+    }
+
+    pub async fn get_all_services_clone(&self) -> Vec<Service> {
+        self.services.get_all()
+            .await
+            .into_iter()
+            .map(|s| s.clone_without_process())
+            .collect()
     }
 
     pub fn get_all_mut(&mut self) -> &mut AllServices {

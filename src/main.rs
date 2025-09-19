@@ -4,9 +4,9 @@ use tokio::sync::Mutex;
 
 #[cfg(feature = "rest-api")]
 pub mod rest_api {
-    pub mod api_main;
-    pub mod api_service;
-    pub mod api_task;
+    pub mod restapi_main;
+    pub mod restapi_service;
+    pub mod restapi_task;
 }
 
 pub mod core {

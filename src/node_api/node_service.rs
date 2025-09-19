@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, web};
 use bx::network::address::Address;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::cloud::Cloud;
 use crate::core::service::Service;
@@ -96,13 +96,17 @@ impl NodeService {
     }
 
     pub async fn get_online_backend_server(
-        cloud: web::Data<Arc<Mutex<Cloud>>>,
+        cloud: web::Data<Arc<RwLock<Cloud>>>,
     ) -> HttpResponse {
-        let cloud = cloud.lock().await;
-        let services = cloud.get_all().get_online_backend_services().await;
+
+        let services = {
+            let cloud = cloud.read().await;
+            cloud.get_all_services_clone().await
+        };
 
         let response: Vec<ServiceInfoResponse> = services
             .into_iter()
+            .filter(|s| s.is_start() && s.is_backend_server())
             .map(|s| ServiceInfoResponse::new(&s))
             .collect();
 

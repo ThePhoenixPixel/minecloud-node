@@ -27,11 +27,6 @@ pub struct TaskCreateRequest {
 
 impl ApiTask {
     pub async fn get_all() -> HttpResponse {
-        /*
-        HttpResponse::Ok().json(match serde_json::to_string_pretty(&Task::get_task_all()) {
-            Ok(value) => value,
-            Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-        })*/
         HttpResponse::Ok().json(Task::get_task_all())
     }
 
