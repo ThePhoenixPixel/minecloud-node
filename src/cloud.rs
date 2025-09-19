@@ -1,3 +1,12 @@
+use std::error::Error;
+use bx::network::url::Url;
+use colored::{ColoredString, Colorize};
+use std::{env, fs};
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::RwLock;
+
 use crate::core::services_all::AllServices;
 use crate::core::services_local::LocalServices;
 use crate::core::services_network::NetworkServices;
@@ -7,14 +16,7 @@ use crate::sys_config::software_config::SoftwareConfig;
 use crate::terminal::cmd::Cmd;
 use crate::utils::logger::Logger;
 use crate::{log_error, log_info, log_warning};
-use bx::network::url::Url;
-use bx::path::Directory;
-use colored::{ColoredString, Colorize};
-use std::env;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::RwLock;
+
 
 #[cfg(feature = "rest-api")]
 use crate::rest_api::restapi_main::ApiMain;
@@ -72,13 +74,13 @@ impl Cloud {
         CloudConfig::check(&url).await;
 
         // check folder
-        Cloud::check_folder();
+        Cloud::check_folder().expect("Checking Folder failed");
 
         // check software config file
         SoftwareConfig::check(&url).await;
 
         // check the software files
-        Cloud::check_software().await;
+        Cloud::check_software().await.expect("Checking Software failed");
 
         // NodeServer
         {
@@ -252,46 +254,48 @@ impl Cloud {
         }
     }
 
-    pub fn check_folder() {
+    pub fn check_folder() -> Result<(), Box<dyn Error>> {
         let config_path = CloudConfig::get().get_cloud_path();
 
         // create task folder
-        Directory::create_path(&config_path.get_task_folder_path());
+        fs::create_dir_all(&config_path.get_task_folder_path())?;
 
         // create template folder
-        Directory::create_path(&config_path.get_template_folder_path());
+        fs::create_dir_all(&config_path.get_template_folder_path())?;
 
         // create service temp folder
-        Directory::create_path(&config_path.get_service_folder().get_temp_folder_path());
+        fs::create_dir_all(&config_path.get_service_folder().get_temp_folder_path())?;
 
         // create service static folder
-        Directory::create_path(&config_path.get_service_folder().get_static_folder_path());
+        fs::create_dir_all(&config_path.get_service_folder().get_static_folder_path())?;
 
         // create system_plugins_folder
-        Directory::create_path(
+        fs::create_dir_all(
             &config_path
                 .get_system_folder()
                 .get_system_plugins_folder_path(),
-        );
+        )?;
 
         // create software_files_folder
-        Directory::create_path(
+        fs::create_dir_all(
             &config_path
                 .get_system_folder()
                 .get_software_files_folder_path(),
-        );
+        )?;
 
         // create software_lib_folder
-        Directory::create_path(
+        fs::create_dir_all(
             &config_path
                 .get_system_folder()
                 .get_software_lib_folder_path(),
-        );
+        )?;
         log_info!("All Folders are safe :=)");
+        Ok(())
     }
 
     // check software && system plugins
-    pub async fn check_software() {
+    pub async fn check_software() -> Result<(), Box<dyn Error>> {
+        // Todo: refactoren 'check_software()'
         let software_types = SoftwareConfig::get().get_software_types();
         let cloud_config_system = CloudConfig::get().get_cloud_path().get_system_folder();
 
@@ -309,9 +313,9 @@ impl Cloud {
                 .join(&software_type_name);
 
             // create the software types folder
-            Directory::create_path(&software_path);
-            Directory::create_path(&system_plugins_path);
-            Directory::create_path(&software_lib_path);
+            fs::create_dir_all(&software_path)?;
+            fs::create_dir_all(&system_plugins_path)?;
+            fs::create_dir_all(&software_lib_path)?;
 
             // iter to software names
             for software in software_type.get_software_names() {
@@ -344,7 +348,7 @@ impl Cloud {
                         }
                         Err(e) => {
                             log_error!("{}", e.to_string());
-                            panic!("Can not download the software {}", software_file_url);
+                            return Err(e);
                         }
                     }
                 }
@@ -369,10 +373,7 @@ impl Cloud {
                         }
                         Err(e) => {
                             log_error!("{}", e.to_string());
-                            panic!(
-                                "Can not download the Software System Plugin {}",
-                                software.get_system_plugin().get_download()
-                            );
+                            return Err(e);
                         }
                     }
                 }
@@ -387,7 +388,7 @@ impl Cloud {
                     {
                         let mut path = software_lib_path.clone();
                         path.pop();
-                        Directory::create_path(&path);
+                        fs::create_dir_all(&path)?;
 
                         match Url::download_file(&url_str, &software_lib_path).await {
                             Ok(_) => log_info!(
@@ -405,6 +406,7 @@ impl Cloud {
                 }
             }
         }
+        Ok(())
     }
 }
 

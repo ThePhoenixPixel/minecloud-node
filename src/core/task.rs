@@ -2,7 +2,7 @@ use bx::path::Directory;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Error, Read, Write};
 use std::path::PathBuf;
 use std::{fs, io};
 
@@ -423,7 +423,7 @@ impl Task {
 
     pub fn prepared_to_service(&self) -> Result<PathBuf, String> {
         // create the next free service folder with the template
-        let target_path = &self.create_next_free_service_folder();
+        let target_path = &self.create_next_free_service_folder().map_err(|e| e.to_string())?;
         let templates = &self.get_templates();
         let template = match select_template_with_priority(&templates) {
             Some(template) => template,
@@ -442,7 +442,7 @@ impl Task {
     }
 
     // create the next not exist service folder
-    fn create_next_free_service_folder(&self) -> PathBuf {
+    fn create_next_free_service_folder(&self) -> Result<PathBuf, Error> {
         let mut folder_index: u32 = 1;
         let target_base_path = self.get_service_path();
         let mut target_service_folder_path =
@@ -454,8 +454,8 @@ impl Task {
                 target_base_path.join(format!("{}-{}", &self.get_name(), folder_index));
         }
 
-        Directory::create_path(&target_service_folder_path);
-        target_service_folder_path
+        fs::create_dir_all(&target_service_folder_path)?;
+        Ok(target_service_folder_path)
     }
 
     //get temp or static for the service

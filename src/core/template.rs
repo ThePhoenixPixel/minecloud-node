@@ -1,6 +1,6 @@
+use std::fs;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use bx::path::Directory;
 
 use crate::core::task::Task;
 use crate::sys_config::cloud_config::CloudConfig;
@@ -83,12 +83,12 @@ impl Template {
         template_path.push("default");
 
         if !template_path.exists() {
-            Directory::create_path(&template_path);
+            fs::create_dir_all(template_path).expect("Cant create Template Path in 'create_by_task'");
         }
     }
 
     pub fn create(&self) {
-        Directory::create_path(&self.get_path());
+        fs::create_dir_all(&self.get_path()).expect("Cant create Template Path in 'create'");
     }
 
     pub fn exists(&self) -> bool {

@@ -1,10 +1,12 @@
-use crate::core::service::Service;
-use crate::core::task::Task;
-use crate::sys_config::cloud_config::CloudConfig;
 use bx::path::Directory;
 use std::io::Error;
 use std::path::PathBuf;
 use uuid::Uuid;
+
+use crate::core::service::Service;
+use crate::core::task::Task;
+use crate::sys_config::cloud_config::CloudConfig;
+
 
 pub struct LocalServices {
     services: Vec<Service>,
@@ -117,7 +119,7 @@ impl LocalServices {
     }
 
     pub async fn stop_all(&mut self, shutdown_msg: &str) {
-        let ids: Vec<Uuid> = self.get_started_services()
+        let ids: Vec<Uuid> = self.get_all()
             .iter()
             .map(|s| s.get_id())
             .collect();

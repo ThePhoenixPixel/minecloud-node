@@ -1,12 +1,12 @@
 use chrono::Local;
 use colored::{ColoredString, Colorize};
-use std::env;
+use std::{env, fs};
 use std::fs::OpenOptions;
 use std::io::Write;
-use bx::path::Directory;
 
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::log::Log;
+
 
 pub struct Logger;
 
@@ -47,7 +47,7 @@ impl Logger {
             env::current_exe().expect("Cloud Error can not get the exe path of the cloud system");
         log_path.pop();
         log_path.push("log");
-        Directory::create_path(&log_path);
+        fs::create_dir_all(&log_path).expect("Cant create Log File path in 'write_in_file'");
 
         let file_name = format!("log_{}.log", Local::now().format("%Y-%m-%d"));
         log_path.push(&file_name);

@@ -422,7 +422,7 @@ impl Service {
 
     pub fn save_to_file(&self) {
         let path = self.get_path_with_service_config();
-        Directory::create_path(&path);
+        fs::create_dir_all(&path).expect("Cant create Service File in 'save_to_file'");
         if File::create(self.get_path_with_service_file()).is_err() {
             log_error!("Error by create to service config file");
             return;
@@ -637,7 +637,7 @@ impl Service {
             .join(&software.get_system_plugin().get_path());
 
         if !target_path.exists() {
-            Directory::create_path(&target_path);
+            fs::create_dir_all(&target_path)?;
         }
 
         target_path.push(self.get_task().get_software().get_system_plugin_name());
