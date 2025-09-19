@@ -2,8 +2,7 @@ use colored::{ColoredString, Colorize};
 use std::io;
 use std::io::{Error, ErrorKind, Write};
 use std::sync::Arc;
-
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
 use crate::log_error;
@@ -17,11 +16,11 @@ use crate::utils::logger::Logger;
 
 pub struct Cmd {
     prefix: ColoredString,
-    cloud: Arc<Mutex<Cloud>>,
+    cloud: Arc<RwLock<Cloud>>,
 }
 
 impl Cmd {
-    pub fn new(prefix: &ColoredString, cloud: Arc<Mutex<Cloud>>) -> Cmd {
+    pub fn new(prefix: &ColoredString, cloud: Arc<RwLock<Cloud>>) -> Cmd {
         Cmd {
             prefix: prefix.clone(),
             cloud,
@@ -63,12 +62,12 @@ impl Cmd {
                 Err(e) => log_error!("{}", e),
             }
         }
-        let mut cloud = self.cloud.lock().await;
+        let mut cloud = self.cloud.write().await;
         cloud.disable().await;
     }
 
     pub async fn execute_command(
-        cloud: Arc<Mutex<Cloud>>,
+        cloud: Arc<RwLock<Cloud>>,
         command: &str,
         args: Vec<&str>,
     ) -> Result<(), Error> {

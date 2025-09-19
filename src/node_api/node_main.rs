@@ -1,7 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
 use crate::node_api::node_service::NodeService;
@@ -13,7 +13,7 @@ pub struct NodeServer;
 
 impl NodeServer {
     #[actix_web::main]
-    pub async fn start(cloud: Arc<Mutex<Cloud>>) {
+    pub async fn start(cloud: Arc<RwLock<Cloud>>) {
         log_info!("Start the Node Host");
 
         let app_factory = move || {

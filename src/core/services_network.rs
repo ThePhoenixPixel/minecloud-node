@@ -1,5 +1,6 @@
 use crate::core::service::Service;
 
+#[derive(Clone)]
 pub struct NetworkServices {
     //services: Vec<Service>,
 }
@@ -11,8 +12,7 @@ impl NetworkServices {
         }
     }
 
-    pub async fn get_all(&self) -> Vec<&Service> {
+    pub async fn get_all(&self) -> Vec<Service> {
         Vec::new()
     }
-
 }

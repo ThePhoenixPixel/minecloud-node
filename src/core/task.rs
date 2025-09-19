@@ -1,4 +1,4 @@
-use bx::path::Path;
+use bx::path::Directory;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -149,18 +149,18 @@ impl Task {
         self.nodes.clear();
         self.save_to_file();
     }
-    
+
     pub fn is_startup_local(&self) -> bool {
         if !self.get_nodes().is_empty() {
             for node in self.get_nodes() {
-                return node == CloudConfig::get().get_name()
+                return node == CloudConfig::get().get_name();
             }
             false
-        } else { 
+        } else {
             true
         }
     }
-    
+
     // Getter and Setter for software
     pub fn get_software(&self) -> Software {
         self.software.clone()
@@ -333,7 +333,7 @@ impl Task {
     pub fn get_task(name: &str) -> Option<Task> {
         let task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
 
-        let files_name = Path::get_files_name_from_path(&task_path);
+        let files_name = Directory::get_files_name_from_path(&task_path);
 
         // iter list of files Name
         for file_name in files_name {
@@ -435,7 +435,7 @@ impl Task {
         };
 
         // copy the template in the new service folder
-        match Path::copy_folder_contents(&template.get_path(), &target_path) {
+        match Directory::copy_folder_contents(&template.get_path(), &target_path) {
             Ok(_) => Ok(target_path.clone()),
             Err(e) => Err(format!("Error beim Copy the Template \n {}", e.to_string())),
         }
@@ -454,7 +454,7 @@ impl Task {
                 target_base_path.join(format!("{}-{}", &self.get_name(), folder_index));
         }
 
-        Path::create_path(&target_service_folder_path);
+        Directory::create_path(&target_service_folder_path);
         target_service_folder_path
     }
 

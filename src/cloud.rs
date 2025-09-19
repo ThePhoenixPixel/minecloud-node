@@ -1,12 +1,3 @@
-use colored::{ColoredString, Colorize};
-use std::env;
-use std::time::Duration;
-use bx::network::url::Url;
-use bx::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-
 use crate::core::services_all::AllServices;
 use crate::core::services_local::LocalServices;
 use crate::core::services_network::NetworkServices;
@@ -16,7 +7,14 @@ use crate::sys_config::software_config::SoftwareConfig;
 use crate::terminal::cmd::Cmd;
 use crate::utils::logger::Logger;
 use crate::{log_error, log_info, log_warning};
-use crate::core::service::Service;
+use bx::network::url::Url;
+use bx::path::Directory;
+use colored::{ColoredString, Colorize};
+use std::env;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::RwLock;
 
 #[cfg(feature = "rest-api")]
 use crate::rest_api::restapi_main::ApiMain;
@@ -35,17 +33,9 @@ impl Cloud {
         let all = AllServices::new(local, network); // initialisieren
         Self { services: all }
     }
-    
+
     pub fn get_all(&self) -> &AllServices {
         &self.services
-    }
-
-    pub async fn get_all_services_clone(&self) -> Vec<Service> {
-        self.services.get_all()
-            .await
-            .into_iter()
-            .map(|s| s.clone_without_process())
-            .collect()
     }
 
     pub fn get_all_mut(&mut self) -> &mut AllServices {
@@ -68,11 +58,7 @@ impl Cloud {
         self.services.get_network_mut()
     }
 
-    pub async fn update_service(&self, _service: &Service) {
-        //self.services.get_network()
-    }
-
-    pub async fn enable(cloud: Arc<Mutex<Cloud>>, version: &str) {
+    pub async fn enable(cloud: Arc<RwLock<Cloud>>, version: &str) {
         // download link
         let url = format!(
             "http://download.codergames.de/minecloud/version/{}/",
@@ -256,12 +242,13 @@ impl Cloud {
         );
         println!(" ");
     }
-    
+
     pub fn set_stop_status_service() {
         // nur die loken services holen nicht die aus dem netzwerk
         // wichtig Service::get_all() lassen denn hier muss expliziet in die datein gegucklt werden
         for mut service in LocalServices::get_all_from_file() {
             service.set_status(ServiceStatus::Stop);
+            service.save_to_file();
         }
     }
 
@@ -269,33 +256,33 @@ impl Cloud {
         let config_path = CloudConfig::get().get_cloud_path();
 
         // create task folder
-        Path::create_path(&config_path.get_task_folder_path());
+        Directory::create_path(&config_path.get_task_folder_path());
 
         // create template folder
-        Path::create_path(&config_path.get_template_folder_path());
+        Directory::create_path(&config_path.get_template_folder_path());
 
         // create service temp folder
-        Path::create_path(&config_path.get_service_folder().get_temp_folder_path());
+        Directory::create_path(&config_path.get_service_folder().get_temp_folder_path());
 
         // create service static folder
-        Path::create_path(&config_path.get_service_folder().get_static_folder_path());
+        Directory::create_path(&config_path.get_service_folder().get_static_folder_path());
 
         // create system_plugins_folder
-        Path::create_path(
+        Directory::create_path(
             &config_path
                 .get_system_folder()
                 .get_system_plugins_folder_path(),
         );
 
         // create software_files_folder
-        Path::create_path(
+        Directory::create_path(
             &config_path
                 .get_system_folder()
                 .get_software_files_folder_path(),
         );
 
         // create software_lib_folder
-        Path::create_path(
+        Directory::create_path(
             &config_path
                 .get_system_folder()
                 .get_software_lib_folder_path(),
@@ -322,9 +309,9 @@ impl Cloud {
                 .join(&software_type_name);
 
             // create the software types folder
-            Path::create_path(&software_path);
-            Path::create_path(&system_plugins_path);
-            Path::create_path(&software_lib_path);
+            Directory::create_path(&software_path);
+            Directory::create_path(&system_plugins_path);
+            Directory::create_path(&software_lib_path);
 
             // iter to software names
             for software in software_type.get_software_names() {
@@ -400,7 +387,7 @@ impl Cloud {
                     {
                         let mut path = software_lib_path.clone();
                         path.pop();
-                        Path::create_path(&path);
+                        Directory::create_path(&path);
 
                         match Url::download_file(&url_str, &software_lib_path).await {
                             Ok(_) => log_info!(
@@ -421,23 +408,3 @@ impl Cloud {
     }
 }
 
-/*
-schmeist die kinder fn von LocalServices in die Cloud
-also cloud.get_lokal().add_service
-wird zu ->
-cloud.add_services()
-
-impl Deref for Cloud {
-    type Target = LocalServices;
-
-    fn deref(&self) -> &Self::Target {
-        &self.local_services
-    }
-}
-
-impl DerefMut for Cloud {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.local_services
-    }
-}
-*/

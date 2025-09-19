@@ -3,8 +3,7 @@ use colored::{ColoredString, Colorize};
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Write;
-
-use bx::path::Path;
+use bx::path::Directory;
 
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::log::Log;
@@ -48,7 +47,7 @@ impl Logger {
             env::current_exe().expect("Cloud Error can not get the exe path of the cloud system");
         log_path.pop();
         log_path.push("log");
-        Path::create_path(&log_path);
+        Directory::create_path(&log_path);
 
         let file_name = format!("log_{}.log", Local::now().format("%Y-%m-%d"));
         log_path.push(&file_name);

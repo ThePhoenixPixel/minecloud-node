@@ -1,17 +1,17 @@
-use crate::cloud::Cloud;
-use crate::core::service::Service;
-use crate::core::task::Task;
-use crate::utils::utils::Utils;
 use actix_web::{HttpResponse, web};
 use serde::Deserialize;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
+use uuid::Uuid;
+
+use crate::cloud::Cloud;
+use crate::core::task::Task;
 
 pub struct ApiService;
 
 #[derive(Deserialize)]
 pub struct ServiceGetRequest {
-    service_name: String,
+    id: Uuid,
 }
 
 #[derive(Deserialize)]
@@ -20,65 +20,52 @@ pub struct ServiceCreateRequest {
 }
 
 impl ApiService {
-    pub async fn get_all(cloud: web::Data<Arc<Mutex<Cloud>>>) -> HttpResponse {
-        let cloud = cloud.lock().await;
-        HttpResponse::Ok().json(match serde_json::to_string_pretty(&cloud.get_all().get_all().await) {
-            Ok(value) => value,
-            Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-        })
+    pub async fn get_all(cloud: web::Data<Arc<RwLock<Cloud>>>) -> HttpResponse {
+        let all_services = { cloud.read().await.get_all().clone() };
+        let services = all_services.get_all().await;
+        HttpResponse::Ok().json(services)
     }
 
-    pub async fn get_online(cloud: web::Data<Arc<Mutex<Cloud>>>) -> HttpResponse {
-        let cloud = cloud.lock().await;
-        HttpResponse::Ok().json(
-            match serde_json::to_string_pretty(&cloud.get_all().get_start_services().await) {
-                Ok(value) => value,
-                Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-            },
-        )
+    pub async fn get_online(cloud: web::Data<Arc<RwLock<Cloud>>>) -> HttpResponse {
+        let all_services = { cloud.read().await.get_all().clone() };
+        let services = all_services.get_start_services().await;
+        HttpResponse::Ok().json(services)
     }
 
-    pub async fn get_prepare(cloud: web::Data<Arc<Mutex<Cloud>>>) -> HttpResponse {
-        let cloud = cloud.lock().await;
-        HttpResponse::Ok().json(
-            match serde_json::to_string_pretty(&cloud.get_all().get_prepare_services().await) {
-                Ok(value) => value,
-                Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-            },
-        )
+    pub async fn get_prepare(cloud: web::Data<Arc<RwLock<Cloud>>>) -> HttpResponse {
+        let all_services = { cloud.read().await.get_all().clone() };
+        let services = all_services.get_prepare_services().await;
+        HttpResponse::Ok().json(services)
     }
 
-    pub async fn get_offline(cloud: web::Data<Arc<Mutex<Cloud>>>) -> HttpResponse {
-        let cloud = cloud.lock().await;
-        HttpResponse::Ok().json(
-            match serde_json::to_string_pretty(&cloud.get_all().get_stop_services().await) {
-                Ok(value) => value,
-                Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-            },
-        )
+    pub async fn get_offline(cloud: web::Data<Arc<RwLock<Cloud>>>) -> HttpResponse {
+        let all_services = { cloud.read().await.get_all().clone() };
+        let services = all_services.get_stopped_services().await;
+        HttpResponse::Ok().json(services)
     }
 
-    pub async fn get(req: web::Query<ServiceGetRequest>) -> HttpResponse {
-        if req.service_name.is_empty() {
-            return HttpResponse::NoContent().json("Bitte gebe ein service_name an");
+    pub async fn get_from_id(
+        cloud: web::Data<Arc<RwLock<Cloud>>>,
+        req: web::Query<ServiceGetRequest>,
+    ) -> HttpResponse {
+        if req.id.is_nil() {
+            return HttpResponse::NoContent().json("Bitte gebe ein Service ID an");
         }
 
-        let service = match Service::get_from_name(&req.service_name) {
+        let all_service = { cloud.read().await.get_all().clone() };
+
+        let service = match all_service.get_from_id(&req.id).await {
             Some(service) => service,
             None => {
-                return HttpResponse::NoContent().json("Bitte gebe ein Gültigen task_name an");
+                return HttpResponse::NoContent().json("Bitte gebe ein Gültige ID an");
             }
         };
 
-        match Utils::convert_to_json(&service) {
-            Some(data) => HttpResponse::Ok().json(data),
-            None => HttpResponse::InternalServerError()
-                .json("Task konnte nicht in Json umgewandelt werden"),
-        }
+        HttpResponse::Ok().json(service)
     }
 
     pub async fn create(
-        cloud: web::Data<Arc<Mutex<Cloud>>>,
+        cloud: web::Data<Arc<RwLock<Cloud>>>,
         req: web::Json<ServiceCreateRequest>,
     ) -> HttpResponse {
         if req.task_name.is_empty() {
@@ -91,14 +78,15 @@ impl ApiService {
         };
 
         let result = {
-            let mut cloud = cloud.lock().await;
-            cloud.get_all_mut().start_service(task).await
+            let mut cloud = cloud.write().await;
+            cloud.get_all_mut().start_service(&task).await
         };
 
         match result {
             Ok(_) => HttpResponse::Ok().json("Service gestartet"),
-            Err(e) => HttpResponse::InternalServerError()
-                .json(format!("Fehler beim Starten: {}", e)),
+            Err(e) => {
+                HttpResponse::InternalServerError().json(format!("Fehler beim Starten: {}", e))
+            }
         }
     }
 }

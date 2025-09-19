@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use bx::path::Directory;
 
 use crate::core::task::Task;
 use crate::sys_config::cloud_config::CloudConfig;
-use bx::path::Path;
+
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Template {
@@ -82,12 +83,12 @@ impl Template {
         template_path.push("default");
 
         if !template_path.exists() {
-            Path::create_path(&template_path);
+            Directory::create_path(&template_path);
         }
     }
 
     pub fn create(&self) {
-        Path::create_path(&self.get_path());
+        Directory::create_path(&self.get_path());
     }
 
     pub fn exists(&self) -> bool {

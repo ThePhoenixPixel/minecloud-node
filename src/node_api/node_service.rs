@@ -2,17 +2,23 @@ use actix_web::{HttpResponse, web};
 use bx::network::address::Address;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
+use uuid::Uuid;
 
 use crate::cloud::Cloud;
 use crate::core::service::Service;
+use crate::{log_error, log_info, log_warning};
 use crate::utils::logger::Logger;
 use crate::utils::service_status::ServiceStatus;
-use crate::log_error;
 
 #[derive(Deserialize)]
 pub struct OnlineStatusRequest {
-    name: String,
+    id: Uuid,
+}
+
+#[derive(Deserialize)]
+pub struct ShutdownRequest {
+    id: Uuid,
 }
 
 #[derive(Serialize, Debug)]
@@ -28,58 +34,93 @@ pub struct NodeService;
 
 impl NodeService {
     pub async fn shutdown(
-        cloud_org: web::Data<Arc<Mutex<Cloud>>>,
-        request: web::Query<OnlineStatusRequest>,
+        cloud: web::Data<Arc<RwLock<Cloud>>>,
+        request: web::Json<ShutdownRequest>,
     ) -> HttpResponse {
         let service = {
-            let mut cloud = cloud_org.lock().await;
-            match cloud.get_local_mut().get_from_name_mut(&request.name) {
-                Some(service) => {
-                    service.set_status(ServiceStatus::Stop);
-                    service
-                },
+            let cloud_guard = cloud.read().await;
+            match cloud_guard.get_local().get_from_id(&request.id) {
+                Some(service) => service,
                 None => return HttpResponse::NoContent().json("Service not found"),
-            }.clone_without_process()
+            }
         };
 
-        match service.disconnect_from_network(cloud_org.get_ref().clone()).await {
-            Ok(_) => HttpResponse::Ok().json(format!(
-                "Service: {} successfully disconnect from Network",
-                service.get_name()
-            )),
-            Err(e) => {
-                log_error!(
-                    "Service: {} not disconnect from Network \n Error: {}",
-                    service.get_name(),
-                    e.to_string()
-                );
-                HttpResponse::InternalServerError().json(format!(
-                    "Service: {} not disconnect from Network \n Error: {}",
-                    service.get_name(),
-                    e.to_string()
-                ))
-            }
+        if let Err(e) = service.disconnect_from_network(cloud.get_ref().clone()).await {
+            log_error!(
+            "Service: {} konnte nicht vom Netzwerk getrennt werden \n Error: {}",
+            service.get_name(),
+            e
+        );
+            return HttpResponse::InternalServerError().json(format!(
+                "Service: {} not disconnected from Network \n Error: {}",
+                service.get_name(),
+                e
+            ));
         }
+
+        {
+            let cloud_clone = cloud.clone();
+            let service_id = service.get_id();
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+                let mut cloud_guard = cloud_clone.write().await;
+                if let Some(s) = cloud_guard.get_local_mut().get_from_id_mut(&service_id) {
+                    s.set_status(ServiceStatus::Stop);
+
+                    if s.get_process().is_some() {
+                        if let Err(e) = s.kill() {
+                            log_warning!(
+                            "Service [{}] konnte nicht gekillt werden: {}",
+                            s.get_name(),
+                            e
+                        );
+                        } else {
+                            log_info!("Service [{}] wurde gekillt", s.get_name());
+                        }
+                    }
+
+                    s.save_to_file();
+                    s.delete_files();
+                } else {
+                    log_error!("Konnte Stop-Status für Service [{}] nicht setzen", service_id);
+                }
+            });
+        }
+
+        HttpResponse::Ok().json(format!(
+            "Service: {} successfully disconnected from Network",
+            service.get_name()
+        ))
     }
+
 
     pub async fn set_online_status(
-        cloud_org: web::Data<Arc<Mutex<Cloud>>>,
-        request: web::Query<OnlineStatusRequest>,
+        cloud: web::Data<Arc<RwLock<Cloud>>>,
+        request: web::Json<OnlineStatusRequest>,
     ) -> HttpResponse {
-        let mut cloud = cloud_org.lock().await;
-        let service = match cloud.get_local_mut().get_from_name_mut(&request.name) {
-            Some(service) => service,
-            None => return HttpResponse::NoContent().json("Service not found"),
+        let mut service = {
+            let cloud = cloud.read().await;
+            match cloud.get_local().get_from_id(&request.id) {
+                Some(service) => service,
+                None => return HttpResponse::NoContent().json("Service not found"),
+            }
         };
 
-        match service.connect_to_network(cloud_org.get_ref().clone()).await {
-            Ok(_) => {
-                service.set_status(ServiceStatus::Start);
-                HttpResponse::Ok().json(format!(
-                    "Service: {} successfully connect to Network",
-                    service.get_name()
-                ))
-            },
+        let service = {
+            service.set_status(ServiceStatus::Start);
+            service.save_to_file();
+            let s = service.clone_without_process();
+            cloud.write().await.get_local_mut().set_service(service);
+            s
+        };
+
+        match service.connect_to_network(cloud.get_ref().clone()).await {
+            Ok(_) => HttpResponse::Ok().json(format!(
+                "Service: {} successfully connect to Network",
+                service.get_name()
+            )),
+
             Err(e) => {
                 log_error!(
                     "Service: {} not connect to Network \n Error: {}",
@@ -95,16 +136,12 @@ impl NodeService {
         }
     }
 
-    pub async fn get_online_backend_server(
-        cloud: web::Data<Arc<RwLock<Cloud>>>,
-    ) -> HttpResponse {
+    pub async fn get_online_backend_server(cloud: web::Data<Arc<RwLock<Cloud>>>) -> HttpResponse {
+        let all_services = { cloud.read().await.get_all().clone() };
 
-        let services = {
-            let cloud = cloud.read().await;
-            cloud.get_all_services_clone().await
-        };
-
-        let response: Vec<ServiceInfoResponse> = services
+        let response: Vec<ServiceInfoResponse> = all_services
+            .get_online_backend_services()
+            .await
             .into_iter()
             .filter(|s| s.is_start() && s.is_backend_server())
             .map(|s| ServiceInfoResponse::new(&s))

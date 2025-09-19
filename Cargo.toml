@@ -14,7 +14,8 @@ actix-cors          = "0.7.0"
 sysinfo             = "0.37.0"
 chrono              = { version = "0.4.34", features = ["serde"] }
 uuid                = { version = "1.18.1", features = ["v4", "serde"] }
-bx                  = { git = "https://github.com/ThePhoenixPixel/bx.git", tag = "v1.1"}
+bx                  = { path = "../../bx"}
+#bx                  = { git = "https://github.com/ThePhoenixPixel/bx.git", tag = "v1.1"}
 
 [features]
 default             = ["rest-api"]

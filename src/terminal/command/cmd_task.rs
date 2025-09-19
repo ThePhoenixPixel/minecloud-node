@@ -1,6 +1,6 @@
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
 use crate::core::installer::Installer;
@@ -15,7 +15,7 @@ use crate::{log_info, log_warning};
 pub struct CmdTask;
 
 impl CommandManager for CmdTask {
-    async fn execute(cloud: Arc<Mutex<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
+    async fn execute(cloud: Arc<RwLock<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
         // get the first argument command task <arg1>
         let arg1 = match args.get(1) {
             Some(arg) => *arg,
@@ -33,7 +33,7 @@ impl CommandManager for CmdTask {
             "list" => Ok(list()),
             "info" => Ok(info(args)),
             "setup" => setup(args),
-            "reload" => Ok(cloud.lock().await.get_all_mut().check_service().await),
+            "reload" => reload(cloud).await,
             _ => Err(Error::new(
                 ErrorKind::Other,
                 "Dies ist kein Gültiges argument verwende eins davon / create / delete / list / info / setup / reload"
@@ -44,6 +44,12 @@ impl CommandManager for CmdTask {
     fn tab_complete(_args: Vec<&str>) -> Vec<String> {
         todo!()
     }
+}
+
+async fn reload(cloud: Arc<RwLock<Cloud>>) -> Result<(), Error> {
+    let mut cloud_guard = cloud.write().await;
+    cloud_guard.get_all_mut().check_service().await;
+    Ok(())
 }
 
 fn setup(args: Vec<&str>) -> Result<(), Error> {

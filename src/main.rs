@@ -1,6 +1,6 @@
 use crate::cloud::Cloud;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 #[cfg(feature = "rest-api")]
 pub mod rest_api {
@@ -69,7 +69,7 @@ async fn main() {
     println!("Start MineCloud...");
 
     // Cloud-Instanz erstellen
-    let cloud = Arc::new(Mutex::new(Cloud::new()));
+    let cloud = Arc::new(RwLock::new(Cloud::new()));
 
     // Cloud starten
     Cloud::enable(cloud, VERSION).await;

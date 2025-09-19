@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use crate::log_error;
 use crate::utils::logger::Logger;
 use serde::Serialize;
+use std::collections::HashMap;
 
 pub struct Utils;
 
@@ -27,7 +27,10 @@ impl Utils {
         }
     }
 
-    pub fn replace_placeholders(strings: Vec<String>, replacements: &HashMap<&str, String>) -> Vec<String> {
+    pub fn replace_placeholders(
+        strings: Vec<String>,
+        replacements: &HashMap<&str, String>,
+    ) -> Vec<String> {
         strings
             .into_iter()
             .map(|s| {
@@ -40,5 +43,4 @@ impl Utils {
             })
             .collect()
     }
-    
 }

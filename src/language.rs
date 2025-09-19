@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use crate::cloud::Cloud;
 use crate::sys_config::cloud_config::CloudConfig;
 
-
 pub struct Language;
 
 #[derive(Debug, Serialize, Deserialize)]

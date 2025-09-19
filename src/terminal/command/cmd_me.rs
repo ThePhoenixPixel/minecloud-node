@@ -1,7 +1,7 @@
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use sysinfo::{Pid, System};
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
 use crate::log_info;
@@ -11,7 +11,7 @@ use crate::utils::logger::Logger;
 pub struct CmdMe;
 
 impl CommandManager for CmdMe {
-    async fn execute(_cloud: Arc<Mutex<Cloud>>, _args: Vec<&str>) -> Result<(), Error> {
+    async fn execute(_cloud: Arc<RwLock<Cloud>>, _args: Vec<&str>) -> Result<(), Error> {
         let pid = Pid::from_u32(std::process::id());
 
         match System::new().process(pid) {

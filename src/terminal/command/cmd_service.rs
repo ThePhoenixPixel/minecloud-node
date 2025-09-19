@@ -1,6 +1,6 @@
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
 use crate::core::service::Service;
@@ -11,7 +11,7 @@ use crate::utils::logger::Logger;
 pub struct CmdService;
 
 impl CommandManager for CmdService {
-    async fn execute(cloud: Arc<Mutex<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
+    async fn execute(cloud: Arc<RwLock<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
         let arg1 = match args.get(1) {
             Some(arg1) => *arg1,
             None => {
@@ -36,7 +36,7 @@ impl CommandManager for CmdService {
     }
 }
 
-async fn reload(_cloud: Arc<Mutex<Cloud>>) -> Result<(), Error> {
+async fn reload(_cloud: Arc<RwLock<Cloud>>) -> Result<(), Error> {
     /*
     let services = cloud.lock().await.get_all().get_all().await;
 
@@ -51,9 +51,8 @@ async fn reload(_cloud: Arc<Mutex<Cloud>>) -> Result<(), Error> {
     todo!();
 }
 
-async fn list(cloud: Arc<Mutex<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
-    let cloud = cloud.lock().await;
-    let services = cloud.get_all().get_all().await;
+async fn list(cloud: Arc<RwLock<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
+    let services = cloud.read().await.get_all().get_all().await;
     let arg2 = match args.get(2) {
         Some(arg2) => *arg2,
         None => return list_all(&services),
@@ -69,7 +68,7 @@ async fn list(cloud: Arc<Mutex<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
     }
 }
 
-fn list_online(services: &Vec<&Service>) -> Result<(), Error> {
+fn list_online(services: &Vec<Service>) -> Result<(), Error> {
     log_info!("Dies sind alle Online Services:");
     log_info!("Name | Server Address | Plugin Listener");
     for service in services {
@@ -87,7 +86,7 @@ fn list_online(services: &Vec<&Service>) -> Result<(), Error> {
     Ok(())
 }
 
-fn list_all(services: &Vec<&Service>) -> Result<(), Error> {
+fn list_all(services: &Vec<Service>) -> Result<(), Error> {
     log_info!("Name | Server Address | Plugin Listener | Online");
     for service in services {
         log_info!(

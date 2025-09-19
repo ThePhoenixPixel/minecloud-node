@@ -1,8 +1,8 @@
+use bx::network::url::Url;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use bx::network::url::Url;
 
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::logger::Logger;

@@ -1,7 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
 use crate::rest_api::restapi_service::ApiService;
@@ -14,7 +14,7 @@ pub struct ApiMain;
 
 impl ApiMain {
     #[actix_web::main]
-    pub async fn start(cloud: Arc<Mutex<Cloud>>) {
+    pub async fn start(cloud: Arc<RwLock<Cloud>>) {
         log_info!("Start the REST AIP Server");
         let app_factory = move || {
             App::new()
@@ -33,25 +33,25 @@ impl ApiMain {
                 .service(
                     web::resource("cloud/task/delete").route(web::delete().to(ApiTask::delete)),
                 )
-
-
                 // Service
                 .service(
-                    web::resource("cloud/service/get_all")
-                        .route(web::get().to(ApiService::get_all)),
+                    web::resource("cloud/service/all").route(web::get().to(ApiService::get_all)),
                 )
-                .service(web::resource("cloud/service/get").route(web::get().to(ApiService::get)))
                 .service(
-                    web::resource("cloud/service/get_online")
+                    web::resource("cloud/service/online")
                         .route(web::get().to(ApiService::get_online)),
                 )
                 .service(
-                    web::resource("cloud/service/get_prepare")
+                    web::resource("cloud/service/prepared")
                         .route(web::get().to(ApiService::get_prepare)),
                 )
                 .service(
-                    web::resource("cloud/service/get_offline")
+                    web::resource("cloud/service/offline")
                         .route(web::get().to(ApiService::get_offline)),
+                )
+                .service(
+                    web::resource("cloud/service/get/")
+                        .route(web::get().to(ApiService::get_from_id)),
                 )
                 .service(
                     web::resource("cloud/service/create").route(web::post().to(ApiService::create)),
@@ -83,4 +83,3 @@ impl ApiMain {
         }
     }
 }
-
