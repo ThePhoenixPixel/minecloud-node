@@ -8,13 +8,9 @@ use crate::{log_info, log_warning};
 
 pub struct ApiTask;
 
-#[derive(Deserialize)]
-pub struct TaskGetRequest {
-    task_name: String,
-}
 
 #[derive(Deserialize)]
-pub struct TaskDeleteRequest {
+pub struct TaskNameRequest {
     task_name: String,
 }
 
@@ -30,7 +26,7 @@ impl ApiTask {
         HttpResponse::Ok().json(Task::get_task_all())
     }
 
-    pub async fn get(req: web::Query<TaskGetRequest>) -> HttpResponse {
+    pub async fn get(req: web::Query<TaskNameRequest>) -> HttpResponse {
         if req.task_name.is_empty() {
             return HttpResponse::NoContent().json("Bitte gebe ein task_name an");
         }
@@ -81,22 +77,28 @@ impl ApiTask {
         }
     }
 
-    pub async fn change(req: web::Json<Task>) -> HttpResponse {
-        if req.get_name().is_empty() {
+    pub async fn update(
+        param: web::Query<TaskNameRequest>,
+        req: web::Json<Task>
+    ) -> HttpResponse {
+        if param.task_name.is_empty() || req.get_name().is_empty() {
             return HttpResponse::BadRequest().json("Empty Task Name");
         }
 
-        if Task::get_task(req.get_name()).is_none() {
-            return HttpResponse::BadRequest().json("Task Exsitiert nicht");
+        let mut tasks = Task::get_task_all();
+        match tasks.iter_mut().find(|t| t.get_name() == param.task_name) {
+            Some(task) => {
+                task.update(req.into_inner());
+                log_info!("[RestAPI] Task | {} | wurde bearbeitet", task.get_name());
+                HttpResponse::Ok().json(task)
+            }
+            None => {
+                HttpResponse::BadRequest().json("Task existiert nicht")
+            }
         }
-
-        req.save_to_file();
-
-        log_info!("[RestAPI] Task | {} | würde bearbeitet", req.get_name());
-        HttpResponse::Ok().json("Task erfolgreich bearbeitet")
     }
 
-    pub async fn delete(req: web::Query<TaskDeleteRequest>) -> HttpResponse {
+    pub async fn delete(req: web::Query<TaskNameRequest>) -> HttpResponse {
         if req.task_name.is_empty() {
             return HttpResponse::BadRequest().json("Empty Task Name");
         }

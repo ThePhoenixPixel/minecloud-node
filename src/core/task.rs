@@ -87,6 +87,35 @@ impl Task {
         Ok(task)
     }
 
+    pub fn update(&mut self, new_task: Task) {
+        self.delete_as_file();
+
+        self.name = new_task.name;
+        self.split = new_task.split;
+        self.groups = new_task.groups;
+        self.delete_on_stop = new_task.delete_on_stop;
+        self.static_service = new_task.static_service;
+        self.software = new_task.software;
+        self.start_port = new_task.start_port;
+        self.max_ram = new_task.max_ram;
+        self.nodes = new_task.nodes;
+        self.min_service_count = new_task.min_service_count;
+        self.max_service_count = new_task.max_service_count;
+        self.default_connect = new_task.default_connect;
+        self.join_permission = new_task.join_permission;
+        self.percent_of_players_to_check_should_auto_stop_the_service =
+            new_task.percent_of_players_to_check_should_auto_stop_the_service;
+        self.min_non_full_service = new_task.min_non_full_service;
+        self.auto_stop_time_by_unused_service_in_seconds =
+            new_task.auto_stop_time_by_unused_service_in_seconds;
+        self.percent_of_players_for_a_new_service_by_instance =
+            new_task.percent_of_players_for_a_new_service_by_instance;
+        self.installer = new_task.installer;
+        self.templates = new_task.templates;
+
+        self.save_to_file();
+    }
+
     // Getter and Setter for name
     pub fn get_name(&self) -> &str {
         &self.name
@@ -366,19 +395,20 @@ impl Task {
     }
 
     pub fn get_task_all() -> Vec<Task> {
-        let task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
-        let mut tasks: Vec<Task> = Vec::new();
+        let task_path = CloudConfig::get()
+            .get_cloud_path()
+            .get_task_folder_path();
+
+        let mut tasks = Vec::new();
 
         if task_path.exists() && task_path.is_dir() {
             if let Ok(entries) = fs::read_dir(task_path) {
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        if let Some(file_name) = entry.file_name().to_str() {
-                            if let Some(name) = file_name.strip_suffix(".json") {
-                                tasks.push(match Task::get_task(&name.to_string()) {
-                                    Some(task) => task,
-                                    None => break,
-                                });
+                for entry in entries.flatten() {
+                    if let Some(file_name) = entry.file_name().to_str() {
+                        if file_name.ends_with(".json") {
+                            let name = file_name.trim_end_matches(".json");
+                            if let Some(task) = Task::get_task(&name.to_string()) {
+                                tasks.push(task);
                             }
                         }
                     }

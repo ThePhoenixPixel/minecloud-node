@@ -29,7 +29,7 @@ impl ApiMain {
                 .service(web::resource("cloud/task/get_all").route(web::get().to(ApiTask::get_all)))
                 .service(web::resource("cloud/task/get").route(web::get().to(ApiTask::get)))
                 .service(web::resource("cloud/task/create").route(web::post().to(ApiTask::create)))
-                .service(web::resource("cloud/task/change").route(web::put().to(ApiTask::change)))
+                .service(web::resource("cloud/task/update").route(web::put().to(ApiTask::update)))
                 .service(
                     web::resource("cloud/task/delete").route(web::delete().to(ApiTask::delete)),
                 )
