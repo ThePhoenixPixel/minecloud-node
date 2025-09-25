@@ -346,8 +346,8 @@ checksum = "46c5e41b57b8bba42a04676d81cb89e9ee8e859a1a66f80a5a72e1cb76b34d43"
 [[package]]
 name = "bx"
 version = "1.2.0"
+source = "git+https://github.com/ThePhoenixPixel/bx.git#e0b1398f928e8233710523ce322af5d51c5050b2"
 dependencies = [
- "chrono",
  "reqwest",
  "serde",
  "zip",

@@ -50,19 +50,20 @@ pub struct Service {
 
 impl Service {
     pub fn new_local(task: &Task) -> Result<Service, Error> {
-        let server_address = Address::new(
+        let port = match Address::find_next_port(&mut Address::new(
             &CloudConfig::get().get_server_host(),
-            &Address::find_next_port(&mut Address::new(
-                &CloudConfig::get().get_server_host(),
-                &task.get_start_port(),
-            )),
-        );
+            &task.get_start_port(),
+        )) {
+            Some(port ) => port,
+            None => return Err(Error::new(ErrorKind::NotFound, "Kein freier Port gefunden")),
+        };
+        let server_address = Address::new(&CloudConfig::get().get_server_host(), &port);
         let service_path = match task.prepared_to_service() {
             Ok(path) => path,
             Err(e) => {
                 return Err(Error::new(
                     ErrorKind::Other,
-                    format!("Es kann kein neuer Service erstellt werden \n {}", e),
+                    format!("Es kann kein neuer Service erstellt werden \n {}", e)
                 ));
             }
         };
@@ -695,7 +696,7 @@ impl Service {
 
 fn find_port(ports: Vec<u32>, mut port: u32, server_host: &String) -> u32 {
     while ports.contains(&port) || !Address::is_port_available(&Address::new(&server_host, &port)) {
-        port = Address::find_next_port(&mut Address::new(&server_host, &(port + 1)));
+        port = Address::find_next_port(&mut Address::new(&server_host, &(port + 1))).unwrap_or_else(|| 0);
     }
     port
 }
