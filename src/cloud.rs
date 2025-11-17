@@ -113,19 +113,37 @@ impl Cloud {
         std::process::exit(0)
     }
 
-    pub fn get_exe_path() -> PathBuf {
+    pub fn get_working_path() -> PathBuf {
+        let mut custom: Option<PathBuf> = None;
+
+        for arg in env::args().skip(1) {
+            if let Some(rest) = arg.strip_prefix("-working-path=") {
+                custom = Some(PathBuf::from(rest));
+            }
+        }
+
+        // Wenn ein custom working path angegeben wurde
+        if let Some(path) = custom {
+            if path.exists() && path.is_dir() {
+                return path;
+            } else {
+                eprintln!("Ungültiger Pfad bei -working-path: {}", path.display());
+            }
+        }
+
+        // Fallback: EXE-Verzeichnis
         match env::current_exe() {
             Ok(mut exe) => {
                 exe.pop();
                 exe
             }
             Err(e) => {
-                eprintln!("Error get the exe path");
-                eprintln!("{}", e.to_string().as_str());
-                panic!("The MineCloud has an fatal Error")
+                eprintln!("Error getting exe path: {}", e);
+                panic!("Fatal error")
             }
         }
     }
+
 
     pub fn print_icon() {
         println!(" ");

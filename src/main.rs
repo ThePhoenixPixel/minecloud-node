@@ -52,6 +52,8 @@ pub mod utils {
     pub mod log;
     pub mod logger;
     pub mod server_type;
+    pub mod error;
+    pub mod error_kind;
     pub mod service_status;
     pub mod utils;
     #[macro_use]
