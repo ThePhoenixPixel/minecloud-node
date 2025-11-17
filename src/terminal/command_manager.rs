@@ -8,6 +8,6 @@ pub trait CommandManager {
     fn execute(
         cloud: Arc<RwLock<Cloud>>,
         args: Vec<&str>,
-    ) -> impl std::future::Future<Output = Result<(), Error>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), Error>>;
     fn tab_complete(args: Vec<&str>) -> Vec<String>;
 }

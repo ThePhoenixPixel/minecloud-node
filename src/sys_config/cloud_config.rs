@@ -77,7 +77,7 @@ impl CloudConfig {
     }
 
     pub async fn check(url: &String) {
-        if !Cloud::get_exe_path().join("config.json").exists() {
+        if !Cloud::get_working_path().join("config.json").exists() {
             CloudConfig::install(url).await;
         }
     }
@@ -85,7 +85,7 @@ impl CloudConfig {
     pub async fn install(start_url: &String) {
         // get the response from the download
         let url = format!("{}/config.json", start_url);
-        match Url::download_file(url.as_str(), &Cloud::get_exe_path().join("config.json")).await {
+        match Url::download_file(url.as_str(), &Cloud::get_working_path().join("config.json")).await {
             Ok(_) => log_info!("Successfully download the Software Config from {}", url),
             Err(e) => {
                 log_error!("{}", &e.to_string());
@@ -95,7 +95,7 @@ impl CloudConfig {
     }
 
     pub fn get() -> CloudConfig {
-        let path = Cloud::get_exe_path().join("config.json");
+        let path = Cloud::get_working_path().join("config.json");
         // Versuche, den Inhalt der Datei zu lesen
         let file_content = fs::read_to_string(&path).unwrap_or_else(|e| {
             eprintln!("{}", &e.to_string());
@@ -336,7 +336,7 @@ fn get_path(s: &String) -> PathBuf {
     let mut path = PathBuf::new();
 
     if s.find('~').is_some() {
-        path.push(Cloud::get_exe_path());
+        path.push(Cloud::get_working_path());
     }
     path.push(s.trim_matches('~'));
     path

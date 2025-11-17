@@ -1,12 +1,11 @@
 use bx::path::Directory;
-use std::io::Error;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::core::service::Service;
 use crate::core::task::Task;
 use crate::sys_config::cloud_config::CloudConfig;
-
+use crate::utils::error::CloudError;
 
 pub struct LocalServices {
     services: Vec<Service>,
@@ -66,7 +65,7 @@ impl LocalServices {
         self.get_stopped_services().iter().count() as u32
     }
 
-    pub fn get_next_stop_service(&self, task: &Task) -> Result<Service, Error> {
+    pub fn get_next_stop_service(&self, task: &Task) -> Result<Service, CloudError> {
         if let Some(service) = self
             .services
             .iter()
@@ -138,7 +137,7 @@ impl LocalServices {
         }
     }
 
-    pub fn start_service(&mut self, task: &Task) -> Result<Service, Error> {
+    pub fn start_service(&mut self, task: &Task) -> Result<Service, CloudError> {
         let mut service = self.get_next_stop_service(&task)?;
         service = service.start()?;
         Ok(service)

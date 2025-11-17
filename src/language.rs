@@ -19,7 +19,7 @@ impl Language {
         // Deserialisiere die JSON-Daten in die Struktur
         let lang_file_path = PathBuf::from(format!(
             "{:?}{}",
-            Cloud::get_exe_path(),
+            Cloud::get_working_path(),
             CloudConfig::get().get_language()
         ));
         let file_content =

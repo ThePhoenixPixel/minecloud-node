@@ -1,4 +1,3 @@
-use std::io::Error;
 use uuid::Uuid;
 
 use crate::core::service::Service;
@@ -7,6 +6,7 @@ use crate::core::services_network::NetworkServices;
 use crate::core::task::Task;
 use crate::utils::logger::Logger;
 use crate::{log_error, log_info};
+use crate::utils::error::CloudError;
 
 pub struct AllServices {
     local_services: LocalServices,
@@ -152,7 +152,7 @@ impl AllServices {
                             log_error!(
                                 "Server From Task [{}] can NOT Start \n {}",
                                 task.get_name(),
-                                e
+                                e.to_string()
                             );
                             continue;
                         }
@@ -164,7 +164,7 @@ impl AllServices {
         }
     }
 
-    pub async fn start_service(&mut self, task: &Task) -> Result<(), Error> {
+    pub async fn start_service(&mut self, task: &Task) -> Result<(), CloudError> {
         if task.is_startup_local() {
             let s = self.get_local_mut().start_service(&task)?;
             self.local_services.set_service(s);

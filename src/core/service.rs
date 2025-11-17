@@ -25,7 +25,10 @@ use crate::sys_config::software_config::SoftwareName;
 use crate::utils::logger::Logger;
 use crate::utils::service_status::ServiceStatus;
 use crate::utils::utils::Utils;
-use crate::{log_error, log_info, log_warning};
+use crate::{error, log_error, log_info, log_warning};
+use crate::utils::error::CloudError;
+use crate::utils::error_kind::CloudErrorKind;
+use crate::utils::error_kind::CloudErrorKind::*;
 
 #[derive(Serialize)]
 struct RegisterServerData {
@@ -49,24 +52,16 @@ pub struct Service {
 }
 
 impl Service {
-    pub fn new_local(task: &Task) -> Result<Service, Error> {
+    pub fn new_local(task: &Task) -> Result<Service, CloudError> {
         let port = match Address::find_next_port(&mut Address::new(
             &CloudConfig::get().get_server_host(),
             &task.get_start_port(),
         )) {
             Some(port ) => port,
-            None => return Err(Error::new(ErrorKind::NotFound, "Kein freier Port gefunden")),
+            None => return Err(error!(CloudErrorKind::NextFreePortNotFound)),
         };
         let server_address = Address::new(&CloudConfig::get().get_server_host(), &port);
-        let service_path = match task.prepared_to_service() {
-            Ok(path) => path,
-            Err(e) => {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    format!("Es kann kein neuer Service erstellt werden \n {}", e)
-                ));
-            }
-        };
+        let service_path = task.prepared_to_service()?;
         let service = Service {
             id: Uuid::new_v4(),
             name: Directory::get_last_folder_name(&service_path),
@@ -185,7 +180,7 @@ impl Service {
         self.server_address.clone()
     }
 
-    pub fn set_server_address(&mut self) -> Result<(), Error> {
+    pub fn set_server_address(&mut self) -> Result<(), CloudError> {
         let address = self.find_free_server_address();
 
         let software_name = self.get_software_name();
@@ -195,38 +190,24 @@ impl Service {
         let path_ip = path.join(software_name.get_ip_path());
 
         if !path_ip.exists() {
-            log_error!(
-                "Die config datei für die Ip des Servers konnte nicht gefunden werden {:?}",
-                &path_ip
-            );
-            return Err(Error::new(
-                ErrorKind::Other,
-                "Die config datei für die Ip des Servers konnte nicht gefunden werden",
-            ));
+            return Err(error!(CantFindIPConfigFilePath));
         }
 
-        let file_content_ip = read_to_string(&path_ip)?;
+        let file_content_ip = read_to_string(&path_ip).map_err(|e| error!(CantReadFileToString, e))?;
         let edit_file_ip = file_content_ip.replace("%ip%", &*address.get_ip());
-        fs::write(&path_ip, edit_file_ip)?;
+        fs::write(&path_ip, edit_file_ip).map_err(|e| error!(CantWriteIP, e))?;
 
         // replace port
         let path_port = path.join(software_name.get_port_path());
 
         if !path_port.exists() {
-            log_error!(
-                "Die config datei für den Port des Servers konnte nicht gefunden werden {:?}",
-                &path_ip
-            );
-            return Err(Error::new(
-                ErrorKind::Other,
-                "Die config datei für den Port des Servers konnte nicht gefunden werden",
-            ));
+            return Err(error!(CantFindPortConfigFilePath));
         }
 
-        let file_content_port = read_to_string(&path_port)?;
+        let file_content_port = read_to_string(&path_port).map_err(|e| error!(CantReadFileToString, e))?;
         let edit_file_port =
             file_content_port.replace("%port%", address.get_port().to_string().as_str());
-        fs::write(&path_port, edit_file_port)?;
+        fs::write(&path_port, edit_file_port).map_err(|e| error!(CantWritePort, e))?;
 
         self.server_address = address;
 
@@ -480,7 +461,7 @@ impl Service {
         }
     }
 
-    pub fn prepare_to_start(&mut self) -> Result<(), Error> {
+    pub fn prepare_to_start(&mut self) -> Result<(), CloudError> {
         self.install_software()?;
         self.install_system_plugin()?;
         self.install_software_lib()?;
@@ -568,33 +549,17 @@ impl Service {
         Ok(())
     }
 
-    pub fn start(mut self: Service) -> Result<Service, Error> {
+    pub fn start(mut self: Service) -> Result<Service, CloudError> {
         self.prepare_to_start()?;
-
         let server_file_path = match self.get_path_with_server_file().to_str() {
             Some(server_file_path) => server_file_path.to_string(),
-            None => {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Can not server file path to string change",
-                ));
-            }
-        };
-
-        let server_path = match self.get_path().to_str() {
-            Some(server_file_path) => server_file_path.to_string(),
-            None => {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Can not server path to string change",
-                ));
-            }
+            None => return Err(error!(CantConvertServerFilePathToString))
         };
 
         let software_name = self.get_software_name();
         let mut placeholders = HashMap::new();
-        let stdout_file = File::create(self.get_path_stdout_file())?;
-        let stderr_file = File::create(self.get_path_stderr_file())?;
+        let stdout_file = File::create(self.get_path_stdout_file()).map_err(|e| error!(CantCreateSTDOUTFile, e))?;
+        let stderr_file = File::create(self.get_path_stderr_file()).map_err(|e| error!(CantCreateSTDERRFile, e))?;
 
         placeholders.insert("ip", self.get_server_address().get_ip().to_string());
         placeholders.insert("port", self.get_server_address().get_port().to_string());
@@ -608,11 +573,11 @@ impl Service {
 
         let child = Command::new(software_name.get_environment().get_command())
             .args(&process_args)
-            .current_dir(server_path)
+            .current_dir(self.get_path())
             .stdout(Stdio::from(stdout_file))
             .stderr(Stdio::from(stderr_file))
             .stdin(Stdio::piped())
-            .spawn()?;
+            .spawn().map_err(|e| error!(CantStartServer, e))?;
 
         self.set_process(Some(child));
         Ok(self)
@@ -627,17 +592,17 @@ impl Service {
         Service::get_from_path(&mut path)
     }
 
-    pub fn install_software(&self) -> Result<(), Error> {
+    pub fn install_software(&self) -> Result<(), CloudError> {
         let target_path = self
             .get_path()
             .join(&self.get_task().get_software().get_server_file_name());
         let software_path = self.get_task().get_software().get_software_file_path();
 
-        fs::copy(&software_path, &target_path)?;
+        fs::copy(&software_path, &target_path).map_err(|e| error!(CantCopySoftware, e))?;
         Ok(())
     }
 
-    pub fn install_system_plugin(&self) -> Result<(), Error> {
+    pub fn install_system_plugin(&self) -> Result<(), CloudError> {
         let software = self.get_software_name();
         let system_plugin_path = self.get_task().get_software().get_system_plugin_path();
         let mut target_path = self
@@ -645,19 +610,13 @@ impl Service {
             .join(&software.get_system_plugin().get_path());
 
         if !target_path.exists() {
-            fs::create_dir_all(&target_path)?;
+            fs::create_dir_all(&target_path).map_err(|e| error!(CantCreateSystemPluginPath, e))?;
         }
 
         target_path.push(self.get_task().get_software().get_system_plugin_name());
 
         if !system_plugin_path.exists() {
-            return Err(Error::new(
-                ErrorKind::Other,
-                format!(
-                    "System plugin Esitiert nicht wie im Path angegeben {}",
-                    system_plugin_path.to_str().unwrap()
-                ),
-            ));
+            return Err(error!(CantFindSystemPlugin));
         }
 
         match fs::copy(system_plugin_path, target_path) {
@@ -665,11 +624,11 @@ impl Service {
                 log_info!("Successfully install the System Plugin");
                 Ok(())
             }
-            Err(e) => Err(e),
+            Err(e) => Err(error!(CantCopySystemPlugin, e)),
         }
     }
 
-    pub fn install_software_lib(&self) -> Result<(), Error> {
+    pub fn install_software_lib(&self) -> Result<(), CloudError> {
         let software_lib_path = CloudConfig::get()
             .get_cloud_path()
             .get_system_folder()
@@ -677,10 +636,7 @@ impl Service {
             .join(self.get_task().get_software().get_software_type())
             .join(self.get_task().get_software().get_name());
 
-        match Directory::copy_folder_contents(&software_lib_path, &self.get_path()) {
-            Ok(()) => Ok(()),
-            Err(e) => Err(Error::new(ErrorKind::Other, e.to_string())),
-        }
+        Directory::copy_folder_contents(&software_lib_path, &self.get_path()).map_err(|e| error!(Internal, e))
     }
 
     pub fn is_proxy(&self) -> bool {

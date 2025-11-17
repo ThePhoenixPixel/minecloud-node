@@ -2,7 +2,7 @@ use bx::path::Directory;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{Error, Read, Write};
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::{fs, io};
 
@@ -12,7 +12,10 @@ use crate::core::template::Template;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareConfig;
 use crate::utils::logger::Logger;
-use crate::{log_error, log_info};
+use crate::*;
+use crate::utils::error::CloudError;
+use crate::utils::error_kind::CloudErrorKind;
+use crate::utils::error_kind::CloudErrorKind::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Task {
@@ -451,28 +454,19 @@ impl Task {
         fs::remove_file(task_path).expect("Error bei  removen der task datei");
     }
 
-    pub fn prepared_to_service(&self) -> Result<PathBuf, String> {
+    pub fn prepared_to_service(&self) -> Result<PathBuf, CloudError> {
         // create the next free service folder with the template
-        let target_path = &self.create_next_free_service_folder().map_err(|e| e.to_string())?;
+        let target_path = self.create_next_free_service_folder()?;
         let templates = &self.get_templates();
-        let template = match select_template_with_priority(&templates) {
-            Some(template) => template,
-            None => {
-                return Err(
-                    format!("Kein Template gefunden für Task {}", &self.get_name()).to_string(),
-                );
-            }
-        };
+        let template = select_template_with_priority(&templates)?;
 
         // copy the template in the new service folder
-        match Directory::copy_folder_contents(&template.get_path(), &target_path) {
-            Ok(_) => Ok(target_path.clone()),
-            Err(e) => Err(format!("Error beim Copy the Template \n {}", e.to_string())),
-        }
+        Directory::copy_folder_contents(&template.get_path(), &target_path).map_err(|e| error!(CantCopyTemplateToNewServiceFolder, e))?;
+        Ok(target_path)
     }
 
     // create the next not exist service folder
-    fn create_next_free_service_folder(&self) -> Result<PathBuf, Error> {
+    fn create_next_free_service_folder(&self) -> Result<PathBuf, CloudError> {
         let mut folder_index: u32 = 1;
         let target_base_path = self.get_service_path();
         let mut target_service_folder_path =
@@ -483,8 +477,7 @@ impl Task {
             target_service_folder_path =
                 target_base_path.join(format!("{}-{}", &self.get_name(), folder_index));
         }
-
-        fs::create_dir_all(&target_service_folder_path)?;
+        fs::create_dir_all(&target_service_folder_path).map_err(|e| error!(CantCreateServiceFolder, e))?;
         Ok(target_service_folder_path)
     }
 
@@ -533,16 +526,16 @@ impl Task {
     }
 }
 
-fn select_template_with_priority(templates: &[Template]) -> Option<&Template> {
+fn select_template_with_priority(templates: &[Template]) -> Result<&Template, CloudError> {
     let mut rng = rand::rng();
     let total_priority: u32 = templates.iter().map(|t| t.priority).sum();
     let mut rand_value = rng.random_range(1..=total_priority);
 
     for template in templates {
         if rand_value <= template.priority {
-            return Some(template);
+            return Ok(template);
         }
         rand_value -= template.priority;
     }
-    None
+    Err(error!(CloudErrorKind::TemplateWithPriorityNotFound))
 }
