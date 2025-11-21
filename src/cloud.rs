@@ -281,6 +281,9 @@ impl Cloud {
         // create template folder
         fs::create_dir_all(&config_path.get_template_folder_path())?;
 
+        // create group folder
+        fs::create_dir_all(&config_path.get_group_folder_path())?;
+
         // create service temp folder
         fs::create_dir_all(&config_path.get_service_folder().get_temp_folder_path())?;
 

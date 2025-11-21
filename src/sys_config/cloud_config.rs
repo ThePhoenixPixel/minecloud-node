@@ -129,6 +129,7 @@ impl CloudConfig {
         println!("Path:");
         println!("  Task Folder: {}", path.get_task_folder());
         println!("  Template Folder: {}", path.get_template_folder());
+        println!("  Group Folder: {}", path.get_group_folder());
 
         let service_folder = path.get_service_folder();
         println!("  Service Folder:");
@@ -157,6 +158,7 @@ impl CloudConfig {
 pub struct CloudConfigPath {
     task_folder: String,
     template_folder: String,
+    group_folder: String,
     service_folder: CloudConfigService,
     system_folder: CloudConfigSystem,
 }
@@ -165,12 +167,14 @@ impl CloudConfigPath {
     pub fn new(
         task_folder: &String,
         template_folder: &String,
+        group_folder: &String,
         service_folder: &CloudConfigService,
         system_folder: &CloudConfigSystem,
     ) -> CloudConfigPath {
         CloudConfigPath {
             task_folder: task_folder.clone(),
             template_folder: template_folder.clone(),
+            group_folder: group_folder.clone(),
             service_folder: service_folder.clone(),
             system_folder: system_folder.clone(),
         }
@@ -189,6 +193,13 @@ impl CloudConfigPath {
     }
     pub fn get_template_folder_path(&self) -> PathBuf {
         get_path(&self.template_folder)
+    }
+
+    pub fn get_group_folder(&self) -> String {
+        self.group_folder.clone()
+    }
+    pub fn get_group_folder_path(&self) -> PathBuf {
+        get_path(&self.group_folder)
     }
 
     pub fn get_service_folder(&self) -> CloudConfigService {

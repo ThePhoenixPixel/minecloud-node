@@ -13,7 +13,7 @@ pub mod core {
 
     pub mod task;
     pub mod template;
-    //pub mod group;
+    pub mod group;
     //pub mod node;
     pub mod installer;
 

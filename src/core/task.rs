@@ -6,15 +6,16 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::{fs, io};
 use rand::seq::IndexedRandom;
+
 use crate::core::installer::Installer;
 use crate::core::software::Software;
 use crate::core::template::Template;
+use crate::core::group::Group;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareConfig;
 use crate::utils::logger::Logger;
 use crate::*;
 use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind;
 use crate::utils::error_kind::CloudErrorKind::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -224,8 +225,14 @@ impl Task {
     }
 
     // Getter and Setter for groups
-    pub fn get_groups(&self) -> &Vec<String> {
-        &self.groups
+    pub fn get_groups(&self) -> Vec<Group> {
+        let mut groups: Vec<Group> = Vec::new();
+        for group_str in self.groups.clone() {  
+            if let Some(group) = Group::get_from_name(&group_str) {
+                groups.push(group);
+            }
+        }
+        groups
     }
 
     pub fn add_group(&mut self, group: &String) {
@@ -500,6 +507,10 @@ impl Task {
     pub fn prepared_to_service(&self) -> Result<PathBuf, CloudError> {
         // create the next free service folder with the template
         let target_path = self.create_next_free_service_folder()?;
+        for group in self.get_groups() {
+            group.install_in_path(&target_path)?;
+        }
+        
         let mut templates: Vec<Template> = Vec::new();
         match self.get_installer() {
             Installer::InstallAll       => templates = self.get_templates_sorted_by_priority(),
@@ -574,7 +585,7 @@ impl Task {
         log_info!("max_ram: {}", self.get_max_ram());
         log_info!("start_port: {}", self.get_start_port());
         log_info!("min_service_count: {}", self.get_min_service_count());
-        log_info!("groups: {:?}", self.get_groups());
+        log_info!("groups: {:?}", self.get_groups().iter().map(|g| g.get_name()));
         log_info!("installer: {:?}", self.get_installer());
         log_info!("templates: ");
         for template in self.get_templates() {

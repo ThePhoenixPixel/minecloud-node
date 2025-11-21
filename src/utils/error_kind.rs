@@ -21,11 +21,13 @@ pub enum CloudErrorKind {
 
     /// 22.xxx Template
     TemplateNotFound,
+    GroupTemplateNotFound,
 
     /// 3x.xxx Service
     /// 31.xxx Not Found
     ServiceNotFound,
     CantCreateServiceFolder,
+    CantCopyGroupTemplateToNewServiceFolder,
     CantCopyTemplateToNewServiceFolder,
     CantCreateSystemPluginPath,
     CantFindSystemPlugin,
