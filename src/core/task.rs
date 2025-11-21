@@ -490,8 +490,8 @@ impl Task {
             return self.get_template_rng();
         }
 
-        let mut rng = rand::thread_rng();
-        let mut random_value = rng.gen_range(0..total_weight);
+        let mut rng = rand::rng();
+        let mut random_value = rng.random_range(0..total_weight);
 
         for template in &self.templates {
             if random_value < template.priority {

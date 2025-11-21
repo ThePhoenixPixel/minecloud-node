@@ -1,16 +1,13 @@
-use crate::utils::logger::Logger;
-use std::fs::File;
 use std::{fs, io};
-use std::io::Read;
 use std::path::PathBuf;
 use bx::path::Directory;
 use rand::Rng;
 use rand::seq::IndexedRandom;
 use serde::{Deserialize, Serialize};
+
 use crate::core::installer::Installer;
-use crate::core::task::Task;
 use crate::core::template::Template;
-use crate::{error, log_error};
+use crate::error;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;

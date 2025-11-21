@@ -27,7 +27,6 @@ use crate::utils::service_status::ServiceStatus;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
 use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind;
 use crate::utils::error_kind::CloudErrorKind::*;
 
 #[derive(Serialize)]
