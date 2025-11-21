@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::{fs, io};
-
+use rand::seq::IndexedRandom;
 use crate::core::installer::Installer;
 use crate::core::software::Software;
 use crate::core::template::Template;
@@ -454,14 +454,73 @@ impl Task {
         fs::remove_file(task_path).expect("Error bei  removen der task datei");
     }
 
+    pub fn get_templates_sorted_by_priority(&self) -> Vec<Template> {
+        let mut templates = self.get_templates();
+        templates.sort_by(|a, b| a.priority.cmp(&b.priority));
+        templates
+    }
+
+    pub fn get_templates_sorted_by_priority_desc(&self) -> Vec<Template> {
+        let mut templates = self.get_templates();
+        templates.sort_by(|a, b| b.priority.cmp(&a.priority));
+        templates
+    }
+
+    pub fn get_template_rng(&self) -> Option<&Template> {
+        let mut rng = rand::rng();
+        self.templates.choose(&mut rng)
+    }
+
+    // Select Template based on Priority (higher priority = higher chance)
+    pub fn get_template_rng_based_on_priority(&self) -> Option<&Template> {
+        if self.templates.is_empty() {
+            return None;
+        }
+
+        let total_weight: u32 = self.templates.iter().map(|t| t.priority).sum();
+
+        if total_weight == 0 {
+            return self.get_template_rng();
+        }
+
+        let mut rng = rand::thread_rng();
+        let mut random_value = rng.gen_range(0..total_weight);
+
+        for template in &self.templates {
+            if random_value < template.priority {
+                return Some(template);
+            }
+            random_value -= template.priority;
+        }
+
+        // fallback
+        self.templates.last()
+    }
+
     pub fn prepared_to_service(&self) -> Result<PathBuf, CloudError> {
         // create the next free service folder with the template
         let target_path = self.create_next_free_service_folder()?;
-        let templates = &self.get_templates();
-        let template = select_template_with_priority(&templates)?;
+        let mut templates: Vec<Template> = Vec::new();
+        match self.get_installer() {
+            Installer::InstallAll       => templates = self.get_templates_sorted_by_priority(),
+            Installer::InstallAllDesc   => templates = self.get_templates_sorted_by_priority_desc(),
+            Installer::InstallRandom => {
+                match self.get_template_rng() {
+                    Some(template) => templates.push(template.clone()),
+                    None => return Err(error!(TemplateNotFound)),
+                }
+            }
+            Installer::InstallRandomWithPriority => {
+                match self.get_template_rng_based_on_priority() {
+                    Some(template) => templates.push(template.clone()),
+                    None => return Err(error!(TemplateNotFound)),
+                }
+            }
+        }
 
-        // copy the template in the new service folder
-        Directory::copy_folder_contents(&template.get_path(), &target_path).map_err(|e| error!(CantCopyTemplateToNewServiceFolder, e))?;
+        for template in templates {
+            Directory::copy_folder_contents(&template.get_path(), &target_path).map_err(|e| error!(CantCopyTemplateToNewServiceFolder, e))?;
+        }
         Ok(target_path)
     }
 
@@ -470,6 +529,7 @@ impl Task {
         let mut folder_index: u32 = 1;
         let target_base_path = self.get_service_path();
         let mut target_service_folder_path =
+        // TODO: vllt hier noch den split aus task eig. benutzen
             target_base_path.join(format!("{}-{}", &self.get_name(), folder_index));
 
         while target_service_folder_path.exists() {
@@ -524,18 +584,4 @@ impl Task {
         }
         log_info!("-----------------------------");
     }
-}
-
-fn select_template_with_priority(templates: &[Template]) -> Result<&Template, CloudError> {
-    let mut rng = rand::rng();
-    let total_priority: u32 = templates.iter().map(|t| t.priority).sum();
-    let mut rand_value = rng.random_range(1..=total_priority);
-
-    for template in templates {
-        if rand_value <= template.priority {
-            return Ok(template);
-        }
-        rand_value -= template.priority;
-    }
-    Err(error!(CloudErrorKind::TemplateWithPriorityNotFound))
 }

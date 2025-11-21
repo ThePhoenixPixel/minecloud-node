@@ -58,7 +58,7 @@ impl Service {
             &task.get_start_port(),
         )) {
             Some(port ) => port,
-            None => return Err(error!(CloudErrorKind::NextFreePortNotFound)),
+            None => return Err(error!(NextFreePortNotFound)),
         };
         let server_address = Address::new(&CloudConfig::get().get_server_host(), &port);
         let service_path = task.prepared_to_service()?;

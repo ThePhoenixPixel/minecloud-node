@@ -21,7 +21,6 @@ pub enum CloudErrorKind {
 
     /// 22.xxx Template
     TemplateNotFound,
-    TemplateWithPriorityNotFound,
 
     /// 3x.xxx Service
     /// 31.xxx Not Found
@@ -72,7 +71,6 @@ impl CloudErrorKind {
             // 22.xxxx Template
             // 22.1.xx NotFound
             CloudErrorKind::TemplateNotFound                => 221000,
-            CloudErrorKind::TemplateWithPriorityNotFound    => 221001,
 
             // 3x.xxx Service
             // 30.1xx NotFound
