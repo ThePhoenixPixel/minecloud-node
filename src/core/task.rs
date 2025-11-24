@@ -1,22 +1,22 @@
 use bx::path::Directory;
 use rand::Rng;
+use rand::seq::IndexedRandom;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::{fs, io};
-use rand::seq::IndexedRandom;
 
+use crate::core::group::Group;
 use crate::core::installer::Installer;
 use crate::core::software::Software;
 use crate::core::template::Template;
-use crate::core::group::Group;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareConfig;
-use crate::utils::logger::Logger;
-use crate::*;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
+use crate::utils::logger::Logger;
+use crate::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Task {
@@ -227,7 +227,7 @@ impl Task {
     // Getter and Setter for groups
     pub fn get_groups(&self) -> Vec<Group> {
         let mut groups: Vec<Group> = Vec::new();
-        for group_str in self.groups.clone() {  
+        for group_str in self.groups.clone() {
             if let Some(group) = Group::get_from_name(&group_str) {
                 groups.push(group);
             }
@@ -405,9 +405,7 @@ impl Task {
     }
 
     pub fn get_task_all() -> Vec<Task> {
-        let task_path = CloudConfig::get()
-            .get_cloud_path()
-            .get_task_folder_path();
+        let task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
 
         let mut tasks = Vec::new();
 
@@ -510,17 +508,15 @@ impl Task {
         for group in self.get_groups() {
             group.install_in_path(&target_path)?;
         }
-        
+
         let mut templates: Vec<Template> = Vec::new();
         match self.get_installer() {
-            Installer::InstallAll       => templates = self.get_templates_sorted_by_priority(),
-            Installer::InstallAllDesc   => templates = self.get_templates_sorted_by_priority_desc(),
-            Installer::InstallRandom => {
-                match self.get_template_rng() {
-                    Some(template) => templates.push(template.clone()),
-                    None => return Err(error!(TemplateNotFound)),
-                }
-            }
+            Installer::InstallAll => templates = self.get_templates_sorted_by_priority(),
+            Installer::InstallAllDesc => templates = self.get_templates_sorted_by_priority_desc(),
+            Installer::InstallRandom => match self.get_template_rng() {
+                Some(template) => templates.push(template.clone()),
+                None => return Err(error!(TemplateNotFound)),
+            },
             Installer::InstallRandomWithPriority => {
                 match self.get_template_rng_based_on_priority() {
                     Some(template) => templates.push(template.clone()),
@@ -530,7 +526,8 @@ impl Task {
         }
 
         for template in templates {
-            Directory::copy_folder_contents(&template.get_path(), &target_path).map_err(|e| error!(CantCopyTemplateToNewServiceFolder, e))?;
+            Directory::copy_folder_contents(&template.get_path(), &target_path)
+                .map_err(|e| error!(CantCopyTemplateToNewServiceFolder, e))?;
         }
         Ok(target_path)
     }
@@ -548,7 +545,8 @@ impl Task {
             target_service_folder_path =
                 target_base_path.join(format!("{}-{}", &self.get_name(), folder_index));
         }
-        fs::create_dir_all(&target_service_folder_path).map_err(|e| error!(CantCreateServiceFolder, e))?;
+        fs::create_dir_all(&target_service_folder_path)
+            .map_err(|e| error!(CantCreateServiceFolder, e))?;
         Ok(target_service_folder_path)
     }
 
@@ -585,7 +583,10 @@ impl Task {
         log_info!("max_ram: {}", self.get_max_ram());
         log_info!("start_port: {}", self.get_start_port());
         log_info!("min_service_count: {}", self.get_min_service_count());
-        log_info!("groups: {:?}", self.get_groups().iter().map(|g| g.get_name()));
+        log_info!(
+            "groups: {:?}",
+            self.get_groups().iter().map(|g| g.get_name())
+        );
         log_info!("installer: {:?}", self.get_installer());
         log_info!("templates: ");
         for template in self.get_templates() {

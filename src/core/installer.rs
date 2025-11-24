@@ -11,11 +11,11 @@ pub enum Installer {
 impl Installer {
     pub fn from(s: &str) -> Self {
         match s {
-            "InstallAll"                    => Installer::InstallAll,
-            "InstallAllDesc"                => Installer::InstallAllDesc,
-            "InstallRandom"                 => Installer::InstallRandom,
-            "InstallRandomWithPriority"     => Installer::InstallRandomWithPriority,
-            _                               => Installer::InstallAll,
+            "InstallAll" => Installer::InstallAll,
+            "InstallAllDesc" => Installer::InstallAllDesc,
+            "InstallRandom" => Installer::InstallRandom,
+            "InstallRandomWithPriority" => Installer::InstallRandomWithPriority,
+            _ => Installer::InstallAll,
         }
     }
 }
@@ -23,10 +23,10 @@ impl Installer {
 impl Into<&str> for Installer {
     fn into(self) -> &'static str {
         match self {
-            Installer::InstallAll                   => "InstallAll",
-            Installer::InstallAllDesc               => "InstallAllDesc", 
-            Installer::InstallRandom                => "InstallRandom",
-            Installer::InstallRandomWithPriority    => "InstallRandomWithPriority",
+            Installer::InstallAll => "InstallAll",
+            Installer::InstallAllDesc => "InstallAllDesc",
+            Installer::InstallRandom => "InstallRandom",
+            Installer::InstallRandomWithPriority => "InstallRandomWithPriority",
         }
     }
 }

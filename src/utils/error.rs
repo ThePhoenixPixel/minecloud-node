@@ -1,5 +1,5 @@
-use std::{error::Error, fmt};
 use crate::utils::error_kind::CloudErrorKind;
+use std::{error::Error, fmt};
 #[derive(Debug)]
 pub struct CloudError {
     pub kind: CloudErrorKind,
@@ -115,7 +115,7 @@ macro_rules! error {
             source_message: Some(source_msg.clone()),
             source: Some(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                source_msg
+                source_msg,
             ))),
             file: file!(),
             line: line!(),

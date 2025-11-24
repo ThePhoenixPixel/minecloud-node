@@ -85,7 +85,8 @@ impl CloudConfig {
     pub async fn install(start_url: &String) {
         // get the response from the download
         let url = format!("{}/config.json", start_url);
-        match Url::download_file(url.as_str(), &Cloud::get_working_path().join("config.json")).await {
+        match Url::download_file(url.as_str(), &Cloud::get_working_path().join("config.json")).await
+        {
             Ok(_) => log_info!("Successfully download the Software Config from {}", url),
             Err(e) => {
                 log_error!("{}", &e.to_string());

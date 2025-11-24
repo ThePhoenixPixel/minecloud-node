@@ -1,10 +1,9 @@
-use std::fs;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::PathBuf;
 
 use crate::core::task::Task;
 use crate::sys_config::cloud_config::CloudConfig;
-
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Template {
@@ -83,7 +82,8 @@ impl Template {
         template_path.push("default");
 
         if !template_path.exists() {
-            fs::create_dir_all(template_path).expect("Cant create Template Path in 'create_by_task'");
+            fs::create_dir_all(template_path)
+                .expect("Cant create Template Path in 'create_by_task'");
         }
     }
 

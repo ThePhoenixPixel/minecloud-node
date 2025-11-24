@@ -98,7 +98,11 @@ impl LocalServices {
     }
 
     pub fn set_service(&mut self, mut service: Service) {
-        if let Some(existing) = self.services.iter_mut().find(|s| s.get_id() == service.get_id()) {
+        if let Some(existing) = self
+            .services
+            .iter_mut()
+            .find(|s| s.get_id() == service.get_id())
+        {
             let s = service.clone_without_process();
             if service.get_process().is_some() {
                 existing.set_process(service.extract_process());
@@ -113,11 +117,7 @@ impl LocalServices {
     }
 
     pub async fn stop_service(&mut self, id: &Uuid, shutdown_msg: &str) {
-        if let Some(pos) = self
-            .services
-            .iter()
-            .position(|s| s.get_id() == *id)
-        {
+        if let Some(pos) = self.services.iter().position(|s| s.get_id() == *id) {
             if let Some(service) = self.services.get_mut(pos) {
                 service.shutdown(shutdown_msg).await;
                 if service.is_delete() {
@@ -128,10 +128,7 @@ impl LocalServices {
     }
 
     pub async fn stop_all(&mut self, shutdown_msg: &str) {
-        let ids: Vec<Uuid> = self.get_all()
-            .iter()
-            .map(|s| s.get_id())
-            .collect();
+        let ids: Vec<Uuid> = self.get_all().iter().map(|s| s.get_id()).collect();
         for id in ids {
             self.stop_service(&id, shutdown_msg).await;
         }
@@ -170,7 +167,6 @@ impl LocalServices {
             .collect()
     }
 
-    
     fn get_start_service_from_file() -> Vec<Service> {
         let mut services = Vec::new();
         for service in LocalServices::get_all_from_file() {

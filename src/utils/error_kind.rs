@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone)]
 pub enum CloudErrorKind {
     /// Default
@@ -6,13 +5,12 @@ pub enum CloudErrorKind {
 
     /// 1x.xxx system
     CantReadFileToString,
-    
+
     /// 11.xxx Directory
     PathServe,
 
     /// 12.xxx network
     NextFreePortNotFound,
-
 
     /// 2x.xxx CloudSystem
 
@@ -32,23 +30,21 @@ pub enum CloudErrorKind {
     CantCreateSystemPluginPath,
     CantFindSystemPlugin,
     CantCopySystemPlugin,
-    
+
     CantFindIPConfigFilePath,
     CantWriteIP,
-    
+
     CantFindPortConfigFilePath,
     CantWritePort,
-    
+
     CantCopySoftware,
-    
+
     CantCreateSTDOUTFile,
     CantCreateSTDERRFile,
-    
-    CantStartServer,
-    
-    
-    CantConvertServerFilePathToString,
 
+    CantStartServer,
+
+    CantConvertServerFilePathToString,
 
     /// 9.xxx
     /// Internal System
@@ -56,37 +52,33 @@ pub enum CloudErrorKind {
     Internal,
 }
 
-
 impl CloudErrorKind {
     pub fn code(&self) -> u32 {
         match self {
             // 10.xxx Directory
-            CloudErrorKind::NextFreePortNotFound            => 120001,
-
+            CloudErrorKind::NextFreePortNotFound => 120001,
 
             // 2x.xxx CloudSystem
 
             // 21.xxx Task
             // 21.1xx NotFound
-            CloudErrorKind::TaskNotFound                    => 210000,
+            CloudErrorKind::TaskNotFound => 210000,
 
             // 22.xxxx Template
             // 22.1.xx NotFound
-            CloudErrorKind::TemplateNotFound                => 221000,
+            CloudErrorKind::TemplateNotFound => 221000,
 
             // 3x.xxx Service
             // 30.1xx NotFound
-            CloudErrorKind::ServiceNotFound                 => 310000,
-
+            CloudErrorKind::ServiceNotFound => 310000,
 
             // 9.xxx
             // Internal System
-            CloudErrorKind::IoError                         => 999999,
-            CloudErrorKind::Internal                        => 900000,
-
+            CloudErrorKind::IoError => 999999,
+            CloudErrorKind::Internal => 900000,
 
             // Default
-            _                                               => 0,
+            _ => 0,
         }
     }
 
@@ -101,6 +93,4 @@ impl CloudErrorKind {
             _ => "NUll",
         }
     }
-
 }
-

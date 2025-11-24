@@ -4,9 +4,9 @@ use crate::core::service::Service;
 use crate::core::services_local::LocalServices;
 use crate::core::services_network::NetworkServices;
 use crate::core::task::Task;
+use crate::utils::error::CloudError;
 use crate::utils::logger::Logger;
 use crate::{log_error, log_info};
-use crate::utils::error::CloudError;
 
 pub struct AllServices {
     local_services: LocalServices,

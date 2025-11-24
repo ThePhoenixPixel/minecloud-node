@@ -1,12 +1,11 @@
 use chrono::Local;
 use colored::{ColoredString, Colorize};
-use std::{env, fs};
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::{env, fs};
 
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::log::Log;
-
 
 pub struct Logger;
 

@@ -8,7 +8,6 @@ use crate::{log_info, log_warning};
 
 pub struct ApiTask;
 
-
 #[derive(Deserialize)]
 pub struct TaskNameRequest {
     task_name: String,
@@ -77,10 +76,7 @@ impl ApiTask {
         }
     }
 
-    pub async fn update(
-        param: web::Query<TaskNameRequest>,
-        req: web::Json<Task>
-    ) -> HttpResponse {
+    pub async fn update(param: web::Query<TaskNameRequest>, req: web::Json<Task>) -> HttpResponse {
         if param.task_name.is_empty() || req.get_name().is_empty() {
             return HttpResponse::BadRequest().json("Empty Task Name");
         }
@@ -92,9 +88,7 @@ impl ApiTask {
                 log_info!("[RestAPI] Task | {} | wurde bearbeitet", task.get_name());
                 HttpResponse::Ok().json(task)
             }
-            None => {
-                HttpResponse::BadRequest().json("Task existiert nicht")
-            }
+            None => HttpResponse::BadRequest().json("Task existiert nicht"),
         }
     }
 

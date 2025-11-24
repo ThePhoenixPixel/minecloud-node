@@ -5,13 +5,13 @@ use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
-use std::{fs, io};
 use std::fs::{File, read_to_string};
 use std::io::{Error, ErrorKind, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
+use std::{fs, io};
 use tokio::sync::RwLock;
 use tokio::time::timeout;
 use uuid::Uuid;
@@ -22,12 +22,12 @@ use crate::core::task::Task;
 use crate::node_api::node_service::ServiceInfoResponse;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareName;
+use crate::utils::error::CloudError;
+use crate::utils::error_kind::CloudErrorKind::*;
 use crate::utils::logger::Logger;
 use crate::utils::service_status::ServiceStatus;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
-use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind::*;
 
 #[derive(Serialize)]
 struct RegisterServerData {
@@ -56,7 +56,7 @@ impl Service {
             &CloudConfig::get().get_server_host(),
             &task.get_start_port(),
         )) {
-            Some(port ) => port,
+            Some(port) => port,
             None => return Err(error!(NextFreePortNotFound)),
         };
         let server_address = Address::new(&CloudConfig::get().get_server_host(), &port);
@@ -192,7 +192,8 @@ impl Service {
             return Err(error!(CantFindIPConfigFilePath));
         }
 
-        let file_content_ip = read_to_string(&path_ip).map_err(|e| error!(CantReadFileToString, e))?;
+        let file_content_ip =
+            read_to_string(&path_ip).map_err(|e| error!(CantReadFileToString, e))?;
         let edit_file_ip = file_content_ip.replace("%ip%", &*address.get_ip());
         fs::write(&path_ip, edit_file_ip).map_err(|e| error!(CantWriteIP, e))?;
 
@@ -203,7 +204,8 @@ impl Service {
             return Err(error!(CantFindPortConfigFilePath));
         }
 
-        let file_content_port = read_to_string(&path_port).map_err(|e| error!(CantReadFileToString, e))?;
+        let file_content_port =
+            read_to_string(&path_port).map_err(|e| error!(CantReadFileToString, e))?;
         let edit_file_port =
             file_content_port.replace("%port%", address.get_port().to_string().as_str());
         fs::write(&path_port, edit_file_port).map_err(|e| error!(CantWritePort, e))?;
@@ -264,10 +266,10 @@ impl Service {
                 }
                 Err(e) => {
                     log_error!(
-                    "Stop command nicht senden an {} \n Error: {}",
-                    self.get_name(),
-                    e.to_string()
-                );
+                        "Stop command nicht senden an {} \n Error: {}",
+                        self.get_name(),
+                        e.to_string()
+                    );
 
                     if self.get_process().is_none() {
                         self.set_status(ServiceStatus::Stop);
@@ -283,19 +285,18 @@ impl Service {
                     Err(..) => log_warning!("Service konnte nicht gekillt werden"),
                 }
             }
-            
+
             if self.is_delete() {
-                self.delete_files();    
+                self.delete_files();
             } else {
                 self.set_status(ServiceStatus::Stop);
-                self.save_to_file();    
+                self.save_to_file();
             }
-            
         } else {
             // TODO: Remote/Cluster shutdown
         }
     }
-    
+
     pub fn is_delete(&self) -> bool {
         !self.get_task().is_static_service() && self.get_task().is_delete_on_stop()
     }
@@ -502,22 +503,21 @@ impl Service {
 
             match url.post(&body, Duration::from_secs(3)).await {
                 Ok(_) => log_info!(
-                "Service {} successfully connected to Proxy [{}]",
-                self.get_name(),
+                    "Service {} successfully connected to Proxy [{}]",
+                    self.get_name(),
                     service_proxy.get_name()
-            ),
+                ),
                 Err(e) => log_warning!(
-                "Service | {} | can't send request connect to Network \n Error: {}",
-                self.get_name(),
-                e.to_string()
-            ),
+                    "Service | {} | can't send request connect to Network \n Error: {}",
+                    self.get_name(),
+                    e.to_string()
+                ),
             }
         }
 
         // TODO: Send New Started Service To Cluster
         Ok(())
     }
-
 
     pub async fn disconnect_from_network(&self, cloud: Arc<RwLock<Cloud>>) -> Result<(), Error> {
         if self.is_proxy() {
@@ -552,13 +552,15 @@ impl Service {
         self.prepare_to_start()?;
         let server_file_path = match self.get_path_with_server_file().to_str() {
             Some(server_file_path) => server_file_path.to_string(),
-            None => return Err(error!(CantConvertServerFilePathToString))
+            None => return Err(error!(CantConvertServerFilePathToString)),
         };
 
         let software_name = self.get_software_name();
         let mut placeholders = HashMap::new();
-        let stdout_file = File::create(self.get_path_stdout_file()).map_err(|e| error!(CantCreateSTDOUTFile, e))?;
-        let stderr_file = File::create(self.get_path_stderr_file()).map_err(|e| error!(CantCreateSTDERRFile, e))?;
+        let stdout_file = File::create(self.get_path_stdout_file())
+            .map_err(|e| error!(CantCreateSTDOUTFile, e))?;
+        let stderr_file = File::create(self.get_path_stderr_file())
+            .map_err(|e| error!(CantCreateSTDERRFile, e))?;
 
         placeholders.insert("ip", self.get_server_address().get_ip().to_string());
         placeholders.insert("port", self.get_server_address().get_port().to_string());
@@ -576,7 +578,8 @@ impl Service {
             .stdout(Stdio::from(stdout_file))
             .stderr(Stdio::from(stderr_file))
             .stdin(Stdio::piped())
-            .spawn().map_err(|e| error!(CantStartServer, e))?;
+            .spawn()
+            .map_err(|e| error!(CantStartServer, e))?;
 
         self.set_process(Some(child));
         Ok(self)
@@ -635,7 +638,8 @@ impl Service {
             .join(self.get_task().get_software().get_software_type())
             .join(self.get_task().get_software().get_name());
 
-        Directory::copy_folder_contents(&software_lib_path, &self.get_path()).map_err(|e| error!(Internal, e))
+        Directory::copy_folder_contents(&software_lib_path, &self.get_path())
+            .map_err(|e| error!(Internal, e))
     }
 
     pub fn is_proxy(&self) -> bool {
@@ -651,7 +655,8 @@ impl Service {
 
 fn find_port(ports: Vec<u32>, mut port: u32, server_host: &String) -> u32 {
     while ports.contains(&port) || !Address::is_port_available(&Address::new(&server_host, &port)) {
-        port = Address::find_next_port(&mut Address::new(&server_host, &(port + 1))).unwrap_or_else(|| 0);
+        port = Address::find_next_port(&mut Address::new(&server_host, &(port + 1)))
+            .unwrap_or_else(|| 0);
     }
     port
 }

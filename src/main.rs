@@ -11,9 +11,9 @@ pub mod rest_api {
 
 pub mod core {
 
+    pub mod group;
     pub mod task;
     pub mod template;
-    pub mod group;
     //pub mod node;
     pub mod installer;
 
@@ -48,12 +48,12 @@ pub mod node_api {
 }
 
 pub mod utils {
+    pub mod error;
+    pub mod error_kind;
     pub mod file_inlude;
     pub mod log;
     pub mod logger;
     pub mod server_type;
-    pub mod error;
-    pub mod error_kind;
     pub mod service_status;
     pub mod utils;
     #[macro_use]

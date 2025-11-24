@@ -1,10 +1,10 @@
-use std::error::Error;
 use bx::network::url::Url;
 use colored::{ColoredString, Colorize};
-use std::{env, fs};
+use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{env, fs};
 use tokio::sync::RwLock;
 
 use crate::core::services_all::AllServices;
@@ -16,7 +16,6 @@ use crate::sys_config::software_config::SoftwareConfig;
 use crate::terminal::cmd::Cmd;
 use crate::utils::logger::Logger;
 use crate::{log_error, log_info, log_warning};
-
 
 #[cfg(feature = "rest-api")]
 use crate::rest_api::restapi_main::ApiMain;
@@ -80,7 +79,9 @@ impl Cloud {
         SoftwareConfig::check(&url).await;
 
         // check the software files
-        Cloud::check_software().await.expect("Checking Software failed");
+        Cloud::check_software()
+            .await
+            .expect("Checking Software failed");
 
         // NodeServer
         {
@@ -143,7 +144,6 @@ impl Cloud {
             }
         }
     }
-
 
     pub fn print_icon() {
         println!(" ");
@@ -430,4 +430,3 @@ impl Cloud {
         Ok(())
     }
 }
-

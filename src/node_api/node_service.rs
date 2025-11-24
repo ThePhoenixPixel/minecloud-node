@@ -7,9 +7,9 @@ use uuid::Uuid;
 
 use crate::cloud::Cloud;
 use crate::core::service::Service;
-use crate::{log_error, log_info, log_warning};
 use crate::utils::logger::Logger;
 use crate::utils::service_status::ServiceStatus;
+use crate::{log_error, log_info, log_warning};
 
 #[derive(Deserialize)]
 pub struct OnlineStatusRequest {
@@ -45,16 +45,18 @@ impl NodeService {
             }
         };
         let service_name = service.get_name();
-        if let Err(e) = service.disconnect_from_network(cloud.get_ref().clone()).await {
+        if let Err(e) = service
+            .disconnect_from_network(cloud.get_ref().clone())
+            .await
+        {
             log_error!(
-            "Service: {} konnte nicht vom Netzwerk getrennt werden \n Error: {}",
-            service_name,
-            e
-        );
-            return HttpResponse::InternalServerError().json(format!(
-                "Service: {} not disconnected from Network \n Error: {}",
+                "Service: {} konnte nicht vom Netzwerk getrennt werden \n Error: {}",
                 service_name,
                 e
+            );
+            return HttpResponse::InternalServerError().json(format!(
+                "Service: {} not disconnected from Network \n Error: {}",
+                service_name, e
             ));
         }
 
@@ -71,23 +73,28 @@ impl NodeService {
                     if s.get_process().is_some() {
                         if let Err(e) = s.kill() {
                             log_warning!(
-                            "Service [{}] konnte nicht gekillt werden: {}",
-                            s.get_name(),
-                            e
-                        );
+                                "Service [{}] konnte nicht gekillt werden: {}",
+                                s.get_name(),
+                                e
+                            );
                         } else {
                             log_info!("Service [{}] wurde gekillt", s.get_name());
                         }
                     }
 
-                    if !service.get_task().is_static_service() && service.get_task().is_delete_on_stop() {
+                    if !service.get_task().is_static_service()
+                        && service.get_task().is_delete_on_stop()
+                    {
                         s.delete_files();
                         cloud_guard.get_local_mut().remove_service(service_id);
                     } else {
                         s.save_to_file();
                     }
                 } else {
-                    log_error!("Konnte Stop-Status für Service [{}] nicht setzen", service_id);
+                    log_error!(
+                        "Konnte Stop-Status für Service [{}] nicht setzen",
+                        service_id
+                    );
                 }
                 // check
                 cloud_guard.get_all_mut().check_service().await;
@@ -99,7 +106,6 @@ impl NodeService {
             service_name
         ))
     }
-
 
     pub async fn set_online_status(
         cloud: web::Data<Arc<RwLock<Cloud>>>,
