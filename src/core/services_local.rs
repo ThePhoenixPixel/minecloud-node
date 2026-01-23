@@ -1,20 +1,24 @@
 use bx::path::Directory;
 use std::path::PathBuf;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::core::service::Service;
 use crate::core::task::Task;
+use crate::database::database_manger::DatabaseManager;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::error::CloudError;
 
 pub struct LocalServices {
     services: Vec<Service>,
+    db: Arc<dyn DatabaseManager>
 }
 
 impl LocalServices {
-    pub fn new() -> LocalServices {
+    pub fn new(db: Arc<dyn DatabaseManager>) -> LocalServices {
         LocalServices {
             services: LocalServices::get_all_from_file(),
+            db,
         }
     }
 
@@ -25,6 +29,7 @@ impl LocalServices {
                 .iter()
                 .map(|s| s.clone_without_process())
                 .collect(),
+            db: self.db.clone(),
         }
     }
 
@@ -74,7 +79,7 @@ impl LocalServices {
             return Ok(service.clone_without_process());
         }
 
-        Service::new_local(task)
+        self.create(&task)
     }
 
     pub fn remove_service(&mut self, id: Uuid) -> Option<Service> {
@@ -200,6 +205,15 @@ impl LocalServices {
             }
         }
         ports
+    }
+
+    pub fn create(&self, task: &Task) -> Result<Service, CloudError> {
+        let service = Service::new(task);
+
+
+
+
+        service
     }
 
     /*

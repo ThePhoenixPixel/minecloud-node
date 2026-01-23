@@ -6,7 +6,10 @@ use bx::network::address::Address;
 use bx::network::url::Url;
 
 use crate::cloud::Cloud;
+use crate::database::db_treiber::mysql::DBMysqlConfig;
+use crate::database::db_treiber::sqlite::DBSqliteConfig;
 use crate::utils::logger::Logger;
+use crate::utils::utils::Utils;
 use crate::{log_error, log_info};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -18,6 +21,7 @@ pub struct CloudConfig {
     max_ram: u64,
     node_host: Address,
     rest_api: Address,
+    database: DBConfig,
     path: CloudConfigPath,
 }
 
@@ -30,6 +34,7 @@ impl CloudConfig {
         max_ram: &u64,
         node_host: &Address,
         rest_api: &Address,
+        datenbank: &DBConfig,
         path: &CloudConfigPath,
     ) -> CloudConfig {
         CloudConfig {
@@ -40,6 +45,7 @@ impl CloudConfig {
             max_ram: max_ram.clone(),
             node_host: node_host.clone(),
             rest_api: rest_api.clone(),
+            database: datenbank.clone(),
             path: path.clone(),
         }
     }
@@ -72,6 +78,9 @@ impl CloudConfig {
         self.rest_api.clone()
     }
 
+    pub fn get_db_config(&self) -> DBConfig {
+        self.database.clone()
+    }
     pub fn get_cloud_path(&self) -> CloudConfigPath {
         self.path.clone()
     }
@@ -156,6 +165,31 @@ impl CloudConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct DBConfig {
+    typ: DBTypes,
+    sqlite: DBSqliteConfig,
+    mysql: DBMysqlConfig,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub enum DBTypes {
+    SQLITE,
+    MYSQL,
+}
+
+impl DBConfig {
+    pub fn get_type(&self) -> DBTypes {
+        self.typ.clone()
+    }
+    pub fn get_sqlite_config(&self) -> DBSqliteConfig {
+        self.sqlite.clone()
+    }
+    pub fn get_mysql_config(&self) -> DBMysqlConfig {
+        self.mysql.clone()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct CloudConfigPath {
     task_folder: String,
     template_folder: String,
@@ -186,21 +220,21 @@ impl CloudConfigPath {
     }
 
     pub fn get_task_folder_path(&self) -> PathBuf {
-        get_path(&self.task_folder)
+        Utils::get_path(&self.task_folder)
     }
 
     pub fn get_template_folder(&self) -> String {
         self.template_folder.clone()
     }
     pub fn get_template_folder_path(&self) -> PathBuf {
-        get_path(&self.template_folder)
+        Utils::get_path(&self.template_folder)
     }
 
     pub fn get_group_folder(&self) -> String {
         self.group_folder.clone()
     }
     pub fn get_group_folder_path(&self) -> PathBuf {
-        get_path(&self.group_folder)
+        Utils::get_path(&self.group_folder)
     }
 
     pub fn get_service_folder(&self) -> CloudConfigService {
@@ -231,7 +265,7 @@ impl CloudConfigService {
     }
 
     pub fn get_temp_folder_path(&self) -> PathBuf {
-        get_path(&self.temp_folder)
+        Utils::get_path(&self.temp_folder)
     }
 
     pub fn get_static_folder(&self) -> String {
@@ -239,7 +273,7 @@ impl CloudConfigService {
     }
 
     pub fn get_static_folder_path(&self) -> PathBuf {
-        get_path(&self.static_folder)
+        Utils::get_path(&self.static_folder)
     }
 }
 
@@ -274,7 +308,7 @@ impl CloudConfigSystem {
     }
 
     pub fn get_software_config_path(&self) -> PathBuf {
-        get_path(&self.software_config).join("software.json")
+        Utils::get_path(&self.software_config).join("software.json")
     }
 
     pub fn get_default_task(&self) -> String {
@@ -282,27 +316,27 @@ impl CloudConfigSystem {
     }
 
     pub fn get_default_task_path(&self) -> PathBuf {
-        get_path(&self.default_task)
+        Utils::get_path(&self.default_task)
     }
     pub fn get_system_plugins_folder(&self) -> String {
         self.system_plugins_folder.clone()
     }
 
     pub fn get_system_plugins_folder_path(&self) -> PathBuf {
-        get_path(&self.system_plugins_folder)
+        Utils::get_path(&self.system_plugins_folder)
     }
     pub fn get_software_files_folder(&self) -> String {
         self.software_files_folder.clone()
     }
 
     pub fn get_software_files_folder_path(&self) -> PathBuf {
-        get_path(&self.software_files_folder)
+        Utils::get_path(&self.software_files_folder)
     }
     pub fn get_software_lib_folder(&self) -> String {
         self.software_lib_folder.clone()
     }
     pub fn get_software_lib_folder_path(&self) -> PathBuf {
-        get_path(&self.get_software_lib_folder())
+        Utils::get_path(&self.get_software_lib_folder())
     }
 }
 
@@ -314,6 +348,21 @@ fn get_default_file() -> String {
       "language": "de",
       "server_host": "127.0.0.1",
       "max_ram": 2028,
+      "database": {
+        "typ": "SQLITE",
+        "sqlite": {
+          "file": "~database.db"
+        },
+        "mysql": {
+          "host": {
+            "ip": "127.0.0.1",
+            "port": 3306
+          },
+          "username": "minecloud",
+          "password": "minecloud123",
+          "database": "minecloud"
+        }
+      },
       "node_host": {
         "ip": "127.0.0.1",
         "port": 5050
@@ -339,17 +388,4 @@ fn get_default_file() -> String {
     }
     "#;
     json_str.to_string()
-}
-
-fn get_path(s: &String) -> PathBuf {
-    //check ob relativ '~'
-    // or windows C:/..
-    // linux zb /home or /opt
-    let mut path = PathBuf::new();
-
-    if s.find('~').is_some() {
-        path.push(Cloud::get_working_path());
-    }
-    path.push(s.trim_matches('~'));
-    path
 }

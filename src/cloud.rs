@@ -10,29 +10,51 @@ use tokio::sync::RwLock;
 use crate::core::services_all::AllServices;
 use crate::core::services_local::LocalServices;
 use crate::core::services_network::NetworkServices;
+use crate::database::database_manger::{Database, DatabaseManager};
+use crate::database::table::table_services::TableServices;
 use crate::node_api::node_main::NodeServer;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareConfig;
 use crate::terminal::cmd::Cmd;
 use crate::utils::logger::Logger;
-use crate::{log_error, log_info, log_warning};
+use crate::{error, log_error, log_info, log_warning};
+use crate::utils::error::CloudError;
 
 #[cfg(feature = "rest-api")]
 use crate::rest_api::restapi_main::ApiMain;
+use crate::utils::error_kind::CloudErrorKind::CantDBCreateConnection;
 use crate::utils::service_status::ServiceStatus;
 
 pub struct Cloud {
+
     services: AllServices,
+    db: Arc<dyn DatabaseManager>,
 }
 
 impl Cloud {
-    pub fn new() -> Self {
-        // wenns beim runterfahren geknallt hat un in den services datein noch start oder Prepare steht
-        Cloud::set_stop_status_service();
-        let local = LocalServices::new();
+    pub async fn new() -> Result<Self, CloudError> {
+        let db = Database::new(&CloudConfig::get().get_db_config()).map_err(|e| error!(CantDBCreateConnection, e))?;
+        Database::check_tables(db.clone()).await?;
+        log_info!("Database Check successfully");
+
+        let local = LocalServices::new(db.clone());
         let network = NetworkServices::new();
         let all = AllServices::new(local, network); // initialisieren
-        Self { services: all }
+
+
+
+        let mut new_service = TableServices::new();
+        new_service.set_service_name("Lobby-1".to_string());
+        new_service.set_service_type("BackendServer".to_string());
+        new_service.set_service_uuid("U737263872-3223-2323-232".to_string());
+        new_service.set_started_at("2024-12-1 23-56-30".to_string());
+        new_service.set_stopped_at("".to_string());
+        //new_service.add(db.clone()).await.expect("Nein geht nicht");
+
+        Ok(Self {
+            services: all,
+            db,
+        })
     }
 
     pub fn get_all(&self) -> &AllServices {
@@ -59,7 +81,7 @@ impl Cloud {
         self.services.get_network_mut()
     }
 
-    pub async fn enable(cloud: Arc<RwLock<Cloud>>, version: &str) {
+    pub async fn enable(version: &str) {
         // download link
         let url = format!(
             "http://download.codergames.de/minecloud/version/{}/",
@@ -82,6 +104,12 @@ impl Cloud {
         Cloud::check_software()
             .await
             .expect("Checking Software failed");
+
+        // files & database cleanup
+        // wenns beim runterfahren geknallt hat un in den services datein noch start oder Prepare steht
+        Cloud::set_stop_status_service();
+
+        let cloud = Arc::new(RwLock::new(Cloud::new().await.expect("Cant Create Cloud")));
 
         // NodeServer
         {

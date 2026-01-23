@@ -28,6 +28,8 @@ use crate::utils::logger::Logger;
 use crate::utils::service_status::ServiceStatus;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
+use crate::database::database_manger::DatabaseManager;
+use crate::database::table::table_services::TableServices;
 
 #[derive(Serialize)]
 struct RegisterServerData {
@@ -51,7 +53,7 @@ pub struct Service {
 }
 
 impl Service {
-    pub fn new_local(task: &Task) -> Result<Service, CloudError> {
+    pub fn new(task: &Task) -> Result<Service, CloudError> {
         let port = match Address::find_next_port(&mut Address::new(
             &CloudConfig::get().get_server_host(),
             &task.get_start_port(),
@@ -74,8 +76,18 @@ impl Service {
 
             process: None,
         };
+
+
+
         service.save_to_file();
         Ok(service)
+    }
+
+    fn add_to_db(&self, db: Arc<dyn DatabaseManager>) {
+        let rec = TableServices::new();
+        //rec.set
+
+
     }
 
     pub fn clone_without_process(&self) -> Self {

@@ -1,6 +1,4 @@
 use crate::cloud::Cloud;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 #[cfg(feature = "rest-api")]
 pub mod rest_api {
@@ -24,6 +22,23 @@ pub mod core {
     pub mod software;
 }
 
+pub mod database {
+    pub mod database_manger;
+    pub mod db_tools;
+    pub mod db_treiber {
+        pub mod mysql;
+        pub mod sqlite;
+    }
+
+    pub mod table {
+        pub mod table_players;
+        pub mod table_player_sessions;
+        pub mod table_player_events;
+        pub mod table_service_events;
+        pub mod table_services;
+    }
+}
+
 pub mod sys_config {
     pub mod cloud_config;
     pub mod software_config;
@@ -45,6 +60,9 @@ pub mod terminal {
 pub mod node_api {
     pub mod node_main;
     pub mod node_service;
+    pub mod request {
+        pub mod player_action_req;
+    }
 }
 
 pub mod utils {
@@ -53,6 +71,8 @@ pub mod utils {
     pub mod file_inlude;
     pub mod log;
     pub mod logger;
+    pub mod player;
+    pub mod player_action;
     pub mod server_type;
     pub mod service_status;
     pub mod utils;
@@ -70,11 +90,8 @@ const VERSION: &str = "0.1";
 async fn main() {
     println!("Start MineCloud...");
 
-    // Cloud-Instanz erstellen
-    let cloud = Arc::new(RwLock::new(Cloud::new()));
-
     // Cloud starten
-    Cloud::enable(cloud, VERSION).await;
+    Cloud::enable(VERSION).await;
 
     println!("MineCloud Stop");
     println!("Goodbye");

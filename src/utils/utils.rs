@@ -1,7 +1,9 @@
+use crate::cloud::Cloud;
 use crate::log_error;
 use crate::utils::logger::Logger;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 pub struct Utils;
 
@@ -42,5 +44,18 @@ impl Utils {
                 result
             })
             .collect()
+    }
+
+    pub fn get_path(s: &String) -> PathBuf {
+        //check ob relativ '~'
+        // or windows C:/..
+        // linux zb /home or /opt
+        let mut path = PathBuf::new();
+
+        if s.find('~').is_some() {
+            path.push(Cloud::get_working_path());
+        }
+        path.push(s.trim_matches('~'));
+        path
     }
 }

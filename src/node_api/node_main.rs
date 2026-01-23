@@ -37,6 +37,10 @@ impl NodeServer {
                     web::resource("cloud/node/info_shutdown")
                         .route(web::post().to(NodeService::shutdown)),
                 )
+                .service(
+                    web::resource("cloud/node/send_player_action")
+                        .route(web::post().to(NodeService::send_player_action)),
+                )
         };
 
         // bind the address

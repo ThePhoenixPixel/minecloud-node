@@ -121,8 +121,8 @@ impl Task {
     }
 
     // Getter and Setter for name
-    pub fn get_name(&self) -> &str {
-        &self.name
+    pub fn get_name(&self) -> String {
+        self.name.to_string()
     }
 
     pub fn change_name(&mut self, name: String) {

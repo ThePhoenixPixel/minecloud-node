@@ -5,7 +5,9 @@ pub enum CloudErrorKind {
 
     /// 1x.xxx system
     CantReadFileToString,
-
+    CantParseToValue,
+    DeserializationError,
+    
     /// 11.xxx Directory
     PathServe,
 
@@ -46,6 +48,19 @@ pub enum CloudErrorKind {
 
     CantConvertServerFilePathToString,
 
+    ///6x.xxx
+    CantDBCreateConnection,
+    CantDBGetConnection,
+    CantConnectToDatabase,
+    CantExecuteSql,
+    CantDBAddRecord,
+    CantGetSchema,
+    CantCreateTable,
+    CantDBGetRecords,
+
+    /// 7x.xxx Node Api
+    CantFindServiceFromUUID,
+
     /// 9.xxx
     /// Internal System
     IoError,
@@ -55,6 +70,7 @@ pub enum CloudErrorKind {
 impl CloudErrorKind {
     pub fn code(&self) -> u32 {
         match self {
+            CloudErrorKind::CantParseToValue => 10002,
             // 10.xxx Directory
             CloudErrorKind::NextFreePortNotFound => 120001,
 
@@ -71,6 +87,15 @@ impl CloudErrorKind {
             // 3x.xxx Service
             // 30.1xx NotFound
             CloudErrorKind::ServiceNotFound => 310000,
+
+            //6x.xxx
+            CloudErrorKind::CantDBCreateConnection => 60001,
+            CloudErrorKind::CantDBGetConnection => 60002,
+            CloudErrorKind::CantConnectToDatabase => 60003,
+            CloudErrorKind::CantExecuteSql => 60004,
+            CloudErrorKind::CantDBAddRecord => 60005,
+            //7x.xxx Node API
+            CloudErrorKind::CantFindServiceFromUUID => 310001,
 
             // 9.xxx
             // Internal System
