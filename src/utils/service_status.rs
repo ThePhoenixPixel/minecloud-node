@@ -5,6 +5,7 @@ pub enum ServiceStatus {
     Start,
     Stop,
     Prepare,
+    Null,
 }
 
 impl ServiceStatus {
@@ -13,6 +14,16 @@ impl ServiceStatus {
             ServiceStatus::Start => String::from("Start"),
             ServiceStatus::Stop => String::from("Stop"),
             ServiceStatus::Prepare => String::from("Prepare"),
+            ServiceStatus::Null => String::from("Null"),
+        }
+    }
+
+    pub fn from_string(str: &str) -> ServiceStatus {
+        match str {
+            "Start" => ServiceStatus::Start,
+            "Prepare" => ServiceStatus::Prepare,
+            "Stop" => ServiceStatus::Stop,
+            _ => ServiceStatus::Null,
         }
     }
 
@@ -33,6 +44,13 @@ impl ServiceStatus {
     pub fn is_prepare(&self) -> bool {
         match self {
             ServiceStatus::Prepare => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_null(&self) -> bool {
+        match self {
+            ServiceStatus::Null => true,
             _ => false,
         }
     }
