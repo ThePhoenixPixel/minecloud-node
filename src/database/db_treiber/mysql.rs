@@ -76,6 +76,8 @@ impl DbMysql {
             DbValue::Boolean(_) => "BOOLEAN",
             DbValue::Integer(_) => "BIGINT",
             DbValue::Float(_) => "DOUBLE",
+            DbValue::DateTime(_) => "DATETIME",
+            DbValue::Date(_) => "DATE",
             DbValue::Null => "VARCHAR(1)",
         }
     }
