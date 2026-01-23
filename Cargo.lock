@@ -1335,6 +1335,7 @@ dependencies = [
  "chrono",
  "colored",
  "mysql",
+ "once_cell",
  "rand 0.10.0-rc.5",
  "serde",
  "serde_json",

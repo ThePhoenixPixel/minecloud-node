@@ -17,6 +17,7 @@ pub struct CloudConfig {
     name: String,
     prefix: String,
     language: String,
+    log_level: u8,
     server_host: String,
     max_ram: u64,
     node_host: Address,
@@ -30,6 +31,7 @@ impl CloudConfig {
         name: &String,
         prefix: &String,
         language: &String,
+        log_level: &u8,
         server_host: &String,
         max_ram: &u64,
         node_host: &Address,
@@ -41,6 +43,7 @@ impl CloudConfig {
             name: name.clone(),
             prefix: prefix.clone(),
             language: language.clone(),
+            log_level: log_level.clone(),
             server_host: server_host.clone(),
             max_ram: max_ram.clone(),
             node_host: node_host.clone(),
@@ -62,6 +65,9 @@ impl CloudConfig {
         self.language.clone()
     }
 
+    pub fn get_log_level(&self) -> u8 {
+        self.log_level
+    }
     pub fn get_server_host(&self) -> String {
         self.server_host.clone()
     }

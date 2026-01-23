@@ -3,13 +3,27 @@ use colored::{ColoredString, Colorize};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::{env, fs};
+use once_cell::sync::OnceCell;
 
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::log::Log;
 
+
+pub static LOG_LEVEL: OnceCell<u8> = OnceCell::new();
+
+
 pub struct Logger;
 
 impl Logger {
+
+    pub fn init_log_level() {
+        let _ = LOG_LEVEL.set(CloudConfig::get().get_log_level());
+    }
+
+    pub fn get_log_level() -> u8 {
+        *LOG_LEVEL.get().unwrap_or(&9)
+    }
+
     fn log(args: std::fmt::Arguments, log_level: Log) {
         let msg = format!(
             "{}",
