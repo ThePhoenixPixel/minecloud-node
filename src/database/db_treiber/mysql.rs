@@ -8,7 +8,7 @@ use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::database::database_manger::{DatabaseManager, DbValue, Record};
+use crate::database::database_manger::{DatabaseManager, DbInteger, DbValue, Record};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DBMysqlConfig {
@@ -74,7 +74,7 @@ impl DbMysql {
         match value {
             DbValue::String(_) => "TEXT",
             DbValue::Boolean(_) => "BOOLEAN",
-            DbValue::Integer(_) => "BIGINT",
+            DbValue::Integer(_) => "INT",
             DbValue::Float(_) => "DOUBLE",
             DbValue::DateTime(_) => "DATETIME",
             DbValue::Date(_) => "DATE",
@@ -83,18 +83,20 @@ impl DbMysql {
     }
 
     fn build_create_table_sql(table: &str, schema: &Record) -> String {
-        let mut columns = vec!["id BIGINT PRIMARY KEY AUTO_INCREMENT".to_string()];
+        let mut columns = Vec::new();
 
+        // PK id zuerst
+        columns.push("id INT PRIMARY KEY AUTO_INCREMENT".to_string());
+
+        // Rest der Spalten, id überspringen
         for (name, value) in schema {
-            let sql_type = Self::db_value_to_mysql_type(value);
-            columns.push(format!("{} {}", name, sql_type));
+            if name != "id" {
+                let sql_type = Self::db_value_to_mysql_type(value);
+                columns.push(format!("{} {}", name, sql_type));
+            }
         }
 
-        format!(
-            "CREATE TABLE IF NOT EXISTS {} ({})",
-            table,
-            columns.join(", ")
-        )
+        format!("CREATE TABLE IF NOT EXISTS {} ({})", table, columns.join(", "))
     }
 
     fn build_alter_table_sql(
@@ -102,20 +104,19 @@ impl DbMysql {
         schema: &Record,
         existing_columns: &HashMap<String, String>,
     ) -> Vec<String> {
-        let mut alter_statements = Vec::new();
+        let mut alters = Vec::new();
 
         for (name, value) in schema {
-            if !existing_columns.contains_key(name) && name != "id" {
+            // id überspringen, wenn sie schon in der Struct ist
+            if name != "id" && !existing_columns.contains_key(name) {
                 let sql_type = Self::db_value_to_mysql_type(value);
-                alter_statements.push(format!(
-                    "ALTER TABLE {} ADD COLUMN {} {}",
-                    table, name, sql_type
-                ));
+                alters.push(format!("ALTER TABLE {} ADD COLUMN {} {}", table, name, sql_type));
             }
         }
 
-        alter_statements
+        alters
     }
+
 }
 
 #[async_trait]
@@ -137,8 +138,9 @@ impl DatabaseManager for DbMysql {
         table: &str,
         filter: Option<Record>,
     ) -> Result<Vec<Record>, Box<dyn Error + Send + Sync>> {
-        let results: Vec<mysql::Row>;
         let mut sql = format!("SELECT * FROM {}", table);
+
+        // Filter umsetzen
         if let Some(f) = filter {
             let conditions: Vec<String> = f
                 .iter()
@@ -147,29 +149,41 @@ impl DatabaseManager for DbMysql {
             sql.push_str(&format!(" WHERE {}", conditions.join(" AND ")));
         }
 
-        {
-            let pool = self.pool.read().await;
-            let mut conn = pool.get_conn()?;
-            results = conn.query(&sql)?;
-        }
+        // Verbindung holen
+        let pool = self.pool.read().await;
+        let mut conn = pool.get_conn()?;
+
+        // Query ausführen
+        let rows: Vec<mysql::Row> = conn.query(sql)?;
 
         let mut records = Vec::new();
 
-        for row in results {
+        for row in rows {
             let mut record = Record::new();
             let columns = row.columns_ref();
 
             for (idx, col) in columns.iter().enumerate() {
                 let col_name = col.name_str().to_string();
+
+                // Spaltenwert als mysql::Value
                 let value = row
                     .get_opt::<mysql::Value, _>(idx)
                     .unwrap_or(Ok(mysql::Value::NULL))
                     .unwrap_or(mysql::Value::NULL);
 
+                // Wert in DbValue umwandeln
                 let db_value = match value {
                     mysql::Value::NULL => DbValue::Null,
                     mysql::Value::Bytes(b) => {
-                        DbValue::String(String::from_utf8_lossy(&b).to_string())
+                        // Prüfen, ob es eine Zahl ist
+                        let s = String::from_utf8_lossy(&b).to_string();
+                        if let Ok(i) = s.parse::<i64>() {
+                            DbValue::Integer(i)
+                        } else if let Ok(f) = s.parse::<f64>() {
+                            DbValue::Float(f)
+                        } else {
+                            DbValue::String(s)
+                        }
                     }
                     mysql::Value::Int(i) => DbValue::Integer(i),
                     mysql::Value::UInt(u) => DbValue::Integer(u as i64),
@@ -184,14 +198,23 @@ impl DatabaseManager for DbMysql {
             records.push(record);
         }
 
+        // Falls Tabelle leer → Dummy Record mit id
+        if records.is_empty() {
+            let mut schema = Record::new();
+            schema.insert("id".to_string(), DbValue::Integer(0));
+            records.push(schema);
+        }
+
         Ok(records)
     }
+
+
 
     async fn add_record(
         &self,
         table: &str,
         data: Record,
-    ) -> Result<u64, Box<dyn Error + Send + Sync>> {
+    ) -> Result<DbInteger, Box<dyn Error + Send + Sync>> {
         let columns: Vec<String> = data.keys().cloned().collect();
         let values: Vec<String> = data.values().map(|v| v.to_sql_string()).collect();
         let sql = format!(
@@ -205,16 +228,22 @@ impl DatabaseManager for DbMysql {
         let mut conn = pool.get_conn()?;
         conn.query_drop(&sql)?;
 
-        let id: Option<u64> = conn.query_first("SELECT LAST_INSERT_ID()")?;
+        let id: Option<DbInteger> = conn.query_first("SELECT LAST_INSERT_ID()")?;
         Ok(id.unwrap_or(0))
     }
 
     async fn update_record(
         &self,
         table: &str,
-        id: u64,
-        data: Record,
+        id: DbInteger,
+        mut data: Record,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        data.remove("id");
+
+        if data.is_empty() {
+            return Ok(());
+        }
+
         let updates: Vec<String> = data
             .iter()
             .map(|(k, v)| format!("{} = {}", k, v.to_sql_string()))
@@ -229,6 +258,7 @@ impl DatabaseManager for DbMysql {
 
         let pool = self.pool.read().await;
         let mut conn = pool.get_conn()?;
+
         conn.query_drop(&sql)?;
 
         Ok(())
@@ -237,7 +267,7 @@ impl DatabaseManager for DbMysql {
     async fn delete_record(
         &self,
         table: &str,
-        id: u64,
+        id: DbInteger,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let sql = format!("DELETE FROM {} WHERE id = {}", table, id);
 
@@ -255,6 +285,7 @@ impl DatabaseManager for DbMysql {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let pool = self.pool.write().await;
         let mut conn = pool.get_conn()?;
+
         let table_exists = self.table_exists(&mut conn, table)?;
 
         if !table_exists {
@@ -264,10 +295,8 @@ impl DatabaseManager for DbMysql {
             let existing_columns = self.get_existing_columns(&mut conn, table)?;
             let alter_statements = Self::build_alter_table_sql(table, schema, &existing_columns);
 
-            if  !alter_statements.is_empty() {
-                for alter_sql in &alter_statements {
-                    conn.query_drop(alter_sql.as_str())?;
-                }
+            for sql in alter_statements {
+                conn.query_drop(&sql)?;
             }
         }
 
