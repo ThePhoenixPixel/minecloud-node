@@ -6,15 +6,19 @@ use crate::database::db_tools::DbTools;
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
+use crate::utils::utils::Utils;
 
 const TABLE_PLAYERS: &str = "t_players";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TablePlayers {
+    id: DbInteger,              // player ID
+    created_at: DbDateTime,     // format -> YYYY-MM-DD HH:MM:SS
+
     uuid: DbString,
     name: DbString,
-    last_seen: DbString,
-    last_login: DbString,
+    last_seen: DbDateTime,      // format -> YYYY-MM-DD HH:MM:SS
+    last_login: DbDateTime,     // format -> YYYY-MM-DD HH:MM:SS
 }
 
 impl TablePlayers {
@@ -22,10 +26,13 @@ impl TablePlayers {
         Self::default()
     }
 
-    pub async fn add(&self, db: Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
-        db.add_record(TABLE_PLAYERS, DbTools::struct_to_db_map(self)?)
-            .await
-            .map_err(|e| error!(CantDBAddRecord, e))?;
+    pub async fn add(&mut self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+        if TablePlayers::get_by_uuid(&db, self.uuid.clone()).await?.is_none() {
+            self.created_at = Utils::get_datetime_now();
+            self.id = db.add_record(TABLE_PLAYERS, DbTools::struct_to_db_map(self)?)
+                .await
+                .map_err(|e| error!(CantCreateDBRecord, e))?;
+        }
         Ok(())
     }
 
@@ -68,26 +75,26 @@ impl TablePlayers {
     }
 
     // Setter
-    pub fn set_uuid(&mut self, uuid: DbString) {
-        self.uuid = uuid;
+    pub fn set_uuid(&mut self, uuid: &DbString) {
+        self.uuid = uuid.clone();
     }
 
-    pub fn set_name(&mut self, name: DbString) {
-        self.name = name;
+    pub fn set_name(&mut self, name: &DbString) {
+        self.name = name.clone();
     }
 
-    pub fn set_last_seen(&mut self, last_seen: DbString) {
-        self.last_seen = last_seen;
+    pub fn set_last_seen(&mut self, last_seen: &DbString) {
+        self.last_seen = last_seen.clone();
     }
 
-    pub fn set_last_login(&mut self, last_login: DbString) {
-        self.last_login = last_login;
+    pub fn set_last_login(&mut self, last_login: &DbString) {
+        self.last_login = last_login.clone();
     }
 
     // Query Methoden
     pub async fn get_by_uuid(
-        db: Arc<dyn DatabaseManager>,
-        uuid: String,
+        db: &Arc<dyn DatabaseManager>,
+        uuid: DbString,
     ) -> Result<Option<Self>, CloudError> {
         let mut filter = Record::new();
         filter.insert("uuid".to_string(), DbValue::String(uuid));
@@ -105,8 +112,8 @@ impl TablePlayers {
     }
 
     pub async fn get_by_name(
-        db: Arc<dyn DatabaseManager>,
-        name: String,
+        db: &Arc<dyn DatabaseManager>,
+        name: DbString,
     ) -> Result<Option<Self>, CloudError> {
         let mut filter = Record::new();
         filter.insert("name".to_string(), DbValue::String(name));

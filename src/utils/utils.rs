@@ -4,6 +4,7 @@ use crate::utils::logger::Logger;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use chrono::{DateTime, Utc};
 
 pub struct Utils;
 
@@ -58,4 +59,16 @@ impl Utils {
         path.push(s.trim_matches('~'));
         path
     }
+
+    pub fn get_datetime_now() -> String {
+        let now: DateTime<Utc> = Utc::now();
+        now.format("%Y-%m-%d %H:%M:%S").to_string()
+    }
+
+    /// Optional: Nur das Datum "YYYY-MM-DD"
+    pub fn get_date_now() -> String {
+        let now: DateTime<Utc> = Utc::now();
+        now.format("%Y-%m-%d").to_string()
+    }
+    
 }

@@ -12,9 +12,11 @@ const TABLE_SERVICE_EVENTS: &str = "t_service_events";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TableServiceEvents {
-    service_id: i64,
+    id: DbInteger,              // service event id
+    created_at: DbDateTime,     // format -> YYYY-MM-DD HH:MM:SS
+    
+    service_uuid: DbString,
     event_type: DbString,
-    created_at: DbString,
 }
 
 impl TableServiceEvents {
@@ -25,7 +27,7 @@ impl TableServiceEvents {
     pub async fn add(&self, db: Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
         db.add_record(TABLE_SERVICE_EVENTS, DbTools::struct_to_db_map(self)?)
             .await
-            .map_err(|e| error!(CantDBAddRecord, e))?;
+            .map_err(|e| error!(CantCreateDBRecord, e))?;
         Ok(())
     }
 
@@ -51,29 +53,21 @@ impl TableServiceEvents {
     }
 
     // Getter
-    pub fn get_service_id(&self) -> i64 {
-        self.service_id
+    pub fn get_service_uuid(&self) -> DbString {
+        self.service_uuid.clone()
     }
 
-    pub fn get_event_type(&self) -> &str {
-        &self.event_type
-    }
-
-    pub fn get_created_at(&self) -> &str {
-        &self.created_at
+    pub fn get_event_type(&self) -> DbString {
+        self.event_type.clone()
     }
 
     // Setter
-    pub fn set_service_id(&mut self, service_id: i64) {
-        self.service_id = service_id;
+    pub fn set_service_uuid(&mut self, uuid: DbString) {
+        self.service_uuid = uuid;
     }
 
     pub fn set_event_type(&mut self, event_type: DbString) {
         self.event_type = event_type;
-    }
-
-    pub fn set_created_at(&mut self, created_at: DbString) {
-        self.created_at = created_at;
     }
 
     // Query Methoden

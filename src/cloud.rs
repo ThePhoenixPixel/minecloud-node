@@ -11,7 +11,6 @@ use crate::core::services_all::AllServices;
 use crate::core::services_local::LocalServices;
 use crate::core::services_network::NetworkServices;
 use crate::database::database_manger::{Database, DatabaseManager};
-use crate::database::table::table_services::TableServices;
 use crate::node_api::node_main::NodeServer;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareConfig;
@@ -26,7 +25,6 @@ use crate::utils::error_kind::CloudErrorKind::CantDBCreateConnection;
 use crate::utils::service_status::ServiceStatus;
 
 pub struct Cloud {
-
     services: AllServices,
     db: Arc<dyn DatabaseManager>,
 }
@@ -40,16 +38,6 @@ impl Cloud {
         let local = LocalServices::new(db.clone());
         let network = NetworkServices::new();
         let all = AllServices::new(local, network); // initialisieren
-
-
-
-        let mut new_service = TableServices::new();
-        new_service.set_service_name("Lobby-1".to_string());
-        new_service.set_service_type("BackendServer".to_string());
-        new_service.set_service_uuid("U737263872-3223-2323-232".to_string());
-        new_service.set_started_at("2024-12-1 23-56-30".to_string());
-        new_service.set_stopped_at("".to_string());
-        //new_service.add(db.clone()).await.expect("Nein geht nicht");
 
         Ok(Self {
             services: all,
@@ -81,6 +69,10 @@ impl Cloud {
         self.services.get_network_mut()
     }
 
+    pub fn get_database_manager(&self) -> Arc<dyn DatabaseManager> {
+        self.db.clone()
+    }
+
     pub async fn enable(version: &str) {
         // download link
         let url = format!(
@@ -93,7 +85,8 @@ impl Cloud {
 
         //check the cloud config.json
         CloudConfig::check(&url).await;
-
+        Logger::init_log_level();
+        
         // check folder
         Cloud::check_folder().expect("Checking Folder failed");
 

@@ -64,7 +64,7 @@ impl ApiMain {
         {
             Ok(http_server) => http_server,
             Err(e) => {
-                log_warning!(
+                log_warning!(1,
                     "Can not bind the REST API Server at {}",
                     CloudConfig::get().get_rest_api().to_string()
                 );

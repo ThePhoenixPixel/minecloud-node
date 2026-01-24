@@ -6,15 +6,18 @@ use crate::database::db_tools::DbTools;
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
-
+use crate::utils::utils::Utils;
 
 const TABLE_PLAYER_SESSIONS: &str = "t_player_sessions";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TablePlayerSessions {
-    session_id: DbString,    // session UUID
-    player_id: i64,
-    service_id: i64,
+    id: DbInteger,              // session ID
+    created_at: DbDateTime,     // format -> YYYY-MM-DD HH:MM:SS
+    updated_at: DbDateTime,
+
+    player_uuid: DbString,
+    service_uuid: DbString,
 }
 
 impl TablePlayerSessions {
@@ -22,10 +25,35 @@ impl TablePlayerSessions {
         Self::default()
     }
 
-    pub async fn add(&self, db: Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
-        db.add_record(TABLE_PLAYER_SESSIONS, DbTools::struct_to_db_map(self)?)
+
+    pub async fn delete_from_player_uuid(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+        match TablePlayerSessions::get_by_player_uuid(&db, self.player_uuid.to_string()).await? {
+            Some(session) => {
+                session.delete(&db, session.id).await
+            }
+            None => {
+                Ok(())
+            }
+        }
+    }
+
+    pub async fn delete(&self, db: &Arc<dyn DatabaseManager>, id: DbInteger) -> Result<(), CloudError> {
+        db.delete_record(TABLE_PLAYER_SESSIONS, id).await.map_err(|e| error!(CantDeleteDBRecord, e))
+    }
+
+    pub async fn update(&self, db: &Arc<dyn DatabaseManager>, id: DbInteger) -> Result<(), CloudError> {
+        db.update_record(TABLE_PLAYER_SESSIONS, id, DbTools::struct_to_db_map(&self)?)
             .await
-            .map_err(|e| error!(CantDBAddRecord, e))?;
+            .map_err(|e| error!(CantUpdateDBRecord, e))
+    }
+
+    pub async fn add(&mut self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+        let time = Utils::get_datetime_now();
+        self.updated_at = time.clone();
+        self.created_at = time;
+        self.id = db.add_record(TABLE_PLAYER_SESSIONS, DbTools::struct_to_db_map(self)?)
+            .await
+            .map_err(|e| error!(CantCreateDBRecord, e))? as DbInteger;
         Ok(())
     }
 
@@ -51,38 +79,34 @@ impl TablePlayerSessions {
     }
 
     // Getter
-    pub fn get_session_id(&self) -> &str {
-        &self.session_id
+    pub fn get_id(&self) -> DbInteger {
+        self.id.clone()
     }
 
-    pub fn get_player_id(&self) -> i64 {
-        self.player_id
+    pub fn get_player_uuid(&self) -> DbString {
+        self.player_uuid.clone()
     }
 
-    pub fn get_service_id(&self) -> i64 {
-        self.service_id
+    pub fn get_service_uuid(&self) -> DbString {
+        self.service_uuid.clone()
     }
 
     // Setter
-    pub fn set_session_id(&mut self, session_id: DbString) {
-        self.session_id = session_id;
+    pub fn set_player_uuid(&mut self, uuid: DbString) {
+        self.player_uuid = uuid;
     }
 
-    pub fn set_player_id(&mut self, player_id: i64) {
-        self.player_id = player_id;
-    }
-
-    pub fn set_service_id(&mut self, service_id: i64) {
-        self.service_id = service_id;
+    pub fn set_service_uuid(&mut self, uuid: DbString) {
+        self.service_uuid = uuid;
     }
 
     // Query Methoden
     pub async fn get_by_session_id(
         db: Arc<dyn DatabaseManager>,
-        session_id: String,
+        id: DbInteger,
     ) -> Result<Option<Self>, CloudError> {
         let mut filter = Record::new();
-        filter.insert("session_id".to_string(), DbValue::String(session_id));
+        filter.insert("id".to_string(), DbValue::Integer(id));
 
         let records = db
             .get_records(TABLE_PLAYER_SESSIONS, Some(filter))
@@ -96,18 +120,24 @@ impl TablePlayerSessions {
         Ok(Some(Self::from_record(&records[0])?))
     }
 
-    pub async fn get_by_player_id(
-        db: Arc<dyn DatabaseManager>,
-        player_id: i64,
-    ) -> Result<Vec<Self>, CloudError> {
+    pub async fn get_by_player_uuid(
+        db: &Arc<dyn DatabaseManager>,
+        uuid: DbString,
+    ) -> Result<Option<Self>, CloudError> {
         let mut filter = Record::new();
-        filter.insert("player_id".to_string(), DbValue::Integer(player_id));
+        filter.insert("player_uuid".to_string(), DbValue::String(uuid));
 
         let records = db
             .get_records(TABLE_PLAYER_SESSIONS, Some(filter))
             .await
             .map_err(|e| error!(CantDBGetRecords, e))?;
 
-        Self::from_records(records)
+        // Nimm nur den ersten Record, wenn vorhanden
+        if let Some(first) = records.into_iter().next() {
+            Ok(Some(Self::from_record(&first)?))
+        } else {
+            Ok(None)
+        }
     }
+
 }

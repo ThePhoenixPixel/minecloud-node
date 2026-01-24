@@ -29,14 +29,14 @@ pub trait DatabaseManager: Send + Sync {
         &self,
         table: &str,
         data: Record,
-    ) -> Result<u64, Box<dyn Error + Send + Sync>>;
+    ) -> Result<DbInteger, Box<dyn Error + Send + Sync>>;
     async fn update_record(
         &self,
         table: &str,
-        id: u64,
+        id: DbInteger,
         data: Record,
     ) -> Result<(), Box<dyn Error + Send + Sync>>;
-    async fn delete_record(&self, table: &str, id: u64) -> Result<(), Box<dyn Error + Send + Sync>>;
+    async fn delete_record(&self, table: &str, id: DbInteger) -> Result<(), Box<dyn Error + Send + Sync>>;
     async fn check_table(&self, table: &str, schema: &Record) -> Result<(), Box<dyn Error + Send + Sync>>;
 }
 pub type Record = HashMap<String, DbValue>;
@@ -82,7 +82,7 @@ impl DbValue {
     pub fn to_sql_type_default(&self) -> &str {
         match self {
             DbValue::String(_) => "TEXT",
-            DbValue::Integer(_) => "INTEGER",
+            DbValue::Integer(_) => "BIGINT",
             DbValue::Float(_) => "REAL",
             DbValue::Boolean(_) => "BOOLEAN",
             DbValue::DateTime(_) => "DATETIME",

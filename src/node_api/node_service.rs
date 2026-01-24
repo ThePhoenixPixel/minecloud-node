@@ -167,8 +167,13 @@ impl NodeService {
         cloud: web::Data<Arc<RwLock<Cloud>>>,
         request: web::Json<PlayerActionRequest>,
     ) -> HttpResponse {
-        request.execute(cloud.get_ref().clone()).await;
-        HttpResponse::Ok().finish()
+        match request.execute(cloud.get_ref().clone()).await {
+            Ok(()) => HttpResponse::Ok().finish(),
+            Err(e) => {
+                log_error!("[Node-API] Cant Execute Player Action Request {:?}", e);
+                HttpResponse::InternalServerError().finish()
+            }
+        }
     }
 }
 

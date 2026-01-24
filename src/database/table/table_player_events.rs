@@ -6,17 +6,19 @@ use crate::database::db_tools::DbTools;
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
-
+use crate::utils::utils::Utils;
 
 const TABLE_PLAYER_EVENTS: &str = "t_player_events";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TablePlayerEvents {
-    player_id: i64,
-    service_id: i64,
-    session_id: DbString,
+    id: DbInteger,                // player event ID
+    created_at: DbDateTime,       // format -> YYYY-MM-DD HH:MM:SS
+
+    session_id: DbInteger,
+    player_uuid: DbString,
+    service_uuid: DbString,
     event_type: DbString,
-    created_at: DbString,
 }
 
 impl TablePlayerEvents {
@@ -24,10 +26,11 @@ impl TablePlayerEvents {
         Self::default()
     }
 
-    pub async fn add(&self, db: Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn add(&mut self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+        self.created_at = Utils::get_datetime_now();
         db.add_record(TABLE_PLAYER_EVENTS, DbTools::struct_to_db_map(self)?)
             .await
-            .map_err(|e| error!(CantDBAddRecord, e))?;
+            .map_err(|e| error!(CantCreateDBRecord, e))?;
         Ok(())
     }
 
@@ -53,48 +56,39 @@ impl TablePlayerEvents {
     }
 
     // Getter
-    pub fn get_player_id(&self) -> i64 {
-        self.player_id
+    pub fn get_player_uuid(&self) -> DbString {
+        self.player_uuid.clone()
     }
 
-    pub fn get_service_id(&self) -> i64 {
-        self.service_id
+    pub fn get_service_uuid(&self) -> DbString {
+        self.service_uuid.clone()
     }
 
-    pub fn get_session_id(&self) -> &str {
-        &self.session_id
+    pub fn get_session_id(&self) -> DbInteger {
+        self.session_id
     }
 
-    pub fn get_event_type(&self) -> &str {
-        &self.event_type
-    }
-
-    pub fn get_created_at(&self) -> &str {
-        &self.created_at
+    pub fn get_event_type(&self) -> DbString {
+        self.event_type.clone()
     }
 
     // Setter
-    pub fn set_player_id(&mut self, player_id: i64) {
-        self.player_id = player_id;
+    pub fn set_player_uuid(&mut self, uuid: DbString) {
+        self.player_uuid = uuid;
     }
 
-    pub fn set_service_id(&mut self, service_id: i64) {
-        self.service_id = service_id;
+    pub fn set_service_uuid(&mut self, uuid: DbString) {
+        self.service_uuid = uuid;
     }
 
-    pub fn set_session_id(&mut self, session_id: DbString) {
-        self.session_id = session_id;
+    pub fn set_session_id(&mut self, id: DbInteger) {
+        self.session_id = id;
     }
 
     pub fn set_event_type(&mut self, event_type: DbString) {
         self.event_type = event_type;
     }
 
-    pub fn set_created_at(&mut self, created_at: DbString) {
-        self.created_at = created_at;
-    }
-
-    // Query Methoden
     pub async fn get_by_player_id(
         db: Arc<dyn DatabaseManager>,
         player_id: i64,

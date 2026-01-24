@@ -53,7 +53,9 @@ pub enum CloudErrorKind {
     CantDBGetConnection,
     CantConnectToDatabase,
     CantExecuteSql,
-    CantDBAddRecord,
+    CantCreateDBRecord,
+    CantUpdateDBRecord,
+    CantDeleteDBRecord,
     CantGetSchema,
     CantCreateTable,
     CantDBGetRecords,
@@ -93,7 +95,7 @@ impl CloudErrorKind {
             CloudErrorKind::CantDBGetConnection => 60002,
             CloudErrorKind::CantConnectToDatabase => 60003,
             CloudErrorKind::CantExecuteSql => 60004,
-            CloudErrorKind::CantDBAddRecord => 60005,
+            CloudErrorKind::CantCreateDBRecord => 60005,
             //7x.xxx Node API
             CloudErrorKind::CantFindServiceFromUUID => 310001,
 
