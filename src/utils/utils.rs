@@ -4,6 +4,7 @@ use crate::utils::logger::Logger;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 use chrono::{DateTime, Utc};
 
 pub struct Utils;
@@ -69,6 +70,14 @@ impl Utils {
     pub fn get_date_now() -> String {
         let now: DateTime<Utc> = Utc::now();
         now.format("%Y-%m-%d").to_string()
+    }
+
+    pub async fn wait_nano(nano: u128) {
+        tokio::time::sleep(Duration::from_nanos_u128(nano)).await;
+    }
+    
+    pub async fn wait_sec(sec: u64) {
+        tokio::time::sleep(Duration::from_secs(sec)).await;
     }
     
 }
