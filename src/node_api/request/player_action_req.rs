@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -11,6 +12,7 @@ use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
 use crate::utils::player::Player;
 use crate::utils::player_action::PlayerAction;
+use crate::utils::utils::Utils;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PlayerActionRequest {
@@ -45,6 +47,7 @@ impl PlayerActionRequest {
         } else {
             self.player.update_session(db, service).await?;
         }
+        Utils::wait_nano(500).await;
         self.player.add_event(&db, &self.action, &service).await?;
         Ok(())
     }
@@ -52,6 +55,7 @@ impl PlayerActionRequest {
     async fn leave(&self, service: &Service, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
         self.player.add_event(&db, &self.action, &service).await?;
         if service.is_proxy() {
+            Utils::wait_nano(500).await;
             self.player.delete_session(&db).await?
         }
         Ok(())

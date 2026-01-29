@@ -36,6 +36,16 @@ impl TablePlayers {
         Ok(())
     }
 
+    pub async fn delete(&self, db: &Arc<dyn DatabaseManager>, id: DbInteger) -> Result<(), CloudError> {
+        db.delete_record(TABLE_PLAYERS, id).await.map_err(|e| error!(CantDeleteDBRecord, e))
+    }
+
+    pub async fn update(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+        db.update_record(TABLE_PLAYERS, self.id, DbTools::struct_to_db_map(&self)?)
+            .await
+            .map_err(|e| error!(CantUpdateDBRecord, e))
+    }
+
     pub fn get_schema() -> Result<Record, CloudError> {
         DbTools::get_schema::<Self>()
     }

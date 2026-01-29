@@ -20,6 +20,7 @@ pub struct TableServices {
     node: DbString,
     task: DbString,
     status: DbString,
+    host: DbString,
     started_at: DbDateTime,         // format -> YYYY-MM-DD HH:MM:SS
     stopped_at: DbDateTime,         // format -> YYYY-MM-DD HH:MM:SS
 }
