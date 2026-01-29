@@ -181,7 +181,7 @@ impl ServiceInfoResponse {
     pub fn new(service: &Service) -> ServiceInfoResponse {
         ServiceInfoResponse {
             name: service.get_name(),
-            address: service.get_server_address(),
+            address: service.get_server_listener(),
             default_connect: service.get_task().default_connect(),
             join_permission: service.get_task().get_join_permission().to_string(),
         }

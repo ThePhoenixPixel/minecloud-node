@@ -79,7 +79,7 @@ fn list_online(services: &Vec<Service>) -> Result<(), Error> {
         log_info!(
             "{} | {} | {}",
             service.get_name(),
-            service.get_server_address().to_string(),
+            service.get_server_listener().to_string(),
             service.get_plugin_listener().to_string()
         );
     }
@@ -92,7 +92,7 @@ fn list_all(services: &Vec<Service>) -> Result<(), Error> {
         log_info!(
             "{} | {} | {} | {} ",
             service.get_name(),
-            service.get_server_address().to_string(),
+            service.get_server_listener().to_string(),
             service.get_plugin_listener().to_string(),
             service.is_start()
         );

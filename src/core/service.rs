@@ -43,7 +43,7 @@ pub struct Service {
     status: ServiceStatus,
     start_node: String,
     start_time: DateTime<Local>,
-    server_address: Address,
+    server_listener: Address,
     plugin_listener: Address,
     cloud_listener: Address,
     task: Task,
@@ -69,7 +69,7 @@ impl Service {
             status: ServiceStatus::Stop,
             start_node: CloudConfig::get().get_name(),
             start_time: Local::now(),
-            server_address,
+            server_listener: server_address,
             plugin_listener: Address::get_local_ipv4(),
             cloud_listener: CloudConfig::get().get_node_host(),
             task: task.clone(),
@@ -77,17 +77,13 @@ impl Service {
             process: None,
         };
 
-
-
         service.save_to_file();
         Ok(service)
     }
 
     fn add_to_db(&self, db: Arc<dyn DatabaseManager>) {
-        let rec = TableServices::new();
-        //rec.set
-
-
+        let mut rec = TableServices::new();
+        rec.setup_from_service(&self);
     }
 
     pub fn clone_without_process(&self) -> Self {
@@ -97,7 +93,7 @@ impl Service {
             status: self.status.clone(),
             start_node: self.start_node.clone(),
             start_time: self.start_time.clone(),
-            server_address: self.server_address.clone(),
+            server_listener: self.server_listener.clone(),
             plugin_listener: self.plugin_listener.clone(),
             cloud_listener: self.cloud_listener.clone(),
             task: self.task.clone(),
@@ -110,7 +106,7 @@ impl Service {
         self.status = s.status.clone();
         self.start_node = s.start_node.clone();
         self.start_time = s.start_time.clone();
-        self.server_address = s.server_address.clone();
+        self.server_listener = s.server_listener.clone();
         self.plugin_listener = s.plugin_listener.clone();
         self.cloud_listener = s.cloud_listener.clone();
         self.task = s.task.clone();
@@ -187,8 +183,8 @@ impl Service {
         self.save_to_file()
     }
 
-    pub fn get_server_address(&self) -> Address {
-        self.server_address.clone()
+    pub fn get_server_listener(&self) -> Address {
+        self.server_listener.clone()
     }
 
     pub fn set_server_address(&mut self) -> Result<(), CloudError> {
@@ -222,7 +218,7 @@ impl Service {
             file_content_port.replace("%port%", address.get_port().to_string().as_str());
         fs::write(&path_port, edit_file_port).map_err(|e| error!(CantWritePort, e))?;
 
-        self.server_address = address;
+        self.server_listener = address;
 
         Ok(())
     }
@@ -363,7 +359,7 @@ impl Service {
 
     pub fn find_free_plugin_address(&self) -> Address {
         let ports = LocalServices::get_bind_ports_from_file();
-        let port = self.get_server_address().get_port() + 1;
+        let port = self.get_server_listener().get_port() + 1;
         let server_host = CloudConfig::get().get_server_host();
         Address::new(&server_host, &find_port(ports, port, &server_host))
     }
@@ -574,8 +570,8 @@ impl Service {
         let stderr_file = File::create(self.get_path_stderr_file())
             .map_err(|e| error!(CantCreateSTDERRFile, e))?;
 
-        placeholders.insert("ip", self.get_server_address().get_ip().to_string());
-        placeholders.insert("port", self.get_server_address().get_port().to_string());
+        placeholders.insert("ip", self.get_server_listener().get_ip().to_string());
+        placeholders.insert("port", self.get_server_listener().get_port().to_string());
         placeholders.insert("max_ram", software_name.get_max_ram().to_string());
         placeholders.insert("server_file", server_file_path);
 
