@@ -194,21 +194,10 @@ impl DatabaseManager for DbMysql {
 
                 record.insert(col_name, db_value);
             }
-
             records.push(record);
         }
-
-        // Falls Tabelle leer → Dummy Record mit id
-        if records.is_empty() {
-            let mut schema = Record::new();
-            schema.insert("id".to_string(), DbValue::Integer(0));
-            records.push(schema);
-        }
-
         Ok(records)
     }
-
-
 
     async fn add_record(
         &self,
