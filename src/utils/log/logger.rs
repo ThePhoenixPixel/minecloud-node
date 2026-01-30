@@ -6,8 +6,7 @@ use std::{env, fs};
 use once_cell::sync::OnceCell;
 
 use crate::config::cloud_config::CloudConfig;
-use crate::utils::log::Log;
-
+use crate::utils::log::LogType;
 
 pub static LOG_LEVEL: OnceCell<u8> = OnceCell::new();
 
@@ -24,13 +23,13 @@ impl Logger {
         *LOG_LEVEL.get().unwrap_or(&9)
     }
 
-    fn log(args: std::fmt::Arguments, log_level: Log) {
+    fn log(args: std::fmt::Arguments, log_type: LogType) {
         let msg = format!(
             "{}",
             format_args!(
                 "{} {} {} {}",
                 ColoredString::from(CloudConfig::get().get_prefix()).blue(),
-                Log::get(log_level).to_string(),
+                log_type.to_string_colored(),
                 ColoredString::from(">>").blue(),
                 args
             )
@@ -44,15 +43,15 @@ impl Logger {
     }
 
     pub fn info(args: std::fmt::Arguments) {
-        Logger::log(args, Log::Info);
+        Logger::log(args, LogType::Info);
     }
 
     pub fn warning(args: std::fmt::Arguments) {
-        Logger::log(args, Log::Warning);
+        Logger::log(args, LogType::Warning);
     }
 
     pub fn error(args: std::fmt::Arguments) {
-        Logger::log(args, Log::Error);
+        Logger::log(args, LogType::Error);
     }
 
     fn write_in_file(msg: String) {
