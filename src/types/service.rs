@@ -20,15 +20,15 @@ use crate::cloud::Cloud;
 use crate::types::services_local::LocalServices;
 use crate::types::task::Task;
 use crate::api::internal::node_service::ServiceInfoResponse;
-use crate::sys_config::cloud_config::CloudConfig;
-use crate::sys_config::software_config::SoftwareName;
+use crate::config::cloud_config::CloudConfig;
+use crate::config::software_config::SoftwareName;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
 use crate::utils::logger::Logger;
 use crate::utils::service_status::ServiceStatus;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
-use crate::database::database_manger::DatabaseManager;
+use crate::database::manager::DatabaseManager;
 use crate::database::table::table_services::TableServices;
 
 #[derive(Serialize)]
@@ -81,7 +81,7 @@ impl Service {
         Ok(service)
     }
 
-    pub async fn add_to_db(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {    
+    pub async fn add_to_db(&self, db: DatabaseManager) -> Result<(), CloudError> {    
         TableServices::new_from_service(&self).add(&db).await
     }
 

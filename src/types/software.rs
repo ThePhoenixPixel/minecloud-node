@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::sys_config::cloud_config::CloudConfig;
-use crate::sys_config::software_config::{SoftwareConfig, SoftwareName};
+use crate::config::cloud_config::CloudConfig;
+use crate::config::software_config::{SoftwareConfig, SoftwareName};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Software {

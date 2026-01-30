@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
-use crate::database::database_manger::*;
+use crate::database::manager::*;
 use crate::database::db_tools::DbTools;
+use crate::database::db_types::*;
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
@@ -24,7 +24,7 @@ impl TableServiceEvents {
         Self::default()
     }
 
-    pub async fn add(&self, db: Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn add(&self, db: DatabaseManager) -> Result<(), CloudError> {
         db.add_record(TABLE_SERVICE_EVENTS, DbTools::struct_to_db_map(self)?)
             .await
             .map_err(|e| error!(CantCreateDBRecord, e))?;
@@ -35,7 +35,7 @@ impl TableServiceEvents {
         DbTools::get_schema::<Self>()
     }
 
-    pub async fn check_table(db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn check_table(_db: &DatabaseManager) -> Result<(), CloudError> {
         Ok(())
         /*db.check_table(TABLE_SERVICE_EVENTS, &Self::get_schema()?)
             .await
@@ -73,7 +73,7 @@ impl TableServiceEvents {
 
     // Query Methoden
     pub async fn get_by_service_id(
-        db: Arc<dyn DatabaseManager>,
+        db: DatabaseManager,
         service_id: i64,
     ) -> Result<Vec<Self>, CloudError> {
         let mut filter = Record::new();
@@ -88,7 +88,7 @@ impl TableServiceEvents {
     }
 
     pub async fn get_by_event_type(
-        db: Arc<dyn DatabaseManager>,
+        db: DatabaseManager,
         event_type: String,
     ) -> Result<Vec<Self>, CloudError> {
         let mut filter = Record::new();

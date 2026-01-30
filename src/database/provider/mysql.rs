@@ -8,7 +8,8 @@ use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::database::database_manger::{DatabaseManager, DbInteger, DbValue, Record};
+use crate::database::db_types::*;
+use crate::database::provider::DatabaseProvider;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DBMysqlConfig {
@@ -120,14 +121,7 @@ impl DbMysql {
 }
 
 #[async_trait]
-impl DatabaseManager for DbMysql {
-    async fn connect(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        Ok(())
-    }
-
-    async fn disconnect(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        Ok(())
-    }
+impl DatabaseProvider for DbMysql {
 
     async fn get_record_from_tables(&self) -> Result<Vec<Record>, Box<dyn Error + Send + Sync>> {
         todo!()

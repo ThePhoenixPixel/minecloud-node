@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
-use crate::database::database_manger::*;
 use crate::database::db_tools::DbTools;
+use crate::database::db_types::*;
+use crate::database::manager::DatabaseManager;
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
@@ -26,7 +26,7 @@ impl TablePlayerSessions {
     }
 
 
-    pub async fn delete_from_player_uuid(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn delete_from_player_uuid(&self, db: &DatabaseManager) -> Result<(), CloudError> {
         match TablePlayerSessions::get_by_player_uuid(&db, self.player_uuid.to_string()).await? {
             Some(session) => {
                 session.delete(&db, session.id).await
@@ -37,17 +37,17 @@ impl TablePlayerSessions {
         }
     }
 
-    pub async fn delete(&self, db: &Arc<dyn DatabaseManager>, id: DbInteger) -> Result<(), CloudError> {
+    pub async fn delete(&self, db: &DatabaseManager, id: DbInteger) -> Result<(), CloudError> {
         db.delete_record(TABLE_PLAYER_SESSIONS, id).await.map_err(|e| error!(CantDeleteDBRecord, e))
     }
 
-    pub async fn update(&self, db: &Arc<dyn DatabaseManager>, id: DbInteger) -> Result<(), CloudError> {
+    pub async fn update(&self, db: &DatabaseManager, id: DbInteger) -> Result<(), CloudError> {
         db.update_record(TABLE_PLAYER_SESSIONS, id, DbTools::struct_to_db_map(&self)?)
             .await
             .map_err(|e| error!(CantUpdateDBRecord, e))
     }
 
-    pub async fn add(&mut self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn add(&mut self, db: &DatabaseManager) -> Result<(), CloudError> {
         let time = Utils::get_datetime_now();
         self.updated_at = time.clone();
         self.created_at = time;
@@ -61,7 +61,7 @@ impl TablePlayerSessions {
         DbTools::get_schema::<Self>()
     }
 
-    pub async fn check_table(db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn check_table(db: &DatabaseManager) -> Result<(), CloudError> {
         db.check_table(TABLE_PLAYER_SESSIONS, &Self::get_schema()?)
             .await
             .map_err(|e| error!(CantCreateTable, e))?;
@@ -102,14 +102,14 @@ impl TablePlayerSessions {
 
     // Query Methoden
     pub async fn get_by_session_id(
-        db: Arc<dyn DatabaseManager>,
+        db: DatabaseManager,
         id: DbInteger,
     ) -> Result<Option<Self>, CloudError> {
         let mut filter = Record::new();
         filter.insert("id".to_string(), DbValue::Integer(id));
 
-        let records = db
-            .get_records(TABLE_PLAYER_SESSIONS, Some(filter))
+        let records = db.
+            get_records(TABLE_PLAYER_SESSIONS, Some(filter))
             .await
             .map_err(|e| error!(CantDBGetRecords, e))?;
 
@@ -121,7 +121,7 @@ impl TablePlayerSessions {
     }
 
     pub async fn get_by_player_uuid(
-        db: &Arc<dyn DatabaseManager>,
+        db: &DatabaseManager,
         uuid: DbString,
     ) -> Result<Option<Self>, CloudError> {
         let mut filter = Record::new();

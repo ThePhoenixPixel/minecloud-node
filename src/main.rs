@@ -1,28 +1,7 @@
 use crate::cloud::Cloud;
 
 pub mod types;
-
-pub mod database {
-    pub mod database_manger;
-    pub mod db_tools;
-    pub mod db_treiber {
-        pub mod mysql;
-        pub mod sqlite;
-    }
-
-    pub mod table {
-        pub mod table_players;
-        pub mod table_player_sessions;
-        pub mod table_player_events;
-        pub mod table_service_events;
-        pub mod table_services;
-    }
-}
-
-pub mod sys_config {
-    pub mod cloud_config;
-    pub mod software_config;
-}
+pub mod config;
 
 pub mod terminal {
     pub mod cmd;
@@ -56,6 +35,7 @@ pub mod cloud;
 
 pub mod language;
 pub mod api;
+pub mod database;
 
 const VERSION: &str = "0.1";
 

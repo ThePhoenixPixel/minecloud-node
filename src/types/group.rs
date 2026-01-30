@@ -8,7 +8,7 @@ use std::{fs, io};
 use crate::types::installer::Installer;
 use crate::types::template::Template;
 use crate::error;
-use crate::sys_config::cloud_config::CloudConfig;
+use crate::config::cloud_config::CloudConfig;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
 

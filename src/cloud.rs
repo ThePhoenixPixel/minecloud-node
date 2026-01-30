@@ -10,10 +10,10 @@ use tokio::sync::RwLock;
 use crate::types::services_all::AllServices;
 use crate::types::services_local::LocalServices;
 use crate::types::services_network::NetworkServices;
-use crate::database::database_manger::{Database, DatabaseManager};
+use crate::database::manager::DatabaseManager;
 use crate::api::internal::node_main::NodeServer;
-use crate::sys_config::cloud_config::CloudConfig;
-use crate::sys_config::software_config::SoftwareConfig;
+use crate::config::cloud_config::CloudConfig;
+use crate::config::software_config::SoftwareConfig;
 use crate::terminal::cmd::Cmd;
 use crate::utils::logger::Logger;
 use crate::{error, log_error, log_info, log_warning};
@@ -26,13 +26,13 @@ use crate::utils::service_status::ServiceStatus;
 
 pub struct Cloud {
     services: AllServices,
-    db: Arc<dyn DatabaseManager>,
+    db: DatabaseManager,
 }
 
 impl Cloud {
     pub async fn new() -> Result<Self, CloudError> {
-        let db = Database::new(&CloudConfig::get().get_db_config()).map_err(|e| error!(CantDBCreateConnection, e))?;
-        Database::check_tables(db.clone()).await?;
+        let db = DatabaseManager::new(&CloudConfig::get().get_db_config()).map_err(|e| error!(CantDBCreateConnection, e))?;
+        db.check_tables().await?;
         log_info!("Database Check successfully");
 
         let local = LocalServices::new(db.clone());
@@ -69,7 +69,7 @@ impl Cloud {
         self.services.get_network_mut()
     }
 
-    pub fn get_database_manager(&self) -> Arc<dyn DatabaseManager> {
+    pub fn get_database_manager(&self) -> DatabaseManager {
         self.db.clone()
     }
 

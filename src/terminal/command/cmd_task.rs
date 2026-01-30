@@ -7,7 +7,7 @@ use crate::types::installer::Installer;
 use crate::types::software::Software;
 use crate::types::task::Task;
 use crate::types::template::Template;
-use crate::sys_config::software_config::SoftwareConfig;
+use crate::config::software_config::SoftwareConfig;
 use crate::terminal::command_manager::CommandManager;
 use crate::utils::logger::Logger;
 use crate::{log_info, log_warning};

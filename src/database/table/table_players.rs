@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
-use crate::database::database_manger::*;
+use crate::database::manager::*;
 use crate::database::db_tools::DbTools;
+use crate::database::db_types::*;
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
@@ -26,7 +26,7 @@ impl TablePlayers {
         Self::default()
     }
 
-    pub async fn add(&mut self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn add(&mut self, db: &DatabaseManager) -> Result<(), CloudError> {
         if TablePlayers::get_by_uuid(&db, self.uuid.clone()).await?.is_none() {
             self.created_at = Utils::get_datetime_now();
             self.id = db.add_record(TABLE_PLAYERS, DbTools::struct_to_db_map(self)?)
@@ -36,11 +36,11 @@ impl TablePlayers {
         Ok(())
     }
 
-    pub async fn delete(&self, db: &Arc<dyn DatabaseManager>, id: DbInteger) -> Result<(), CloudError> {
+    pub async fn delete(&self, db: &DatabaseManager, id: DbInteger) -> Result<(), CloudError> {
         db.delete_record(TABLE_PLAYERS, id).await.map_err(|e| error!(CantDeleteDBRecord, e))
     }
 
-    pub async fn update(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn update(&self, db: &DatabaseManager) -> Result<(), CloudError> {
         db.update_record(TABLE_PLAYERS, self.id, DbTools::struct_to_db_map(&self)?)
             .await
             .map_err(|e| error!(CantUpdateDBRecord, e))
@@ -50,7 +50,7 @@ impl TablePlayers {
         DbTools::get_schema::<Self>()
     }
 
-    pub async fn check_table(db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn check_table(db: &DatabaseManager) -> Result<(), CloudError> {
         db.check_table(TABLE_PLAYERS, &Self::get_schema()?)
             .await
             .map_err(|e| error!(CantCreateTable, e))?;
@@ -103,7 +103,7 @@ impl TablePlayers {
 
     // Query Methoden
     pub async fn get_by_uuid(
-        db: &Arc<dyn DatabaseManager>,
+        db: &DatabaseManager,
         uuid: DbString,
     ) -> Result<Option<Self>, CloudError> {
         let mut filter = Record::new();
@@ -122,7 +122,7 @@ impl TablePlayers {
     }
 
     pub async fn get_by_name(
-        db: &Arc<dyn DatabaseManager>,
+        db: &DatabaseManager,
         name: DbString,
     ) -> Result<Option<Self>, CloudError> {
         let mut filter = Record::new();

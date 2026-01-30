@@ -2,13 +2,12 @@ use std::collections::HashMap;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::database::database_manger::{DbValue, Record};
+use crate::database::db_types::{DbValue, Record};
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
 
 pub struct DbTools;
-
 
 impl DbTools {
     pub fn record_to_json(record: &Record) -> Value {

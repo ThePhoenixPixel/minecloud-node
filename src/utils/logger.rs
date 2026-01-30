@@ -5,7 +5,7 @@ use std::io::Write;
 use std::{env, fs};
 use once_cell::sync::OnceCell;
 
-use crate::sys_config::cloud_config::CloudConfig;
+use crate::config::cloud_config::CloudConfig;
 use crate::utils::log::Log;
 
 

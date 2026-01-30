@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
-use crate::database::database_manger::*;
+use crate::database::manager::*;
 use crate::database::db_tools::DbTools;
+use crate::database::db_types::*;
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
@@ -26,7 +26,7 @@ impl TablePlayerEvents {
         Self::default()
     }
 
-    pub async fn add(&mut self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn add(&mut self, db: &DatabaseManager) -> Result<(), CloudError> {
         self.created_at = Utils::get_datetime_now();
         db.add_record(TABLE_PLAYER_EVENTS, DbTools::struct_to_db_map(self)?)
             .await
@@ -38,7 +38,7 @@ impl TablePlayerEvents {
         DbTools::get_schema::<Self>()
     }
 
-    pub async fn check_table(db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn check_table(db: &DatabaseManager) -> Result<(), CloudError> {
         db.check_table(TABLE_PLAYER_EVENTS, &Self::get_schema()?)
             .await
             .map_err(|e| error!(CantCreateTable, e))?;
@@ -90,7 +90,7 @@ impl TablePlayerEvents {
     }
 
     pub async fn get_by_player_id(
-        db: Arc<dyn DatabaseManager>,
+        db: &DatabaseManager,
         player_id: i64,
     ) -> Result<Vec<Self>, CloudError> {
         let mut filter = Record::new();
@@ -105,7 +105,7 @@ impl TablePlayerEvents {
     }
 
     pub async fn get_by_session_id(
-        db: Arc<dyn DatabaseManager>,
+        db: &DatabaseManager,
         session_id: String,
     ) -> Result<Vec<Self>, CloudError> {
         let mut filter = Record::new();

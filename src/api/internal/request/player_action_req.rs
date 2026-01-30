@@ -1,12 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::cloud::Cloud;
 use crate::types::service::Service;
-use crate::database::database_manger::DatabaseManager;
+use crate::database::manager::DatabaseManager;
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
@@ -40,7 +39,7 @@ impl PlayerActionRequest {
         Ok(())
     }
 
-    async fn join(&self, service: &Service, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    async fn join(&self, service: &Service, db: &DatabaseManager) -> Result<(), CloudError> {
         if service.is_proxy() {
             self.player.add_to_db(&db).await?;
             self.player.add_session(&db, service).await?;
@@ -52,7 +51,7 @@ impl PlayerActionRequest {
         Ok(())
     }
 
-    async fn leave(&self, service: &Service, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    async fn leave(&self, service: &Service, db: &DatabaseManager) -> Result<(), CloudError> {
         self.player.add_event(&db, &self.action, &service).await?;
         if service.is_proxy() {
             Utils::wait_nano(500).await;

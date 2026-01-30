@@ -1,21 +1,20 @@
 use bx::path::Directory;
 use std::path::PathBuf;
-use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::types::service::Service;
 use crate::types::task::Task;
-use crate::database::database_manger::DatabaseManager;
-use crate::sys_config::cloud_config::CloudConfig;
+use crate::database::manager::DatabaseManager;
+use crate::config::cloud_config::CloudConfig;
 use crate::utils::error::CloudError;
 
 pub struct LocalServices {
     services: Vec<Service>,
-    db: Arc<dyn DatabaseManager>
+    db: DatabaseManager
 }
 
 impl LocalServices {
-    pub fn new(db: Arc<dyn DatabaseManager>) -> LocalServices {
+    pub fn new(db: DatabaseManager) -> LocalServices {
         LocalServices {
             services: LocalServices::get_all_from_file(),
             db,

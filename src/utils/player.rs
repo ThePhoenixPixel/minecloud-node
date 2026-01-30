@@ -1,10 +1,9 @@
 use crate::utils::logger::Logger;
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::types::service::Service;
-use crate::database::database_manger::DatabaseManager;
+use crate::database::manager::DatabaseManager;
 use crate::database::table::table_player_sessions::TablePlayerSessions;
 use crate::database::table::table_players::TablePlayers;
 use crate::{log_info, log_warning};
@@ -31,7 +30,7 @@ impl Player {
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
-    pub async fn add_to_db(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn add_to_db(&self, db: &DatabaseManager) -> Result<(), CloudError> {
         let mut player = TablePlayers::new();
         player.set_name(&self.name);
         player.set_uuid(&self.get_uuid_str());
@@ -40,7 +39,7 @@ impl Player {
         Ok(())
     }
 
-    pub async fn add_session(&self, db: &Arc<dyn DatabaseManager>, _service: &Service) -> Result<(), CloudError> {
+    pub async fn add_session(&self, db: &DatabaseManager, _service: &Service) -> Result<(), CloudError> {
         let mut session = TablePlayerSessions::new();
         session.set_player_uuid(self.get_uuid_str());
         session.add(&db).await?;
@@ -49,7 +48,7 @@ impl Player {
         Ok(())
     }
 
-    pub async fn add_event(&self, db: &Arc<dyn DatabaseManager>, event_type: &PlayerAction, service: &Service) -> Result<(), CloudError> {
+    pub async fn add_event(&self, db: &DatabaseManager, event_type: &PlayerAction, service: &Service) -> Result<(), CloudError> {
         let mut event = TablePlayerEvents::new();
         event.set_session_id(match TablePlayerSessions::get_by_player_uuid(&db, self.get_uuid_str()).await? {
             Some(s) => s.get_id(),
@@ -68,7 +67,7 @@ impl Player {
         Ok(())
     }
 
-    pub async fn update_last_seen(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn update_last_seen(&self, db: &DatabaseManager) -> Result<(), CloudError> {
         let mut player = match TablePlayers::get_by_uuid(&db, self.get_uuid_str()).await? {
             Some(player) => player,
             None => {
@@ -83,7 +82,7 @@ impl Player {
         Ok(())
     }
 
-    pub async fn update_last_login(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn update_last_login(&self, db: &DatabaseManager) -> Result<(), CloudError> {
         let mut player = match TablePlayers::get_by_uuid(&db, self.get_uuid_str()).await? {
             Some(player) => player,
             None => {
@@ -98,7 +97,7 @@ impl Player {
         Ok(())
     }
 
-    pub async fn update_session(&self, db: &Arc<dyn DatabaseManager>, service: &Service) -> Result<(), CloudError> {
+    pub async fn update_session(&self, db: &DatabaseManager, service: &Service) -> Result<(), CloudError> {
         match TablePlayerSessions::get_by_player_uuid(&db, self.get_uuid_str()).await? {
             Some(mut session) => {
                 // find a Session -> update
@@ -113,7 +112,7 @@ impl Player {
         Ok(())
     }
 
-    pub async fn delete_session(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn delete_session(&self, db: &DatabaseManager) -> Result<(), CloudError> {
         match TablePlayerSessions::get_by_player_uuid(&db, self.get_uuid_str()).await? {
             Some(session) => {
                 // find a Session -> delete

@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+
 use crate::types::service::Service;
-use crate::database::database_manger::{DatabaseManager, DbDateTime, DbInteger, DbString, DbValue, Record};
+use crate::database::manager::DatabaseManager;
 use crate::database::db_tools::DbTools;
+use crate::database::db_types::*;
 use crate::error;
 use crate::utils::error::CloudError;
 use crate::utils::error_kind::CloudErrorKind::*;
@@ -44,14 +45,14 @@ impl TableServices {
         db_service
     }
 
-    pub async fn add(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn add(&self, db: &DatabaseManager) -> Result<(), CloudError> {
         db.add_record(TABLE_NAME, DbTools::struct_to_db_map(self)?)
             .await
             .map_err(|e| error!(CantCreateDBRecord, e))?;
         Ok(())
     }
 
-    pub async fn update(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn update(&self, db: &DatabaseManager) -> Result<(), CloudError> {
         db.update_record(TABLE_NAME, self.id, DbTools::struct_to_db_map(&self)?)
             .await
             .map_err(|e| error!(CantUpdateDBRecord, e))
@@ -61,7 +62,7 @@ impl TableServices {
         DbTools::get_schema::<Self>()
     }
 
-    pub async fn check_table(db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub async fn check_table(db: &DatabaseManager) -> Result<(), CloudError> {
         db.check_table(TABLE_NAME, &Self::get_schema()?)
             .await
             .map_err(|e| error!(CantCreateTable, e))?;
@@ -150,7 +151,7 @@ impl TableServices {
     }
 
     pub async fn get_last_service_from_task(
-        db: &Arc<dyn DatabaseManager>,
+        db: &DatabaseManager,
         task_name: DbString,
     ) -> Result<Option<Self>, CloudError> {
         let mut filter: Record = Record::new();
@@ -183,7 +184,7 @@ impl TableServices {
     }
 
     pub async fn get_from_uuid(
-        db: &Arc<dyn DatabaseManager>,
+        db: &DatabaseManager,
         uuid: DbString,
     ) -> Result<Option<TableServices>, CloudError> {
         let mut filter: Record = Record::new();
