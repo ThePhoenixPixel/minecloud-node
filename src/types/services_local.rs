@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::core::service::Service;
-use crate::core::task::Task;
+use crate::types::service::Service;
+use crate::types::task::Task;
 use crate::database::database_manger::DatabaseManager;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::error::CloudError;

@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::cloud::Cloud;
-use crate::core::service::Service;
+use crate::types::service::Service;
 use crate::api::internal::request::player_action_req::PlayerActionRequest;
 use crate::utils::logger::Logger;
 use crate::utils::service_status::ServiceStatus;

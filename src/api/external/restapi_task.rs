@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, web};
 use serde::Deserialize;
 
-use crate::core::task::Task;
+use crate::types::task::Task;
 use crate::utils::logger::Logger;
 use crate::utils::utils::Utils;
 use crate::{log_info, log_warning};

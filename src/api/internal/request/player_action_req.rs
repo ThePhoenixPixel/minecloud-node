@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::cloud::Cloud;
-use crate::core::service::Service;
+use crate::types::service::Service;
 use crate::database::database_manger::DatabaseManager;
 use crate::error;
 use crate::utils::error::CloudError;

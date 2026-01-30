@@ -7,9 +7,9 @@ use std::time::Duration;
 use std::{env, fs};
 use tokio::sync::RwLock;
 
-use crate::core::services_all::AllServices;
-use crate::core::services_local::LocalServices;
-use crate::core::services_network::NetworkServices;
+use crate::types::services_all::AllServices;
+use crate::types::services_local::LocalServices;
+use crate::types::services_network::NetworkServices;
 use crate::database::database_manger::{Database, DatabaseManager};
 use crate::api::internal::node_main::NodeServer;
 use crate::sys_config::cloud_config::CloudConfig;

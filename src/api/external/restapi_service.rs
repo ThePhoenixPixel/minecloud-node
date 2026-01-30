@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::cloud::Cloud;
-use crate::core::task::Task;
+use crate::types::task::Task;
 
 pub struct ApiService;
 

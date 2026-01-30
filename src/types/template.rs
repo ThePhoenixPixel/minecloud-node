@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-use crate::core::task::Task;
+use crate::types::task::Task;
 use crate::sys_config::cloud_config::CloudConfig;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

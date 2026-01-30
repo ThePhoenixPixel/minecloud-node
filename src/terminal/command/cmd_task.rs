@@ -3,10 +3,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
-use crate::core::installer::Installer;
-use crate::core::software::Software;
-use crate::core::task::Task;
-use crate::core::template::Template;
+use crate::types::installer::Installer;
+use crate::types::software::Software;
+use crate::types::task::Task;
+use crate::types::template::Template;
 use crate::sys_config::software_config::SoftwareConfig;
 use crate::terminal::command_manager::CommandManager;
 use crate::utils::logger::Logger;

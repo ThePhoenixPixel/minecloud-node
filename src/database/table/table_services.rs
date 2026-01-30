@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::core::service::Service;
+use crate::types::service::Service;
 use crate::database::database_manger::{DatabaseManager, DbDateTime, DbInteger, DbString, DbValue, Record};
 use crate::database::db_tools::DbTools;
 use crate::error;

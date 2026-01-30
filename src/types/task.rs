@@ -7,10 +7,10 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::{fs, io};
 
-use crate::core::group::Group;
-use crate::core::installer::Installer;
-use crate::core::software::Software;
-use crate::core::template::Template;
+use crate::types::group::Group;
+use crate::types::installer::Installer;
+use crate::types::software::Software;
+use crate::types::template::Template;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareConfig;
 use crate::utils::error::CloudError;

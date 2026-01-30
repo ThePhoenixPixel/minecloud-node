@@ -3,7 +3,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::core::service::Service;
+use crate::types::service::Service;
 use crate::database::database_manger::DatabaseManager;
 use crate::database::table::table_player_sessions::TablePlayerSessions;
 use crate::database::table::table_players::TablePlayers;

@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::{fs, io};
 
-use crate::core::installer::Installer;
-use crate::core::template::Template;
+use crate::types::installer::Installer;
+use crate::types::template::Template;
 use crate::error;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::error::CloudError;

@@ -17,8 +17,8 @@ use tokio::time::timeout;
 use uuid::Uuid;
 
 use crate::cloud::Cloud;
-use crate::core::services_local::LocalServices;
-use crate::core::task::Task;
+use crate::types::services_local::LocalServices;
+use crate::types::task::Task;
 use crate::api::internal::node_service::ServiceInfoResponse;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareName;

@@ -1,4 +1,4 @@
-use crate::core::service::Service;
+use crate::types::service::Service;
 
 #[derive(Clone)]
 pub struct NetworkServices {
