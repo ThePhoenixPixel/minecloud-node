@@ -6,8 +6,8 @@ use bx::network::address::Address;
 use bx::network::url::Url;
 
 use crate::cloud::Cloud;
-use crate::database::db_treiber::mysql::DBMysqlConfig;
-use crate::database::db_treiber::sqlite::DBSqliteConfig;
+use crate::database::provider::mysql::DBMysqlConfig;
+use crate::database::provider::sqlite::DBSqliteConfig;
 use crate::utils::logger::Logger;
 use crate::utils::utils::Utils;
 use crate::{log_error, log_info};

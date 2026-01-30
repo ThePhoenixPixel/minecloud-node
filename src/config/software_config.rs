@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::sys_config::cloud_config::CloudConfig;
+use crate::config::cloud_config::CloudConfig;
 use crate::utils::logger::Logger;
 use crate::utils::server_type::ServerType;
 use crate::{log_error, log_info, log_warning};
