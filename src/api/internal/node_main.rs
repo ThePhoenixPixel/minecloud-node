@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
-use crate::node_api::node_service::NodeService;
+use crate::api::internal::node_service::NodeService;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::logger::Logger;
 use crate::{log_error, log_info, log_warning};

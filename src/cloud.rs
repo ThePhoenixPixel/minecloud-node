@@ -11,7 +11,7 @@ use crate::core::services_all::AllServices;
 use crate::core::services_local::LocalServices;
 use crate::core::services_network::NetworkServices;
 use crate::database::database_manger::{Database, DatabaseManager};
-use crate::node_api::node_main::NodeServer;
+use crate::api::internal::node_main::NodeServer;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareConfig;
 use crate::terminal::cmd::Cmd;
@@ -20,7 +20,7 @@ use crate::{error, log_error, log_info, log_warning};
 use crate::utils::error::CloudError;
 
 #[cfg(feature = "rest-api")]
-use crate::rest_api::restapi_main::ApiMain;
+use crate::api::external::restapi_main::ApiMain;
 use crate::utils::error_kind::CloudErrorKind::CantDBCreateConnection;
 use crate::utils::service_status::ServiceStatus;
 

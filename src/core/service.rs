@@ -19,7 +19,7 @@ use uuid::Uuid;
 use crate::cloud::Cloud;
 use crate::core::services_local::LocalServices;
 use crate::core::task::Task;
-use crate::node_api::node_service::ServiceInfoResponse;
+use crate::api::internal::node_service::ServiceInfoResponse;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::sys_config::software_config::SoftwareName;
 use crate::utils::error::CloudError;

@@ -1,12 +1,5 @@
 use crate::cloud::Cloud;
 
-#[cfg(feature = "rest-api")]
-pub mod rest_api {
-    pub mod restapi_main;
-    pub mod restapi_service;
-    pub mod restapi_task;
-}
-
 pub mod core {
 
     pub mod group;
@@ -57,14 +50,6 @@ pub mod terminal {
     }
 }
 
-pub mod node_api {
-    pub mod node_main;
-    pub mod node_service;
-    pub mod request {
-        pub mod player_action_req;
-    }
-}
-
 pub mod utils {
     pub mod error;
     pub mod error_kind;
@@ -83,6 +68,7 @@ pub mod utils {
 pub mod cloud;
 
 pub mod language;
+pub mod api;
 
 const VERSION: &str = "0.1";
 

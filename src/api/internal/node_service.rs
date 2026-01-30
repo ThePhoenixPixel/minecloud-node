@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::cloud::Cloud;
 use crate::core::service::Service;
-use crate::node_api::request::player_action_req::PlayerActionRequest;
+use crate::api::internal::request::player_action_req::PlayerActionRequest;
 use crate::utils::logger::Logger;
 use crate::utils::service_status::ServiceStatus;
 use crate::{log_error, log_info, log_warning};

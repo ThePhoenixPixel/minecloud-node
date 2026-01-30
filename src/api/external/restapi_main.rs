@@ -4,8 +4,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
-use crate::rest_api::restapi_service::ApiService;
-use crate::rest_api::restapi_task::ApiTask;
+use crate::api::external::restapi_service::ApiService;
+use crate::api::external::restapi_task::ApiTask;
 use crate::sys_config::cloud_config::CloudConfig;
 use crate::utils::logger::Logger;
 use crate::{log_error, log_info, log_warning};
