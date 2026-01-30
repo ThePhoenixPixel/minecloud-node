@@ -1,5 +1,5 @@
 use bx::path::Directory;
-use rand::Rng;
+use rand::RngExt;
 use rand::seq::IndexedRandom;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
