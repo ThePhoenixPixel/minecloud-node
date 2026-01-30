@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-
+use crate::core::service::Service;
 use crate::database::database_manger::{DatabaseManager, DbDateTime, DbInteger, DbString, DbValue, Record};
 use crate::database::db_tools::DbTools;
 use crate::error;
@@ -16,7 +16,7 @@ pub struct TableServices {
 
     uuid: DbString,
     name: DbString,
-    r#type: DbString,
+    typ: DbString,
     node: DbString,
     task: DbString,
     status: DbString,
@@ -30,11 +30,31 @@ impl TableServices {
         Self::default()
     }
 
-    pub async fn add(&self, db: Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+    pub fn new_from_service(service: &Service) -> Self {
+        let mut db_service= Self::new();
+        db_service.uuid           = service.get_id().to_string();
+        db_service.name           = service.get_name();
+        db_service.typ            = service.get_task().get_software().get_software_type();
+        db_service.task           = service.get_task().get_name();
+        db_service.node           = service.get_start_node();
+        db_service.status         = service.get_status().to_string();
+        db_service.host           = service.get_server_listener().to_string();
+        db_service.started_at     = DbString::new();
+        db_service.stopped_at     = DbString::new();
+        db_service
+    }
+
+    pub async fn add(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
         db.add_record(TABLE_NAME, DbTools::struct_to_db_map(self)?)
             .await
             .map_err(|e| error!(CantCreateDBRecord, e))?;
         Ok(())
+    }
+
+    pub async fn update(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
+        db.update_record(TABLE_NAME, self.id, DbTools::struct_to_db_map(&self)?)
+            .await
+            .map_err(|e| error!(CantUpdateDBRecord, e))
     }
 
     pub fn get_schema() -> Result<Record, CloudError> {
@@ -63,16 +83,6 @@ impl TableServices {
         Ok(result)
     }
 
-    /*pub fn setup_from_service(&mut self, service: &Service) {
-        self.service_uuid = service.get_id().to_string();
-        self.service_name = service.get_name();
-        self.service_type = service.get_task().get_software().get_software_type();
-        self.task         = service.get_task().get_name();
-        self.node         = service.get_start_node();
-        //self.started_at   = service.getst
-        
-    }*/
-
     pub fn get_uuid(&self) -> DbString {
         self.uuid.clone()
     }
@@ -81,8 +91,8 @@ impl TableServices {
         self.name.clone()
     }
 
-    pub fn get_type(&self) -> DbString {
-        self.r#type.clone()
+    pub fn get_typ(&self) -> DbString {
+        self.typ.clone()
     }
 
     pub fn get_node(&self) -> DbString {
@@ -115,8 +125,8 @@ impl TableServices {
         self.name = name;
     }
 
-    pub fn set_type(&mut self, r#type: DbString) {
-        self.r#type = r#type;
+    pub fn set_typ(&mut self, r#type: DbString) {
+        self.typ = r#type;
     }
 
     pub fn set_node(&mut self, node: DbString) {
@@ -140,8 +150,8 @@ impl TableServices {
     }
 
     pub async fn get_last_service_from_task(
-        db: Arc<dyn DatabaseManager>,
-        task_name: String,
+        db: &Arc<dyn DatabaseManager>,
+        task_name: DbString,
     ) -> Result<Option<Self>, CloudError> {
         let mut filter: Record = Record::new();
         filter.insert("task".to_string(), DbValue::String(task_name.clone()));
@@ -171,6 +181,30 @@ impl TableServices {
 
         Ok(highest_service)
     }
+
+    pub async fn get_from_uuid(
+        db: &Arc<dyn DatabaseManager>,
+        uuid: DbString,
+    ) -> Result<Option<TableServices>, CloudError> {
+        let mut filter: Record = Record::new();
+        filter.insert("uuid".to_string(), DbValue::String(uuid));
+
+        let records = db
+            .get_records(TABLE_NAME, Some(filter))
+            .await
+            .map_err(|e| error!(CantDBGetRecords, e))?;
+
+        if records.is_empty() {
+            return Ok(None);
+        }
+
+        for service in Self::from_records(records)? {
+            return Ok(Some(service));
+        }
+
+        Ok(None)
+    }
+
 }
 
 fn extract_number_from_service_name(service_name: &str, task_name: &str) -> Option<u64> {

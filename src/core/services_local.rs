@@ -11,14 +11,14 @@ use crate::utils::error::CloudError;
 
 pub struct LocalServices {
     services: Vec<Service>,
-    //db: Arc<dyn DatabaseManager>
+    db: Arc<dyn DatabaseManager>
 }
 
 impl LocalServices {
     pub fn new(db: Arc<dyn DatabaseManager>) -> LocalServices {
         LocalServices {
             services: LocalServices::get_all_from_file(),
-            //db,
+            db,
         }
     }
 
@@ -29,7 +29,7 @@ impl LocalServices {
                 .iter()
                 .map(|s| s.clone_without_process())
                 .collect(),
-            //db: self.db.clone(),
+            db: self.db.clone(),
         }
     }
 
@@ -197,8 +197,8 @@ impl LocalServices {
         let mut services: Vec<Service> = LocalServices::get_start_service_from_file();
         services.append(&mut LocalServices::get_prepare_service_from_file());
         for service in services {
-            if service.get_server_address().get_ip() == CloudConfig::get().get_server_host() {
-                ports.push(service.get_server_address().get_port());
+            if service.get_server_listener().get_ip() == CloudConfig::get().get_server_host() {
+                ports.push(service.get_server_listener().get_port());
             }
             if service.get_plugin_listener().get_ip() == CloudConfig::get().get_server_host() {
                 ports.push(service.get_plugin_listener().get_port());

@@ -81,9 +81,8 @@ impl Service {
         Ok(service)
     }
 
-    fn add_to_db(&self, db: Arc<dyn DatabaseManager>) {
-        let mut rec = TableServices::new();
-        rec.setup_from_service(&self);
+    pub async fn add_to_db(&self, db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {    
+        TableServices::new_from_service(&self).add(&db).await
     }
 
     pub fn clone_without_process(&self) -> Self {

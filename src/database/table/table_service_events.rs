@@ -36,10 +36,11 @@ impl TableServiceEvents {
     }
 
     pub async fn check_table(db: &Arc<dyn DatabaseManager>) -> Result<(), CloudError> {
-        db.check_table(TABLE_SERVICE_EVENTS, &Self::get_schema()?)
+        Ok(())
+        /*db.check_table(TABLE_SERVICE_EVENTS, &Self::get_schema()?)
             .await
             .map_err(|e| error!(CantCreateTable, e))?;
-        Ok(())
+        Ok(())*/
     }
 
     pub fn from_record(record: &Record) -> Result<Self, CloudError> {
