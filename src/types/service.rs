@@ -3,42 +3,26 @@ use bx::network::url::{Url, UrlSchema};
 use bx::path::Directory;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use std::collections::HashMap;
 use std::fs::{File, read_to_string};
-use std::io::{Error, ErrorKind, Write};
+use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
-use std::sync::Arc;
-use std::time::Duration;
-use std::{fs, io};
-use tokio::sync::RwLock;
-use tokio::time::timeout;
+use std::fs;
 use uuid::Uuid;
 
-use crate::cloud::Cloud;
-use crate::types::services_local::LocalServices;
 use crate::types::task::Task;
-use crate::api::internal::node_service::ServiceInfoResponse;
 use crate::config::cloud_config::CloudConfig;
 use crate::config::software_config::SoftwareName;
-use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind::*;
-use crate::utils::logger::Logger;
-use crate::utils::service_status::ServiceStatus;
-use crate::utils::utils::Utils;
+use crate::utils::error::cloud_error::CloudError;
+use crate::utils::error::error_kind::CloudErrorKind::*;
 use crate::{error, log_error, log_info, log_warning};
 use crate::database::manager::DatabaseManager;
 use crate::database::table::table_services::TableServices;
+use crate::manager::service_manager::ServiceManager;
+use crate::types::{EntityId, ServiceStatus};
 
-#[derive(Serialize)]
-struct RegisterServerData {
-    register_server: ServiceInfoResponse,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Service {
-    id: Uuid,
+    id: EntityId,
     name: String,
     status: ServiceStatus,
     start_node: String,
@@ -47,9 +31,6 @@ pub struct Service {
     plugin_listener: Address,
     cloud_listener: Address,
     task: Task,
-
-    #[serde(skip)]
-    process: Option<Child>,
 }
 
 impl Service {
@@ -66,38 +47,21 @@ impl Service {
         let service = Service {
             id: Uuid::new_v4(),
             name: Directory::get_last_folder_name(&service_path),
-            status: ServiceStatus::Stop,
+            status: ServiceStatus::Stopped,
             start_node: CloudConfig::get().get_name(),
             start_time: Local::now(),
             server_listener: server_address,
             plugin_listener: Address::get_local_ipv4(),
             cloud_listener: CloudConfig::get().get_node_host(),
             task: task.clone(),
-
-            process: None,
         };
 
         service.save_to_file();
         Ok(service)
     }
 
-    pub async fn add_to_db(&self, db: DatabaseManager) -> Result<(), CloudError> {    
+    pub async fn add_to_db(&self, db: DatabaseManager) -> Result<(), CloudError> {
         TableServices::new_from_service(&self).add(&db).await
-    }
-
-    pub fn clone_without_process(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            name: self.name.clone(),
-            status: self.status.clone(),
-            start_node: self.start_node.clone(),
-            start_time: self.start_time.clone(),
-            server_listener: self.server_listener.clone(),
-            plugin_listener: self.plugin_listener.clone(),
-            cloud_listener: self.cloud_listener.clone(),
-            task: self.task.clone(),
-            process: None,
-        }
     }
 
     pub fn update(&mut self, s: &Service) {
@@ -186,8 +150,8 @@ impl Service {
         self.server_listener.clone()
     }
 
-    pub fn set_server_address(&mut self) -> Result<(), CloudError> {
-        let address = self.find_free_server_address();
+    pub fn set_server_address(&mut self, manager: &ServiceManager) -> Result<(), CloudError> {
+        let address = self.find_free_server_address(&manager);
 
         let software_name = self.get_software_name();
         let path = self.get_path();
@@ -222,88 +186,6 @@ impl Service {
         Ok(())
     }
 
-    pub fn kill(&mut self) -> io::Result<()> {
-        if let Some(mut child) = self.process.take() {
-            child.kill()?;
-            child.wait()?;
-            self.set_status(ServiceStatus::Stop);
-        }
-        Ok(())
-    }
-
-    pub fn extract_process(self) -> Option<Child> {
-        self.process
-    }
-
-    pub fn get_process(&self) -> Option<&Child> {
-        self.process.as_ref()
-    }
-
-    pub fn get_process_mut(&mut self) -> Option<&mut Child> {
-        self.process.as_mut()
-    }
-
-    pub fn set_process(&mut self, process: Option<Child>) {
-        self.process = process;
-    }
-
-    pub async fn shutdown(&mut self, msg: &str) {
-        if self.is_stop() {
-            return;
-        }
-
-        if self.is_local() {
-            let mut should_kill = true;
-
-            // Stop-Befehl senden
-            match self.send_stop(msg).await {
-                Ok(_) => {
-                    // Todo: Aus task lesen als wert 'time shutdown before Kill'
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-
-                    if let Some(child) = self.get_process_mut() {
-                        match child.try_wait() {
-                            Ok(Some(_status)) => should_kill = false, // Prozess ist schon beendet
-                            Ok(None) => should_kill = true,           // läuft noch
-                            Err(_) => should_kill = true,
-                        }
-                    } else {
-                        should_kill = false;
-                    }
-                }
-                Err(e) => {
-                    log_error!(
-                        "Stop command nicht senden an {} \n Error: {}",
-                        self.get_name(),
-                        e.to_string()
-                    );
-
-                    if self.get_process().is_none() {
-                        self.set_status(ServiceStatus::Stop);
-                        self.delete_files();
-                        return;
-                    }
-                }
-            }
-
-            if should_kill {
-                match self.kill() {
-                    Ok(..) => log_info!("Service: {} wurde gekillt", self.get_name()),
-                    Err(..) => log_warning!("Service konnte nicht gekillt werden"),
-                }
-            }
-
-            if self.is_delete() {
-                self.delete_files();
-            } else {
-                self.set_status(ServiceStatus::Stop);
-                self.save_to_file();
-            }
-        } else {
-            // TODO: Remote/Cluster shutdown
-        }
-    }
-
     pub fn is_delete(&self) -> bool {
         !self.get_task().is_static_service() && self.get_task().is_delete_on_stop()
     }
@@ -316,50 +198,17 @@ impl Service {
         }
     }
 
-    async fn send_stop(&mut self, msg: &str) -> Result<(), Error> {
-        let body = json!({ "msg": msg });
-        let url = self.get_service_url().join("shutdown");
-
-        // Spawn einen "Thread" in Tokio
-        let fut = tokio::spawn(async move { url.post(&body, Duration::from_secs(3)).await });
-
-        // Warte maximal 3 Sekunden
-        match timeout(Duration::from_secs(3), fut).await {
-            Ok(join_result) => {
-                // Prüfen, ob der Thread erfolgreich lief
-                match join_result {
-                    Ok(Ok(_)) => {
-                        log_info!("Service erfolgreich heruntergefahren {}", self.get_name());
-                        self.set_status(ServiceStatus::Stop);
-                        Ok(())
-                    }
-                    Ok(Err(e)) => Err(Error::new(ErrorKind::Other, e.to_string())),
-                    Err(e) => Err(Error::new(ErrorKind::Other, e.to_string())),
-                }
-            }
-            Err(_) => {
-                // Timeout überschritten -> Thread abbrechen
-                log_warning!(
-                    "Shutdown request für {} hat zu lange gedauert. Kill Thread.",
-                    self.get_name()
-                );
-                // Tokio-Task wird automatisch abgebrochen, wenn Timeout überschritten
-                Err(Error::new(ErrorKind::TimedOut, "Shutdown Timeout"))
-            }
-        }
-    }
-
-    pub fn find_free_server_address(&self) -> Address {
-        let ports = LocalServices::get_bind_ports_from_file();
+    pub fn find_free_server_address(&self, manager: &ServiceManager) -> Address {
+        let ports = manager.get_bind_ports();
         let port = self.get_task().get_start_port();
-        let server_host = CloudConfig::get().get_server_host();
+        let server_host = manager.get_config().get_server_host();
         Address::new(&server_host, &find_port(ports, port, &server_host))
     }
 
-    pub fn find_free_plugin_address(&self) -> Address {
-        let ports = LocalServices::get_bind_ports_from_file();
+    pub fn find_free_plugin_address(&self, manager: &ServiceManager) -> Address {
+        let ports = manager.get_bind_ports();
         let port = self.get_server_listener().get_port() + 1;
-        let server_host = CloudConfig::get().get_server_host();
+        let server_host = manager.get_config().get_server_host();
         Address::new(&server_host, &find_port(ports, port, &server_host))
     }
 
@@ -372,8 +221,8 @@ impl Service {
             .join(self.get_task().get_software().get_server_file_name())
     }
 
-    pub fn find_new_free_plugin_listener(&mut self) {
-        let address = self.find_free_plugin_address();
+    pub fn find_new_free_plugin_listener(&mut self, manager: &ServiceManager) {
+        let address = self.find_free_plugin_address(&manager);
         self.set_plugin_listener(&address);
         self.save_to_file()
     }
@@ -433,13 +282,13 @@ impl Service {
     }
 
     pub fn is_start(&self) -> bool {
-        self.get_status().is_start()
-    }
-    pub fn is_prepare(&self) -> bool {
-        self.get_status().is_prepare()
+        self.status == ServiceStatus::Starting ||
+            self.status == ServiceStatus::Running
     }
     pub fn is_stop(&self) -> bool {
-        self.get_status().is_stop()
+        self.status == ServiceStatus::Stopped ||
+            self.status == ServiceStatus::Stopping ||
+            self.status == ServiceStatus::Failed
     }
 
     // wie viele services muss ich noch starten???
@@ -463,21 +312,12 @@ impl Service {
 
     pub fn is_service_start_or_prepare(path: &mut PathBuf) -> bool {
         match Service::get_from_path(path) {
-            Some(service) => service.is_start() || service.is_prepare(),
+            Some(service) => service.is_start() || !service.is_stop(),
             None => false,
         }
     }
 
-    pub fn prepare_to_start(&mut self) -> Result<(), CloudError> {
-        self.install_software()?;
-        self.install_system_plugin()?;
-        self.install_software_lib()?;
-        self.set_server_address()?;
-        self.find_new_free_plugin_listener();
-        // muss hier sonst holg set_server_address && find_new_free_plugin_listener sich sein eigenen port
-        self.set_status(ServiceStatus::Prepare);
-        Ok(())
-    }
+
 
     pub fn get_service_url(&self) -> Url {
         Url::new(
@@ -486,110 +326,6 @@ impl Service {
             "cloud/service",
         )
         .join(&self.get_name())
-    }
-
-    pub async fn connect_to_network(&self, cloud: Arc<RwLock<Cloud>>) -> Result<(), Error> {
-        if self.is_proxy() {
-            // TODO: Send New Started Proxy Service To Cluster
-            return Ok(());
-        }
-
-        let services = { cloud.read().await.get_local().get_started_proxy_services() };
-
-        for service_proxy in services {
-            let url = service_proxy.get_service_url().join("add_server");
-            let body = match Utils::convert_to_json(&RegisterServerData {
-                register_server: ServiceInfoResponse::new(self),
-            }) {
-                Some(body) => body,
-                None => {
-                    log_warning!("Service {} can't Serialize to ServiceInfo", self.get_name());
-                    continue;
-                }
-            };
-
-            match url.post(&body, Duration::from_secs(3)).await {
-                Ok(_) => log_info!(
-                    "Service {} successfully connected to Proxy [{}]",
-                    self.get_name(),
-                    service_proxy.get_name()
-                ),
-                Err(e) => log_warning!(
-                    "Service | {} | can't send request connect to Network \n Error: {}",
-                    self.get_name(),
-                    e.to_string()
-                ),
-            }
-        }
-
-        // TODO: Send New Started Service To Cluster
-        Ok(())
-    }
-
-    pub async fn disconnect_from_network(&self, cloud: Arc<RwLock<Cloud>>) -> Result<(), Error> {
-        if self.is_proxy() {
-            return Ok(());
-            // TODO: Send New Stopped Proxy Service To Cluster
-        }
-
-        let services = { cloud.read().await.get_local().get_started_proxy_services() };
-
-        for service_proxy in services {
-            let url = service_proxy
-                .get_service_url()
-                .join(format!("remove_server?name={}", self.get_name()).as_str());
-            match url.post(&json!({}), Duration::from_secs(3)).await {
-                Ok(_) => log_info!(
-                    "Service {} successfully disconnected from Proxy [{}]",
-                    self.get_name(),
-                    service_proxy.get_name()
-                ),
-                Err(e) => log_warning!(
-                    "Service | {} | can't send request disconnect from Network \n Error: {}",
-                    self.get_name(),
-                    e.to_string()
-                ),
-            }
-        }
-        // TODO: Send New Stopped Service To Cluster
-        Ok(())
-    }
-
-    pub fn start(mut self: Service) -> Result<Service, CloudError> {
-        self.prepare_to_start()?;
-        let server_file_path = match self.get_path_with_server_file().to_str() {
-            Some(server_file_path) => server_file_path.to_string(),
-            None => return Err(error!(CantConvertServerFilePathToString)),
-        };
-
-        let software_name = self.get_software_name();
-        let mut placeholders = HashMap::new();
-        let stdout_file = File::create(self.get_path_stdout_file())
-            .map_err(|e| error!(CantCreateSTDOUTFile, e))?;
-        let stderr_file = File::create(self.get_path_stderr_file())
-            .map_err(|e| error!(CantCreateSTDERRFile, e))?;
-
-        placeholders.insert("ip", self.get_server_listener().get_ip().to_string());
-        placeholders.insert("port", self.get_server_listener().get_port().to_string());
-        placeholders.insert("max_ram", software_name.get_max_ram().to_string());
-        placeholders.insert("server_file", server_file_path);
-
-        let process_args = Utils::replace_placeholders(
-            software_name.get_environment().get_process_args(),
-            &placeholders,
-        );
-
-        let child = Command::new(software_name.get_environment().get_command())
-            .args(&process_args)
-            .current_dir(self.get_path())
-            .stdout(Stdio::from(stdout_file))
-            .stderr(Stdio::from(stderr_file))
-            .stdin(Stdio::piped())
-            .spawn()
-            .map_err(|e| error!(CantStartServer, e))?;
-
-        self.set_process(Some(child));
-        Ok(self)
     }
 
     pub fn get_from_name(name: &String) -> Option<Service> {
@@ -637,8 +373,8 @@ impl Service {
         }
     }
 
-    pub fn install_software_lib(&self) -> Result<(), CloudError> {
-        let software_lib_path = CloudConfig::get()
+    pub fn install_software_lib(&self, config: &CloudConfig) -> Result<(), CloudError> {
+        let software_lib_path = config
             .get_cloud_path()
             .get_system_folder()
             .get_software_lib_folder_path()

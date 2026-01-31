@@ -6,17 +6,17 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::{fs, io};
-
+use std::sync::Arc;
+use std::time::Duration;
 use crate::types::group::Group;
 use crate::types::installer::Installer;
 use crate::types::software::Software;
 use crate::types::template::Template;
 use crate::config::cloud_config::CloudConfig;
 use crate::config::software_config::SoftwareConfig;
-use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind::*;
-use crate::utils::logger::Logger;
-use crate::*;
+use crate::{error, log_error, log_info};
+use crate::utils::error::cloud_error::CloudError;
+use crate::utils::error::error_kind::CloudErrorKind::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Task {
@@ -29,8 +29,9 @@ pub struct Task {
     start_port: u32,
     max_ram: u32,
     nodes: Vec<String>,
-    min_service_count: u32,
+    min_service_count: u64,
     max_service_count: i32,
+    time_shutdown_before_kill: u64,
     default_connect: bool,
     join_permission: String,
     percent_of_players_to_check_should_auto_stop_the_service: u32,
@@ -73,8 +74,8 @@ impl Task {
             max_ram: software.get_max_ram(),
             start_port: 40000,
             min_service_count: 0,
-            //prepared_service_count: 0,
             max_service_count: -1,
+            time_shutdown_before_kill: 5000,
             default_connect: false,
             join_permission: String::new(),
             percent_of_players_to_check_should_auto_stop_the_service: 0,
@@ -183,17 +184,6 @@ impl Task {
         self.save_to_file();
     }
 
-    pub fn is_startup_local(&self) -> bool {
-        if !self.get_nodes().is_empty() {
-            for node in self.get_nodes() {
-                return node == CloudConfig::get().get_name();
-            }
-            false
-        } else {
-            true
-        }
-    }
-
     // Getter and Setter for software
     pub fn get_software(&self) -> Software {
         self.software.clone()
@@ -253,11 +243,11 @@ impl Task {
     }
 
     // Getter and Setter for min_service_count
-    pub fn get_min_service_count(&self) -> u32 {
+    pub fn get_min_service_count(&self) -> u64 {
         self.min_service_count
     }
 
-    pub fn set_min_service_count(&mut self, min_service_count: u32) {
+    pub fn set_min_service_count(&mut self, min_service_count: u64) {
         self.min_service_count = min_service_count;
         self.save_to_file();
     }
@@ -270,7 +260,11 @@ impl Task {
     pub fn set_max_service_count(&mut self, max_service_count: i32) {
         self.max_service_count = max_service_count;
     }
-
+    
+    pub fn get_time_shutdown_before_kill(&self) -> Duration {
+        Duration::from_secs(self.time_shutdown_before_kill)
+    }
+    
     // default_connect
     pub fn default_connect(&self) -> bool {
         self.default_connect
@@ -404,6 +398,17 @@ impl Task {
         Ok(task)
     }
 
+    pub fn is_startup_local(&self, config: &Arc<CloudConfig>) -> bool {
+        if !self.get_nodes().is_empty() {
+            for node in self.get_nodes() {
+                return node == config.get_name();
+            }
+            false
+        } else {
+            true
+        }
+    }
+    
     pub fn get_task_all() -> Vec<Task> {
         let task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
 

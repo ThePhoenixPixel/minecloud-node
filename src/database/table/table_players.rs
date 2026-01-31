@@ -4,8 +4,8 @@ use crate::database::manager::*;
 use crate::database::db_tools::DbTools;
 use crate::database::db_types::*;
 use crate::error;
-use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind::*;
+use crate::utils::error::cloud_error::CloudError;
+use crate::utils::error::error_kind::CloudErrorKind::*;
 use crate::utils::utils::Utils;
 
 const TABLE_PLAYERS: &str = "t_players";

@@ -2,6 +2,13 @@ use crate::cloud::Cloud;
 
 pub mod types;
 pub mod config;
+pub mod utils;
+pub mod cloud;
+pub mod language;
+pub mod api;
+pub mod database;
+pub mod manager;
+pub mod node;
 
 pub mod terminal {
     pub mod cmd;
@@ -15,27 +22,6 @@ pub mod terminal {
         pub mod cmd_template;
     }
 }
-
-pub mod utils {
-    pub mod error;
-    pub mod error_kind;
-    pub mod file_inlude;
-    pub mod log;
-    pub mod logger;
-    pub mod player;
-    pub mod player_action;
-    pub mod server_type;
-    pub mod service_status;
-    pub mod utils;
-    #[macro_use]
-    pub mod logger_macros;
-}
-
-pub mod cloud;
-
-pub mod language;
-pub mod api;
-pub mod database;
 
 const VERSION: &str = "0.1";
 

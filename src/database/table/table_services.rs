@@ -5,9 +5,9 @@ use crate::database::manager::DatabaseManager;
 use crate::database::db_tools::DbTools;
 use crate::database::db_types::*;
 use crate::error;
-use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind::*;
-use crate::utils::service_status::ServiceStatus;
+use crate::types::ServiceStatus;
+use crate::utils::error::cloud_error::CloudError;
+use crate::utils::error::error_kind::CloudErrorKind::*;
 
 const TABLE_NAME: &str = "t_services";
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

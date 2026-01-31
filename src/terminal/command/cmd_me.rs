@@ -6,7 +6,6 @@ use tokio::sync::RwLock;
 use crate::cloud::Cloud;
 use crate::log_info;
 use crate::terminal::command_manager::CommandManager;
-use crate::utils::logger::Logger;
 
 pub struct CmdMe;
 

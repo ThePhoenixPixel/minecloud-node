@@ -10,19 +10,17 @@ use crate::database::table::table_services::TableServices;
 use crate::config::cloud_config::{DBConfig, DBTypes};
 use crate::database::db_types::{DbInteger, Record};
 use crate::database::provider::DatabaseProvider;
-use crate::utils::error::CloudError;
+use crate::utils::error::cloud_error::CloudError;
 
 pub struct DatabaseManager {
     db: Arc<dyn DatabaseProvider>
 }
 
 impl DatabaseManager {
-    pub fn new(
-        config: &DBConfig,
-    ) -> Result<DatabaseManager, Box<dyn Error + Send + Sync>> {
+    pub fn new(config: &DBConfig) -> Result<DatabaseManager, Box<dyn Error + Send + Sync>> {
         let manager = match config.get_type() {
             DBTypes::SQLITE => todo!(), //Arc::new(DbSqlite::new(config.get_sqlite_config())?),
-            DBTypes::MYSQL => DatabaseManager {db: Arc::new(DbMysql::new(config.get_mysql_config())?)},
+            DBTypes::MYSQL => DatabaseManager { db: Arc::new(DbMysql::new(config.get_mysql_config())?) },
         };
 
         Ok(manager)
@@ -40,7 +38,7 @@ impl DatabaseManager {
     }
 
 
-    /// DatabaseProvider 
+    /// DatabaseProvider
     pub async fn get_record_from_tables(
         &self,
     ) -> Result<Vec<Record>, Box<dyn Error + Send + Sync>> {

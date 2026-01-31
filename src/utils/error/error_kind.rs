@@ -45,7 +45,7 @@ pub enum CloudErrorKind {
     CantCreateSTDERRFile,
 
     CantStartServer,
-
+    CantSendShutdownRequest,
     CantConvertServerFilePathToString,
 
     ///6x.xxx

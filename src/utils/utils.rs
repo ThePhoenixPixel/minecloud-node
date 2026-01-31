@@ -1,6 +1,5 @@
 use crate::cloud::Cloud;
 use crate::log_error;
-use crate::utils::logger::Logger;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;

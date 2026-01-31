@@ -1,4 +1,3 @@
-use crate::utils::logger::Logger;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -8,7 +7,7 @@ use crate::database::table::table_player_sessions::TablePlayerSessions;
 use crate::database::table::table_players::TablePlayers;
 use crate::{log_info, log_warning};
 use crate::database::table::table_player_events::TablePlayerEvents;
-use crate::utils::error::CloudError;
+use crate::utils::error::cloud_error::CloudError;
 use crate::utils::player_action::PlayerAction;
 use crate::utils::utils::Utils;
 

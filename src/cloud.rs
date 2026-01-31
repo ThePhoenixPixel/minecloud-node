@@ -7,71 +7,78 @@ use std::time::Duration;
 use std::{env, fs};
 use tokio::sync::RwLock;
 
-use crate::types::services_all::AllServices;
-use crate::types::services_local::LocalServices;
-use crate::types::services_network::NetworkServices;
 use crate::database::manager::DatabaseManager;
 use crate::api::internal::node_main::NodeServer;
 use crate::config::cloud_config::CloudConfig;
 use crate::config::software_config::SoftwareConfig;
 use crate::terminal::cmd::Cmd;
-use crate::utils::logger::Logger;
+use crate::utils::log::logger::Logger;
 use crate::{error, log_error, log_info, log_warning};
-use crate::utils::error::CloudError;
+use crate::utils::error::cloud_error::CloudError;
+use crate::utils::error::error_kind::CloudErrorKind::*;
+use crate::manager::service_manager::ServiceManager;
+use crate::types::ServiceStatus;
+use crate::manager::task_manager::TaskManager;
+use crate::node::scheduler::Scheduler;
 
 #[cfg(feature = "rest-api")]
-use crate::api::external::restapi_main::ApiMain;
-use crate::utils::error_kind::CloudErrorKind::CantDBCreateConnection;
-use crate::utils::service_status::ServiceStatus;
+//use crate::api::external::restapi_main::ApiMain;
+
 
 pub struct Cloud {
-    services: AllServices,
-    db: DatabaseManager,
+    config: Arc<CloudConfig>,
+    software_config: Arc<RwLock<SoftwareConfig>>,
+    db: Arc<DatabaseManager>,
+    scheduler: Arc<Scheduler>,
+    task_manager: Arc<RwLock<TaskManager>>,
+    service_manager: Arc<RwLock<ServiceManager>>,
 }
 
 impl Cloud {
     pub async fn new() -> Result<Self, CloudError> {
-        let db = DatabaseManager::new(&CloudConfig::get().get_db_config()).map_err(|e| error!(CantDBCreateConnection, e))?;
-        db.check_tables().await?;
-        log_info!("Database Check successfully");
+        let config = Arc::new(CloudConfig::get());
+        let software_config = Arc::new(RwLock::new(SoftwareConfig::get()));
 
-        let local = LocalServices::new(db.clone());
-        let network = NetworkServices::new();
-        let all = AllServices::new(local, network); // initialisieren
+        let db = Arc::new(DatabaseManager::new(&config.get_db_config())
+            .map_err(|e| error!(CantDBCreateConnection, e))?);
+        db.check_tables().await?;
+        log_info!("Database check successfully");
+
+        let service_manager = Arc::new(RwLock::new(ServiceManager::new(db.clone(), config.clone(), software_config.clone())));
+        let task_manager = Arc::new(RwLock::new(TaskManager::new(db.clone(), config.clone(), software_config.clone())));
+
+        // ----- Scheduler -----
+        let scheduler = Arc::new(Scheduler::new(
+            db.clone(),
+            config.clone(),
+            software_config.clone(),
+            service_manager.clone(),
+            task_manager.clone(),
+        ));
 
         Ok(Self {
-            services: all,
+            config,
+            software_config,
             db,
+            scheduler,
+            service_manager,
+            task_manager,
         })
     }
 
-    pub fn get_all(&self) -> &AllServices {
-        &self.services
+    pub fn get_config(&self) -> &CloudConfig {
+        &self.config
+    }
+    pub fn get_database_manager(&self) -> &Arc<DatabaseManager> {
+        &self.db
+    }
+    pub fn get_service_manager(&self) -> Arc<RwLock<ServiceManager>> {
+        self.service_manager.clone()
+    }
+    pub fn get_scheduler(&self) -> &Arc<Scheduler> {
+        &self.scheduler
     }
 
-    pub fn get_all_mut(&mut self) -> &mut AllServices {
-        &mut self.services
-    }
-
-    pub fn get_local(&self) -> &LocalServices {
-        &self.services.get_local()
-    }
-
-    pub fn get_local_mut(&mut self) -> &mut LocalServices {
-        self.services.get_local_mut()
-    }
-
-    pub fn get_network(&self) -> &NetworkServices {
-        &self.services.get_network()
-    }
-
-    pub fn get_network_mut(&mut self) -> &mut NetworkServices {
-        self.services.get_network_mut()
-    }
-
-    pub fn get_database_manager(&self) -> DatabaseManager {
-        self.db.clone()
-    }
 
     pub async fn enable(version: &str) {
         // download link
@@ -116,7 +123,7 @@ impl Cloud {
         {
             let cloud_clone = cloud.clone();
             std::thread::spawn(move || {
-                let _ = ApiMain::start(cloud_clone);
+                //let _ = ApiMain::start(cloud_clone);
             });
         }
 
@@ -125,11 +132,22 @@ impl Cloud {
             &ColoredString::from(CloudConfig::get().get_prefix().as_str()).cyan(),
             cloud.clone(),
         );
+
+        {
+            let cloud_clone = cloud.read().await;
+            let scheduler = cloud_clone.scheduler.clone();
+
+            tokio::spawn(async move {
+                //scheduler.run().await;
+            });
+            log_info!(3, "Scheduler started!");
+        }
+
         cmd.start().await;
     }
 
     pub async fn disable(&mut self) {
-        self.get_local_mut().stop_all("Cloud Disable").await;
+        self.service_manager.write().await.stop_all("Cloud Disable").await;
         log_info!("Cloud shutdown");
         log_info!("Bye Bye");
         std::process::exit(0)
@@ -287,8 +305,8 @@ impl Cloud {
     pub fn set_stop_status_service() {
         // nur die loken services holen nicht die aus dem netzwerk
         // wichtig Service::get_all() lassen denn hier muss expliziet in die datein gegucklt werden
-        for mut service in LocalServices::get_all_from_file() {
-            service.set_status(ServiceStatus::Stop);
+        for mut service in ServiceManager::get_all_from_file() {
+            service.set_status(ServiceStatus::Stopped);
             service.save_to_file();
         }
     }
@@ -451,3 +469,5 @@ impl Cloud {
         Ok(())
     }
 }
+
+

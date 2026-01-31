@@ -6,7 +6,6 @@ use crate::cloud::Cloud;
 use crate::types::service::Service;
 use crate::log_info;
 use crate::terminal::command_manager::CommandManager;
-use crate::utils::logger::Logger;
 
 pub struct CmdService;
 
@@ -52,7 +51,12 @@ async fn reload(_cloud: Arc<RwLock<Cloud>>) -> Result<(), Error> {
 }
 
 async fn list(cloud: Arc<RwLock<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
-    let services = cloud.read().await.get_all().get_all().await;
+    let service_manager = {
+        let cloud_guard = cloud.read().await;
+        cloud_guard.get_service_manager()
+    };
+
+    let services = service_manager.read().await.get_all().iter().map(|s| s.get_service().clone()).collect();
     let arg2 = match args.get(2) {
         Some(arg2) => *arg2,
         None => return list_all(&services),

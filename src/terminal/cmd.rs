@@ -12,7 +12,6 @@ use crate::terminal::command::cmd_service::CmdService;
 use crate::terminal::command::cmd_task::CmdTask;
 use crate::terminal::command::cmd_template::CmdTemplate;
 use crate::terminal::command_manager::CommandManager;
-use crate::utils::logger::Logger;
 
 pub struct Cmd {
     prefix: ColoredString,

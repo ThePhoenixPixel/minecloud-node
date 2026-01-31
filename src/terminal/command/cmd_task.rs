@@ -9,7 +9,6 @@ use crate::types::task::Task;
 use crate::types::template::Template;
 use crate::config::software_config::SoftwareConfig;
 use crate::terminal::command_manager::CommandManager;
-use crate::utils::logger::Logger;
 use crate::{log_info, log_warning};
 
 pub struct CmdTask;
@@ -47,8 +46,12 @@ impl CommandManager for CmdTask {
 }
 
 async fn reload(cloud: Arc<RwLock<Cloud>>) -> Result<(), Error> {
-    let mut cloud_guard = cloud.write().await;
-    cloud_guard.get_all_mut().check_service().await;
+    let scheduler = {
+        let cloud_guard = cloud.read().await;
+        cloud_guard.get_scheduler().clone()
+    };
+
+    scheduler.check_service().await;
     Ok(())
 }
 
@@ -281,7 +284,7 @@ fn setup_set(mut task: Task, attribute: &str, args: &Vec<&str>) -> Result<(), Er
             log_info!("Start Port wurde geändert");
         }
         "min_service_count" => {
-            let min_service_count: u32 = match new_wert.parse() {
+            let min_service_count: u64 = match new_wert.parse() {
                 Ok(min_service_count) => min_service_count,
                 Err(e) => {
                     return Err(Error::new(
@@ -290,7 +293,7 @@ fn setup_set(mut task: Task, attribute: &str, args: &Vec<&str>) -> Result<(), Er
                     ));
                 }
             };
-            task.set_min_service_count(min_service_count.clone());
+            task.set_min_service_count(min_service_count);
             println!("{}", min_service_count);
             log_info!("min_service_count wurde geändert");
         }

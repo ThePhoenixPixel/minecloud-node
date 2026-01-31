@@ -4,8 +4,8 @@ use serde_json::Value;
 
 use crate::database::db_types::{DbValue, Record};
 use crate::error;
-use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind::*;
+use crate::utils::error::cloud_error::CloudError;
+use crate::utils::error::error_kind::CloudErrorKind::*;
 
 pub struct DbTools;
 

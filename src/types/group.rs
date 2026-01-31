@@ -9,8 +9,8 @@ use crate::types::installer::Installer;
 use crate::types::template::Template;
 use crate::error;
 use crate::config::cloud_config::CloudConfig;
-use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind::*;
+use crate::utils::error::cloud_error::CloudError;
+use crate::utils::error::error_kind::CloudErrorKind::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Group {

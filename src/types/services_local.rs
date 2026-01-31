@@ -6,7 +6,8 @@ use crate::types::service::Service;
 use crate::types::task::Task;
 use crate::database::manager::DatabaseManager;
 use crate::config::cloud_config::CloudConfig;
-use crate::utils::error::CloudError;
+use crate::utils::error::cloud_error::CloudError;
+use crate::utils::error::error_kind::CloudErrorKind::*;
 
 pub struct LocalServices {
     services: Vec<Service>,
@@ -49,7 +50,7 @@ impl LocalServices {
     pub fn get_prepared_services(&self) -> Vec<Service> {
         self.get_all()
             .into_iter()
-            .filter(|s| s.is_prepare())
+            .filter(|s| s.is-pre())
             .collect()
     }
 
@@ -67,18 +68,6 @@ impl LocalServices {
 
     pub fn get_stop_services_count(&self) -> u32 {
         self.get_stopped_services().iter().count() as u32
-    }
-
-    pub fn get_next_stop_service(&self, task: &Task) -> Result<Service, CloudError> {
-        if let Some(service) = self
-            .services
-            .iter()
-            .find(|s| s.is_stop() && s.get_task() == *task)
-        {
-            return Ok(service.clone_without_process());
-        }
-
-        self.create(&task)
     }
 
     pub fn remove_service(&mut self, id: Uuid) -> Option<Service> {
@@ -101,29 +90,12 @@ impl LocalServices {
         self.services.iter_mut().find(|s| s.get_name() == name)
     }
 
-    pub fn set_service(&mut self, mut service: Service) {
-        if let Some(existing) = self
-            .services
-            .iter_mut()
-            .find(|s| s.get_id() == service.get_id())
-        {
-            let s = service.clone_without_process();
-            if service.get_process().is_some() {
-                existing.set_process(service.extract_process());
-            }
-            existing.update(&s);
-            existing.save_to_file();
-        } else {
-            (&mut service).new_id();
-            service.save_to_file();
-            self.services.push(service)
-        }
-    }
+
 
     pub async fn stop_service(&mut self, id: &Uuid, shutdown_msg: &str) {
         if let Some(pos) = self.services.iter().position(|s| s.get_id() == *id) {
             if let Some(service) = self.services.get_mut(pos) {
-                service.shutdown(shutdown_msg).await;
+                //service.shutdown(shutdown_msg).await;
                 if service.is_delete() {
                     self.services.remove(pos);
                 }
@@ -142,25 +114,6 @@ impl LocalServices {
         let mut service = self.get_next_stop_service(&task)?;
         service = service.start()?;
         Ok(service)
-    }
-
-    pub fn get_all_from_file() -> Vec<Service> {
-        let mut service_list: Vec<Service> = Vec::new();
-        service_list.append(&mut get_services_from_path(
-            &CloudConfig::get()
-                .get_cloud_path()
-                .get_service_folder()
-                .get_temp_folder_path(),
-        ));
-
-        service_list.append(&mut get_services_from_path(
-            &CloudConfig::get()
-                .get_cloud_path()
-                .get_service_folder()
-                .get_static_folder_path(),
-        ));
-
-        service_list
     }
 
     pub fn get_started_proxy_services(&self) -> Vec<Service> {
@@ -214,50 +167,6 @@ impl LocalServices {
 
         service
     }
-
-    /*
-    pub fn get_online_service() -> Vec<Service> {
-        let mut service_online_list: Vec<Service> = Vec::new();
-        let service_list = LocalServices::get_all_from_file();
-        for service in service_list {
-            if service.is_start() {
-                service_online_list.push(service);
-            }
-        }
-        service_online_list
-    }
-    pub fn get_prepare_service() -> Vec<Service> {
-        let mut service_prepare_list: Vec<Service> = Vec::new();
-        let service_list = LocalServices::get_all_from_file();
-        for service in service_list {
-            if service.is_prepare() {
-                service_prepare_list.push(service);
-            }
-        }
-        service_prepare_list
-    }
-
-    pub fn get_offline_service() -> Vec<Service> {
-        let mut service_offline_list: Vec<Service> = Vec::new();
-        let service_list = LocalServices::get_all_from_file();
-        for service in service_list {
-            if service.is_stop() {
-                service_offline_list.push(service);
-            }
-        }
-        service_offline_list
-    }
-     */
 }
 
-fn get_services_from_path(path: &PathBuf) -> Vec<Service> {
-    let mut service_list: Vec<Service> = Vec::new();
-    for folder in Directory::get_folders_name_from_path(&path) {
-        let mut path = path.clone();
-        path.push(folder);
-        if let Some(service) = Service::get_from_path(&mut path) {
-            service_list.push(service);
-        };
-    }
-    service_list
-}
+

@@ -8,9 +8,9 @@ use uuid::Uuid;
 use crate::cloud::Cloud;
 use crate::types::service::Service;
 use crate::api::internal::request::player_action_req::PlayerActionRequest;
-use crate::utils::logger::Logger;
-use crate::utils::service_status::ServiceStatus;
 use crate::{log_error, log_info, log_warning};
+use crate::types::ServiceStatus;
+use crate::utils::utils::Utils;
 
 #[derive(Deserialize)]
 pub struct OnlineStatusRequest {
@@ -38,16 +38,20 @@ impl NodeService {
         cloud: web::Data<Arc<RwLock<Cloud>>>,
         request: web::Json<ShutdownRequest>,
     ) -> HttpResponse {
-        let service = {
+        let service_manager = {
             let cloud_guard = cloud.read().await;
-            match cloud_guard.get_local().get_from_id(&request.id) {
-                Some(service) => service,
+            cloud_guard.get_service_manager()
+        };
+
+        let service = {
+            match service_manager.read().await.get_from_id(&request.id) {
+                Some(service) => service.get_service().clone(),
                 None => return HttpResponse::NoContent().json("Service not found"),
             }
         };
         let service_name = service.get_name();
-        if let Err(e) = service
-            .disconnect_from_network(cloud.get_ref().clone())
+        if let Err(e) = service_manager.read().await
+            .disconnect_from_network(&service)
             .await
         {
             log_error!(
@@ -62,35 +66,26 @@ impl NodeService {
         }
 
         {
-            let cloud_clone = cloud.clone();
             let service_id = service.get_id();
             tokio::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                Utils::wait_sec(service.get_task().get_time_shutdown_before_kill().as_secs()).await;
 
-                let mut cloud_guard = cloud_clone.write().await;
-                if let Some(s) = cloud_guard.get_local_mut().get_from_id_mut(&service_id) {
-                    s.set_status(ServiceStatus::Stop);
+                if let Some((pos, s)) = service_manager.write().await.get_from_id_mut(&service_id) {
 
-                    if s.get_process().is_some() {
-                        if let Err(e) = s.kill() {
-                            log_warning!(
-                                "Service [{}] konnte nicht gekillt werden: {}",
-                                s.get_name(),
-                                e
-                            );
-                        } else {
-                            log_info!("Service [{}] wurde gekillt", s.get_name());
-                        }
-                    }
-
-                    if !service.get_task().is_static_service()
-                        && service.get_task().is_delete_on_stop()
-                    {
-                        s.delete_files();
-                        cloud_guard.get_local_mut().remove_service(service_id);
+                    if let Err(e) = s.kill().await {
+                        log_warning!(
+                            "Service [{}] konnte nicht gekillt werden: {}",
+                            s.get_service().get_name(),
+                            e
+                        );
                     } else {
-                        s.save_to_file();
+                        log_info!("Service [{}] wurde gekillt", s.get_service().get_name());
                     }
+
+                    {
+                        service_manager.write().await.remove_service(pos)
+                    }
+
                 } else {
                     log_error!(
                         "Konnte Stop-Status für Service [{}] nicht setzen",
@@ -98,7 +93,7 @@ impl NodeService {
                     );
                 }
                 // check
-                cloud_guard.get_all_mut().check_service().await;
+                //cloud_guard.get_all_mut().check_service().await;
             });
         }
 
@@ -112,23 +107,22 @@ impl NodeService {
         cloud: web::Data<Arc<RwLock<Cloud>>>,
         request: web::Json<OnlineStatusRequest>,
     ) -> HttpResponse {
-        let mut service = {
-            let cloud = cloud.read().await;
-            match cloud.get_local().get_from_id(&request.id) {
-                Some(service) => service,
-                None => return HttpResponse::NoContent().json("Service not found"),
-            }
+        let service_manager = {
+            let cloud_guard = cloud.read().await;
+            cloud_guard.get_service_manager()
         };
 
         let service = {
-            service.set_status(ServiceStatus::Start);
-            service.save_to_file();
-            let s = service.clone_without_process();
-            cloud.write().await.get_local_mut().set_service(service);
-            s
+            match service_manager.write().await.get_from_id(&request.id) {
+                Some(mut service) => {
+                    service.get_service_mut().set_status(ServiceStatus::Running);
+                    service.get_service_mut().save_to_file();
+                    service.get_service().clone()
+                },
+                None => return HttpResponse::NoContent().json("Service not found"),
+            }
         };
-
-        match service.connect_to_network(cloud.get_ref().clone()).await {
+        match service_manager.read().await.connect_to_network(&service).await {
             Ok(_) => HttpResponse::Ok().json(format!(
                 "Service: {} successfully connect to Network",
                 service.get_name()
@@ -150,14 +144,18 @@ impl NodeService {
     }
 
     pub async fn get_online_backend_server(cloud: web::Data<Arc<RwLock<Cloud>>>) -> HttpResponse {
-        let all_services = { cloud.read().await.get_all().clone() };
+        let service_manager = {
+            let cloud_guard = cloud.read().await;
+            cloud_guard.get_service_manager()
+        };
 
-        let response: Vec<ServiceInfoResponse> = all_services
-            .get_online_backend_services()
-            .await
+        let all_service = {
+            service_manager.read().await.get_online_backend_server()
+        };
+
+        let response: Vec<ServiceInfoResponse> = all_service
             .into_iter()
-            .filter(|s| s.is_start() && s.is_backend_server())
-            .map(|s| ServiceInfoResponse::new(&s))
+            .map(|s| ServiceInfoResponse::new(&s.get_service()))
             .collect();
 
         HttpResponse::Ok().json(response)

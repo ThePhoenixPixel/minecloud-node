@@ -5,9 +5,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::config::cloud_config::CloudConfig;
-use crate::utils::logger::Logger;
-use crate::utils::server_type::ServerType;
 use crate::{log_error, log_info, log_warning};
+use crate::types::ServerType;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SoftwareConfig {

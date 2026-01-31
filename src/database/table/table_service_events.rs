@@ -4,8 +4,8 @@ use crate::database::manager::*;
 use crate::database::db_tools::DbTools;
 use crate::database::db_types::*;
 use crate::error;
-use crate::utils::error::CloudError;
-use crate::utils::error_kind::CloudErrorKind::*;
+use crate::utils::error::cloud_error::CloudError;
+use crate::utils::error::error_kind::CloudErrorKind::*;
 
 
 const TABLE_SERVICE_EVENTS: &str = "t_service_events";
