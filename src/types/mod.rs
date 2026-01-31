@@ -32,21 +32,12 @@ impl ServerType {
         }
     }
     pub fn is_proxy(&self) -> bool {
-        self == ServerType::Proxy
+        *self == ServerType::Proxy
     }
     pub fn is_backend_server(&self) -> bool {
-        self == ServerType::BackendServer
+        *self == ServerType::BackendServer
     }
 }
-
-
-impl PartialEq<ServerType> for &ServerType {
-    fn eq(&self, other: &ServerType) -> bool {
-        self == other
-    }
-}
-
-
 
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
@@ -82,30 +73,23 @@ impl ServiceStatus {
     }
 
     pub fn is_starting(&self) -> bool {
-        self == ServiceStatus::Starting
+        *self == ServiceStatus::Starting
     }
 
     pub fn is_running(&self) -> bool {
-        self == ServiceStatus::Running
+        *self == ServiceStatus::Running
     }
 
     pub fn is_stopping(&self) -> bool {
-        self == ServiceStatus::Stopping
+        *self == ServiceStatus::Stopping
     }
 
     pub fn is_stopped(&self) -> bool {
-        self == ServiceStatus::Stopped
+        *self == ServiceStatus::Stopped
     }
 
     pub fn is_failed(&self) -> bool {
-        self == ServiceStatus::Failed
+        *self == ServiceStatus::Failed
     }
 }
-
-impl PartialEq<ServiceStatus> for &ServiceStatus {
-    fn eq(&self, other: &ServiceStatus) -> bool {
-        self == other
-    }
-}
-
 

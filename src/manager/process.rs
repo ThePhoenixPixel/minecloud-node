@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::process::Stdio;
+use std::time::Duration;
 use serde_json::json;
 use tokio::io;
 use tokio::process::{ChildStdin, Child, Command};
-use tokio::time::timeout as wait;
+use tokio::time::{sleep, timeout as wait, Instant};
 
 use crate::{error, log_error, log_info, log_warning};
 use crate::types::service::Service;
@@ -37,11 +38,6 @@ impl ServiceProcess {
             process: None,
             stdin: None,
         })
-    }
-
-    pub async fn start_async(mut self) -> Result<Self, CloudError> {
-        self.start()?; // falls intern sync
-        Ok(self)
     }
 
     pub fn start(&mut self) -> Result<(), CloudError> {
@@ -89,44 +85,38 @@ impl ServiceProcess {
         if self.service.is_stop() {
             return Ok(());
         }
+
         self.service.set_status(ServiceStatus::Stopping);
-        let mut should_kill = true;
+        self.service.save_to_file();
 
-        match self.send_stop(msg).await {
-            Ok(_) => {
-                if let Some(child) = self.get_process_mut() {
-                    match child.try_wait() {
-                        Ok(Some(_status)) => should_kill = false,
-                        Ok(None) => should_kill = true,
-                        Err(_) => should_kill = true,
-                    }
-                } else {
-                    should_kill = false;
-                }
-            }
-            Err(e) => {
+        let timeout = self.service.get_task().get_time_shutdown_before_kill();
 
-                log_error!(
-                    "Stop command nicht senden an {} \n Error: {}",
-                    self.service.get_name(),
-                    e.to_string()
-                );
-
-                if self.get_process().is_none() {
-                    self.service.set_status(ServiceStatus::Stopped);
-                    self.service.delete_files();
-                }
-            }
+        // 1. Stop senden
+        if let Err(e) = self.send_stop(msg).await {
+            log_error!(
+            "Stop command nicht senden an {} \n Error: {}",
+            self.service.get_name(),
+            e.to_string()
+        );
         }
 
-        if should_kill || self.process.is_some() {
+        // 2. Warten oder Kill entscheiden
+        let should_kill = self
+            .wait_for_exit_or_kill(timeout)
+            .await
+            .unwrap_or(true);
+
+        // 3. Kill falls nötig
+        if should_kill {
             match self.kill().await {
-                Ok(..) => log_info!(5, "Service: [{}] kill", self.service.get_name()),
-                Err(..) => log_warning!(2, "Service: [{}] can't kill", self.service.get_name()),
+                Ok(_) => log_info!(5, "Service: [{}] kill", self.service.get_name()),
+                Err(_) => log_warning!(2, "Service: [{}] can't kill", self.service.get_name()),
             }
         }
+
         self.service.set_status(ServiceStatus::Stopped);
         self.service.save_to_file();
+
         Ok(())
     }
 
@@ -163,6 +153,34 @@ impl ServiceProcess {
                 );
                 Err(error!(CantSendShutdownRequest ,"Shutdown Timeout"))
             }
+        }
+    }
+
+    async fn wait_for_exit_or_kill(
+        &mut self,
+        timeout: Duration,
+    ) -> io::Result<bool> {
+        let deadline = Instant::now() + timeout;
+
+        loop {
+            if let Some(child) = self.get_process_mut() {
+                match child.try_wait()? {
+                    Some(_status) => {
+                        return Ok(false);
+                    }
+                    None => {
+                        // process is running
+                    }
+                }
+            } else {
+                return Ok(false);
+            }
+
+            if Instant::now() >= deadline {
+                return Ok(true);
+            }
+
+            sleep(Duration::from_millis(100)).await;
         }
     }
 

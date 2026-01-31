@@ -58,7 +58,7 @@ impl PlayerActionRequest {
     async fn leave(&self, service: &Service, db: &DatabaseManager) -> Result<(), CloudError> {
         self.player.add_event(&db, &self.action, &service).await?;
         if service.is_proxy() {
-            Utils::wait_nano(500).await;
+            Utils::wait_nano(1000).await;
             self.player.delete_session(&db).await?
         }
         Ok(())

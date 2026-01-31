@@ -79,26 +79,14 @@ impl Scheduler {
                 log_info!("---------------------------------------------------------------");
                 log_info!("Service would be created from task: [{}]", task_name);
 
-                let service = {
-                    let mut sm = self.service_manager.read().await;
-                    match sm.create_service(&task) {
-                        Ok(sm) => sm,
-                        Err(e) => {
-                            log_error!(1, "Cant Create Service Error: {}", e);
-                            continue;
-                        },
-                    }
-                };
-
-                match service.start_async().await {
+                let s = match self.service_manager.read().await.start_service(&task) {
                     Ok(started) => {
                         log_info!(
                         2,
                         "Server [{}] successfully start :=)",
                         started.get_service().get_name()
                     );
-                        let mut sm = self.service_manager.write().await;
-                        sm.set_service(started);
+                        started
                     }
                     Err(e) => {
                         log_error!(
@@ -107,7 +95,13 @@ impl Scheduler {
                         task_name,
                         e
                     );
+                        continue;
                     }
+                };
+
+                {
+                    let mut sm = self.service_manager.write().await;
+                    sm.set_service(s);
                 }
             }
         }

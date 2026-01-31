@@ -84,6 +84,7 @@ impl ServiceManager {
 
         service.get_service_mut().set_status(ServiceStatus::Starting);
         service.get_service_mut().install_software()?;
+        service.get_service_mut().install_system_plugin()?;
         service
             .get_service_mut()
             .install_software_lib(&self.get_config())?;
