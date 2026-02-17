@@ -58,7 +58,7 @@ impl ServiceManager {
         {
             let mut s = service.write().await;
             s.set_status(ServiceStatus::Starting);
-        } // write guard gedroppt
+        }
 
         TableServices::update(self.get_db(), &service).await?;
 
@@ -219,13 +219,13 @@ impl ServiceManager {
         &self.config
     }
 
-    pub async fn get_from_id(&self, id: &EntityId) -> Option<ServiceRef> {
+    pub async fn get_from_id(&self, id: &EntityId) -> CloudResult<ServiceRef> {
         for arc in &self.services {
-            if arc.read().await.get_id() == *id {
-                return Some(arc.clone());
+            if arc.get_id().await == *id {
+                return Ok(arc.clone());
             }
         }
-        None
+        Err(error!(CantFindServiceFromUUID))
     }
 
     pub async fn get_all_from_task(&self, task_name: &str) -> Vec<ServiceRef> {
