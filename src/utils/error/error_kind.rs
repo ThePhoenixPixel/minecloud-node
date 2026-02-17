@@ -64,8 +64,8 @@ pub enum CloudErrorKind {
     CantCreateTable,
     CantDBGetRecords,
 
-    /// 7x.xxx Node Api
     CantFindServiceFromUUID,
+    CantFindTaskFromName,
 
     /// 9.xxx
     /// Internal System
