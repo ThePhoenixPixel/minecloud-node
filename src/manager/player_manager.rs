@@ -4,8 +4,8 @@ use uuid::Uuid;
 
 use crate::{error, log_info};
 use crate::api::internal::node_service::PlayerActionRequest;
-use crate::utils::error::{CantFindServiceFromUUID, CantRegisterPlayer, CloudResult};
-use crate::types::{Player, PlayerAction, PlayerSession, Service, ServiceRef};
+use crate::utils::error::*;
+use crate::types::{Player, PlayerAction, PlayerSession, ServiceRef};
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
 use crate::manager::service_manager::ServiceManager;
 use crate::utils::utils::Utils;
@@ -24,47 +24,55 @@ impl PlayerManager {
     }
 
     pub async fn handle_action(&self, req: PlayerActionRequest) -> CloudResult<()> {
+        let service_ref = self.service_manager.get_from_id(&req.get_service_uuid()).await?;
         let mut player = self.get_or_create_player(&Player::from(req.get_player_req())).await?;
-        let service = {
-            let s = self.service_manager.read().await;
-            s.get_from_id(req.get_service_uuid().as_ref()).await.ok_or_else(|| error!(CantFindServiceFromUUID))?
-        };
 
-        let mut current_players = service.get_current_players();
+        let (mut current_players, task) = {
+            let s = service_ref.read().await;
+            let service = s.get_service();
+            (
+                service.get_current_players(),
+                service.get_task().clone(),
+            )
+        };
 
         match req.get_action() {
             PlayerAction::Join => {
-                current_players + 1;
-                self.on_player_join(&mut player, service).await?;
-                self.add_event(&player, service, &req.get_action()).await?;
+                current_players += 1;
+                self.on_player_join(&mut player, &service_ref).await?;
+                self.add_event(&player, &service_ref, &req.get_action()).await?;
             }
             PlayerAction::Leave => {
-                current_players - 1;
-                self.add_event(&player, service, &req.get_action()).await?;
-                self.on_player_leave(&mut player, service).await?;
+                current_players -= 1;
+                self.add_event(&player, &service_ref, &req.get_action()).await?;
+                self.on_player_leave(&mut player, &service_ref).await?;
             }
         }
 
-        let percent_for_auto_stop = service.get_task().get_percent_of_players_to_check_should_auto_stop_the_service();
-        let start_timer = percent_for_auto_stop > (service.get_task().get_max_players() * 100) / current_players;
+        let start_timer = task.get_percent_of_players_to_check_should_auto_stop_the_service() > (task.get_max_players() * 100) / current_players;
 
         {
-            let sm = self.service_manager.write().await;
-            
+            let mut s = service_ref.write().await;
+            s.update_current_player(current_players);
+
+            if start_timer {
+                s.start_idle_timer();
+            }
         }
 
         Ok(())
     }
 
     pub async fn on_player_join(&self, player: &mut Player, service: &ServiceRef) -> CloudResult<()> {
+        let id = service.get_id().await;
         if service.is_proxy().await {
             // proxy join handling
-            self.create_session(player, &service.get_id()).await?;
+            self.create_session(player, &id).await?;
             self.update_last_login(player).await?;
 
         } else {
             // backend server join handling
-            self.update_session(player, &service.get_id()).await?;
+            self.update_session(player, &id).await?;
 
         }
 
@@ -152,8 +160,8 @@ impl PlayerManager {
         Ok(())
     }
 
-    pub async fn add_event(&self, player: &Player, service: &Service, event_type: &PlayerAction) -> CloudResult<()> {
-        let event = TablePlayerEvents::new(player, service, event_type.to_string());
+    pub async fn add_event(&self, player: &Player, service: &ServiceRef, event_type: &PlayerAction) -> CloudResult<()> {
+        let event = TablePlayerEvents::new(player, service, event_type.to_string()).await;
         event.create(self.get_db()).await?;
         Ok(())
     }
