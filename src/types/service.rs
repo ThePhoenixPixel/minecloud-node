@@ -314,6 +314,10 @@ impl Service {
             self.status == ServiceStatus::Failed
     }
 
+    pub fn is_failed(&self) -> bool {
+        self.status == ServiceStatus::Failed
+    }
+
     // wie viele services muss ich noch starten???
     pub fn get_starts_service_from_task(task: &Task) -> u64 {
         let service_path = task.get_service_path();
