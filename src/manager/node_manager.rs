@@ -41,11 +41,23 @@ impl NodeManager {
         services
     }
 
-    pub async fn start_service_from_task(&mut self, task: &Task) -> CloudResult<()> {
-
-
-
+    pub async fn start_service_from_task(&self, task: &Task) -> CloudResult<()> {
+        if !(self.cloud_config.get_name() == self.find_best_node(task).await) {
+            // send start request to Node
+            return Ok(())
+        }
+        // start service local
+        let service_ref = {
+            let mut sm = self.service_manager.write().await;
+            sm.get_or_create_service_ref(task).await?
+        };
+        self.service_manager.read().await.start(service_ref).await?;
         Ok(())
+    }
+
+    /// find the best Node in Cluster to Start the new Service from Task
+    async fn find_best_node(&self, task: &Task) -> String {
+        String::from("Node-1")
     }
 
 }
