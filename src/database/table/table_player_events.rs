@@ -2,7 +2,7 @@ use database_manager::{DatabaseController, Table, TableDerive};
 use database_manager::types::{DBDatetime, DBText, DBUInt, DBVarChar, DbResult};
 
 use crate::database::DBTools;
-use crate::types::{Player, Service};
+use crate::types::{Player, ServiceRef};
 
 #[derive(TableDerive, Debug, Clone, Default)]
 #[table_name("t_player_events")]
@@ -22,13 +22,13 @@ pub struct TablePlayerEvents {
 }
 
 impl TablePlayerEvents {
-    pub fn new(player: &Player, service: &Service, event_type: String) -> Self {
+    pub async fn new(player: &Player, service: &ServiceRef, event_type: String) -> Self {
         TablePlayerEvents {
             id: Default::default(),
             created_at: DBDatetime::get_now(),
             session_id: player.get_session().map(|s| DBUInt::from(s.get_id())),
             player_id: DBUInt::from(player.get_id()),
-            service_uuid: DBTools::uuid_to_varchar(&service.get_id()),
+            service_uuid: DBTools::uuid_to_varchar(&service.get_id().await),
             event_type: DBText::from(event_type),
         }
     }
