@@ -413,38 +413,6 @@ impl Task {
         nodes.is_empty() || nodes.iter().any(|n| *n == config.get_name())
     }
 
-
-    pub fn get_task_all() -> Vec<Task> {
-        let task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
-
-        let mut tasks = Vec::new();
-
-        if task_path.exists() && task_path.is_dir() {
-            if let Ok(entries) = fs::read_dir(task_path) {
-                for entry in entries.flatten() {
-                    if let Some(file_name) = entry.file_name().to_str() {
-                        if file_name.ends_with(".json") {
-                            let name = file_name.trim_end_matches(".json");
-                            if let Some(task) = Task::get_task(&name.to_string()) {
-                                tasks.push(task);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        tasks
-    }
-
-    pub fn get_all() -> Vec<String> {
-        let mut tasks: Vec<String> = Vec::new();
-        for task in Task::get_task_all() {
-            tasks.push(task.get_name().to_string());
-        }
-        tasks
-    }
-
     pub fn save_to_file(&self) {
         let serialized_task =
             serde_json::to_string_pretty(&self).expect("Error beim Serialisieren der Task");
