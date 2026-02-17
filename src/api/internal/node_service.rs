@@ -6,9 +6,8 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::cloud::Cloud;
-use crate::types::service::Service;
 use crate::{log_error, log_info, log_warning};
-use crate::types::{PlayerAction, PlayerRequest, ServiceStatus};
+use crate::types::{PlayerAction, PlayerRequest, ServiceStatus, Service};
 use crate::utils::utils::Utils;
 
 #[derive(Deserialize)]
@@ -46,10 +45,10 @@ impl NodeService {
     ) -> HttpResponse {
         let service_manager = {
             let cloud_guard = cloud.read().await;
-            cloud_guard.get_service_manager()
+            cloud_guard.get_node_manager()
         };
         todo!();
-        let service = {
+        /*let service = {
             match service_manager.read().await.get_from_id(&request.id) {
                 Some(service) => service.get_service().clone(),
                 None => return HttpResponse::NoContent().json("Service not found"),
@@ -104,7 +103,7 @@ impl NodeService {
         HttpResponse::Ok().json(format!(
             "Service: {} successfully disconnected from Network",
             service_name
-        ))
+        ))*/
     }
 
     pub async fn set_online_status(
@@ -113,11 +112,11 @@ impl NodeService {
     ) -> HttpResponse {
         let service_manager = {
             let cloud_guard = cloud.read().await;
-            cloud_guard.get_service_manager()
+            cloud_guard.get_node_manager()
         };
 
         todo!();
-        let service = {
+        /*let service = {
             match service_manager.write().await.get_from_id(&request.id) {
                 Some(mut service) => {
                     service.get_service_mut().set_status(ServiceStatus::Running);
@@ -145,25 +144,26 @@ impl NodeService {
                     e.to_string()
                 ))
             }
-        }
+        }*/
     }
 
     pub async fn get_online_backend_server(cloud: web::Data<Arc<RwLock<Cloud>>>) -> HttpResponse {
         let service_manager = {
             let cloud_guard = cloud.read().await;
-            cloud_guard.get_service_manager()
+            cloud_guard.get_node_manager()
         };
-
+        todo!();
+        /*
         let all_service = {
             service_manager.read().await.get_online_backend_server()
         };
-        todo!();
+
         let response: Vec<ServiceInfoResponse> = all_service
             .into_iter()
             .map(|s| ServiceInfoResponse::new(&s.get_service()))
             .collect();
 
-        HttpResponse::Ok().json(response)
+        HttpResponse::Ok().json(response)*/
     }
 
     pub async fn send_player_action(

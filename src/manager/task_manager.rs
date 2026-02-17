@@ -1,15 +1,13 @@
 use std::sync::Arc;
 use database_manager::DatabaseManager;
-use tokio::sync::RwLock;
 
-use crate::config::cloud_config::CloudConfig;
-use crate::config::software_config::SoftwareConfig;
-use crate::types::task::Task;
+use crate::config::{CloudConfig, SoftwareConfigRef};
+use crate::types::Task;
 
 pub struct TaskManager {
     db: Arc<DatabaseManager>,
     config: Arc<CloudConfig>,
-    software_config: Arc<RwLock<SoftwareConfig>>,
+    software_config: SoftwareConfigRef,
     
     tasks: Vec<Task>,
     
@@ -17,7 +15,7 @@ pub struct TaskManager {
 
 
 impl TaskManager {
-    pub fn new(db: Arc<DatabaseManager>, cloud_config: Arc<CloudConfig>, software_config: Arc<RwLock<SoftwareConfig>>) -> TaskManager {
+    pub fn new(db: Arc<DatabaseManager>, cloud_config: Arc<CloudConfig>, software_config: SoftwareConfigRef) -> TaskManager {
         TaskManager {
             db,
             config: cloud_config,

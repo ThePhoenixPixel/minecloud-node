@@ -2,10 +2,9 @@ use database_manager::{DatabaseController, Table, TableDerive};
 use database_manager::types::{DBDatetime, DBText, DBUInt, DBVarChar, DbError, DbResult, Filter, QueryFilters, Value};
 use uuid::Uuid;
 
-use crate::config::cloud_config::CloudConfig;
+use crate::config::CloudConfig;
 use crate::database::DBTools;
-use crate::types::service::Service;
-use crate::types::ServiceRef;
+use crate::types::{Service, ServiceRef};
 
 #[derive(TableDerive, Debug, Clone, Default)]
 #[table_name("t_services")]

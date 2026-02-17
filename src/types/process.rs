@@ -11,8 +11,7 @@ use tokio::process::{ChildStdin, Child, Command};
 use tokio::time::{sleep, timeout as wait, Instant};
 
 use crate::{error, log_error, log_info, log_warning};
-use crate::config::cloud_config::CloudConfig;
-use crate::config::software_config::SoftwareName;
+use crate::config::{CloudConfig, SoftwareName};
 use crate::types::service::Service;
 use crate::types::{EntityId, ServiceStatus};
 use crate::types::task::Task;

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
-use crate::types::service::Service;
+use crate::types::Service;
 use crate::log_info;
 use crate::terminal::command_manager::CommandManager;
 
@@ -53,7 +53,7 @@ async fn reload(_cloud: Arc<RwLock<Cloud>>) -> Result<(), Error> {
 async fn list(cloud: Arc<RwLock<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
     let service_manager = {
         let cloud_guard = cloud.read().await;
-        cloud_guard.get_service_manager()
+        cloud_guard.get_node_manager()
     };
     todo!()
 /*

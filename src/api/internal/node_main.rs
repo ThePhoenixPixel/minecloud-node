@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
 use crate::api::internal::node_service::NodeService;
-use crate::config::cloud_config::CloudConfig;
+use crate::config::CloudConfig;
 use crate::{log_error, log_info, log_warning};
 
 pub struct NodeServer;

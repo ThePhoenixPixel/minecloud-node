@@ -8,12 +8,12 @@ use std::path::PathBuf;
 use std::{fs, io};
 use std::sync::Arc;
 use std::time::Duration;
+
 use crate::types::group::Group;
 use crate::types::installer::Installer;
 use crate::types::software::Software;
 use crate::types::template::Template;
-use crate::config::cloud_config::CloudConfig;
-use crate::config::software_config::SoftwareConfig;
+use crate::config::{CloudConfig, SoftwareConfig};
 use crate::{error, log_error, log_info};
 use crate::utils::error::*;
 

@@ -9,26 +9,25 @@ use database_manager::DatabaseManager;
 use tokio::sync::RwLock;
 
 use crate::api::internal::node_main::NodeServer;
-use crate::config::cloud_config::CloudConfig;
-use crate::config::software_config::SoftwareConfig;
 use crate::terminal::cmd::Cmd;
 use crate::utils::log::logger::Logger;
 use crate::{log_error, log_info, log_warning};
 use crate::utils::error::*;
-use crate::types::ServiceStatus;
 use crate::node::scheduler::Scheduler;
 use crate::database::table::Tables;
-use crate::manager::{NodeManager, PlayerManager, TaskManager};
+use crate::manager::{Manager, NodeManager, PlayerManager, TaskManager};
+use crate::config::{CloudConfig, SoftwareConfig, SoftwareConfigRef};
 
 #[cfg(feature = "rest-api")]
 use crate::api::external::restapi_main::ApiMain;
 
+
 pub struct Cloud {
     config: Arc<CloudConfig>,
-    software_config: Arc<RwLock<SoftwareConfig>>,
-    db_manager: Arc<DatabaseManager>,
+    software_config: SoftwareConfigRef,
+    db: Arc<DatabaseManager>,
     scheduler: Arc<Scheduler>,
-    task_manager: Arc<RwLock<TaskManager>>,
+    task_manager: Arc<TaskManager>,
     node_manager: Arc<NodeManager>,
     player_manager: Arc<PlayerManager>,
 }
@@ -36,46 +35,41 @@ pub struct Cloud {
 impl Cloud {
     pub async fn new() -> CloudResult<Self> {
         let config = Arc::new(CloudConfig::get());
-        let software_config = Arc::new(RwLock::new(SoftwareConfig::get()));
-        let db_config = config.get_db_config();
-        let mut db = DatabaseManager::new(db_config)?;
+        let software_config = SoftwareConfigRef::new(config.clone());
+        let mut db = DatabaseManager::new(config.get_db_config())?;
         db.connect().await?;
-        let manager = Arc::new(db);
-        Tables::check_tables(manager.as_ref()).await?;
+        let db = Arc::new(db);
+        Tables::check_tables(db.as_ref()).await?;
         log_info!("Database check successfully");
 
-        let service_manager = Arc::new(RwLock::new(NodeManager::new(manager.clone(), config.clone(), software_config.clone()).await?));
-        let task_manager = Arc::new(RwLock::new(TaskManager::new(manager.clone(), config.clone(), software_config.clone())));
-        let player_manager = Arc::new(PlayerManager::new(manager.clone(), service_manager.clone()));
-
-        // ----- Scheduler -----
+        let (pm, tm, nm) = Manager::create_all(db.clone(), config.clone(), software_config.clone()).await?;
         let scheduler = Arc::new(Scheduler::new(
-            manager.clone(),
+            db.clone(),
             config.clone(),
             software_config.clone(),
-            service_manager.clone(),
-            task_manager.clone(),
+            nm.clone(),
+            tm.clone(),
         ));
 
         Ok(Self {
             config,
             software_config,
-            db_manager: manager,
+            db,
             scheduler,
-            service_manager,
-            task_manager,
-            player_manager,
+            node_manager: nm,
+            task_manager: tm,
+            player_manager: pm,
         })
     }
 
     pub fn get_config(&self) -> &CloudConfig {
         &self.config
     }
-    pub fn get_database_manager(&self) -> &Arc<DatabaseManager> {
-        &self.db_manager
+    pub fn get_db(&self) -> &Arc<DatabaseManager> {
+        &self.db
     }
-    pub fn get_service_manager(&self) -> Arc<RwLock<ServiceManager>> {
-        self.service_manager.clone()
+    pub fn get_node_manager(&self) -> Arc<NodeManager> {
+        self.node_manager.clone()
     }
     pub fn get_scheduler(&self) -> &Arc<Scheduler> {
         &self.scheduler
@@ -108,10 +102,6 @@ impl Cloud {
         Cloud::check_software()
             .await
             .expect("Checking Software failed");
-
-        // files & database cleanup
-        // wenns beim runterfahren geknallt hat un in den services datein noch start oder Prepare steht
-        Cloud::set_stop_status_service();
 
         let cloud = Arc::new(RwLock::new(Cloud::new().await.expect("Cant Create Cloud")));
 
@@ -151,9 +141,9 @@ impl Cloud {
     }
 
     pub async fn disable(&mut self) {
-        self.service_manager.write().await.stop_all("Cloud Disable").await;
+        self.node_manager.stop_all_local_services("Cloud Disable").await;
         log_info!("Cloud shutdown");
-        log_info!("Bye Bye");
+        log_info!("bye bye");
         std::process::exit(0)
     }
 
@@ -304,15 +294,6 @@ impl Cloud {
             r"\///////\//".cyan()
         );
         println!(" ");
-    }
-
-    pub fn set_stop_status_service() {
-        // nur die loken services holen nicht die aus dem netzwerk
-        // wichtig Service::get_all() lassen denn hier muss expliziet in die datein gegucklt werden
-        for mut service in ServiceManager::get_all_from_file() {
-            service.set_status(ServiceStatus::Stopped);
-            service.save_to_file();
-        }
     }
 
     pub fn check_folder() -> Result<(), Box<dyn Error>> {

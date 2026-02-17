@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::cloud::Cloud;
-use crate::config::cloud_config::CloudConfig;
+use crate::config::CloudConfig;
 
 pub struct Language;
 

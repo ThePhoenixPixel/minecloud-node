@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
-use crate::config::software_config::SoftwareConfig;
+use crate::config::SoftwareConfig;
 use crate::terminal::command_manager::CommandManager;
 
 pub struct CmdHelp;

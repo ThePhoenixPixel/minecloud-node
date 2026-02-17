@@ -1,23 +1,22 @@
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use database_manager::{DatabaseManager};
 use uuid::Uuid;
 
 use crate::{error, log_info};
 use crate::api::internal::node_service::PlayerActionRequest;
 use crate::utils::error::{CantFindServiceFromUUID, CantRegisterPlayer, CloudResult};
-use crate::types::{Player, PlayerAction, PlayerSession, Service};
+use crate::types::{Player, PlayerAction, PlayerSession, Service, ServiceRef};
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
 use crate::manager::service_manager::ServiceManager;
 use crate::utils::utils::Utils;
 
 pub struct PlayerManager {
     db_manager: Arc<DatabaseManager>,
-    service_manager: Arc<RwLock<ServiceManager>>,
+    service_manager: Arc<ServiceManager>,
 }
 
 impl PlayerManager {
-    pub fn new(db_manager: Arc<DatabaseManager>, service_manager: Arc<RwLock<ServiceManager>>) -> PlayerManager {
+    pub fn new(db_manager: Arc<DatabaseManager>, service_manager: Arc<ServiceManager>) -> PlayerManager {
         PlayerManager {
             db_manager,
             service_manager,
@@ -28,8 +27,9 @@ impl PlayerManager {
         let mut player = self.get_or_create_player(&Player::from(req.get_player_req())).await?;
         let service = {
             let s = self.service_manager.read().await;
-            s.get_from_id(req.get_service_uuid().as_ref()).ok_or_else(|| error!(CantFindServiceFromUUID))?
-        }.get_service();
+            s.get_from_id(req.get_service_uuid().as_ref()).await.ok_or_else(|| error!(CantFindServiceFromUUID))?
+        };
+
         let mut current_players = service.get_current_players();
 
         match req.get_action() {
@@ -56,8 +56,8 @@ impl PlayerManager {
         Ok(())
     }
 
-    pub async fn on_player_join(&self, player: &mut Player, service: &Service) -> CloudResult<()> {
-        if service.is_proxy() {
+    pub async fn on_player_join(&self, player: &mut Player, service: &ServiceRef) -> CloudResult<()> {
+        if service.is_proxy().await {
             // proxy join handling
             self.create_session(player, &service.get_id()).await?;
             self.update_last_login(player).await?;
@@ -72,8 +72,8 @@ impl PlayerManager {
         Ok(())
     }
 
-    pub async fn on_player_leave(&self, player: &mut Player, service: &Service) -> CloudResult<()> {
-        if service.is_proxy() {
+    pub async fn on_player_leave(&self, player: &mut Player, service: &ServiceRef) -> CloudResult<()> {
+        if service.is_proxy().await {
             // proxy leave handling
             Utils::wait_sec(2).await;
             self.delete_session(player).await?;

@@ -5,7 +5,7 @@ use std::io::Write;
 use std::{env, fs};
 use once_cell::sync::OnceCell;
 
-use crate::config::cloud_config::CloudConfig;
+use crate::config::CloudConfig;
 use crate::utils::log::LogType;
 
 pub static LOG_LEVEL: OnceCell<u8> = OnceCell::new();

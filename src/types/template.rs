@@ -3,7 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::types::task::Task;
-use crate::config::cloud_config::CloudConfig;
+use crate::config::CloudConfig;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Template {

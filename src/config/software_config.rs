@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::config::cloud_config::CloudConfig;
 use crate::{log_error, log_info, log_warning};
@@ -14,7 +15,7 @@ pub struct SoftwareConfig {
 }
 
 impl SoftwareConfig {
-    pub fn get() -> SoftwareConfig {
+    pub fn new(cloud_config: Arc<CloudConfig>) -> SoftwareConfig {
         let file_content = fs::read_to_string(
             CloudConfig::get()
                 .get_cloud_path()
@@ -26,6 +27,35 @@ impl SoftwareConfig {
             log_error!("{}", &e.to_string());
             get_default_software_config()
         });
+
+        let mut config: SoftwareConfig = match serde_json::from_str(&file_content) {
+            Ok(config) => config,
+            Err(e) => {
+                log_error!(1, "Error deserializing the software file configuration");
+                log_error!(1, "{}", &e.to_string());
+                panic!("The GameCloud has a fatal Error");
+            }
+        };
+
+        for (type_name, software_type) in config.software_type.iter_mut() {
+            software_type.set_type_for_software_names(type_name);
+        }
+
+        config
+    }
+
+    pub fn get() -> SoftwareConfig {
+        let file_content = fs::read_to_string(
+            CloudConfig::get()
+                .get_cloud_path()
+                .get_system_folder()
+                .get_software_config_path(),
+        )
+            .unwrap_or_else(|e| {
+                log_warning!("Please specify the correct path to the software file configuration");
+                log_error!("{}", &e.to_string());
+                get_default_software_config()
+            });
 
         let mut config: SoftwareConfig = match serde_json::from_str(&file_content) {
             Ok(config) => config,

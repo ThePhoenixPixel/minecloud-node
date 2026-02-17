@@ -10,8 +10,7 @@ use std::fs;
 use uuid::Uuid;
 
 use crate::types::task::Task;
-use crate::config::cloud_config::CloudConfig;
-use crate::config::software_config::SoftwareName;
+use crate::config::{CloudConfig, SoftwareName};
 use crate::utils::error::*;
 use crate::{error, log_error, log_info, log_warning};
 use crate::types::{EntityId, ServiceStatus};

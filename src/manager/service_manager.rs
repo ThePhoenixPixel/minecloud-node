@@ -9,17 +9,12 @@ use bx::path::Directory;
 use database_manager::DatabaseManager;
 use serde::Serialize;
 use serde_json::json;
-use tokio::sync::RwLock;
 
 use crate::api::internal::node_service::ServiceInfoResponse;
-use crate::config::cloud_config::CloudConfig;
-use crate::config::software_config::SoftwareConfig;
 use crate::{error, log_error, log_info, log_warning};
+use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
-use crate::types::process::ServiceProcess;
-use crate::types::{EntityId, ServiceRef, ServiceStatus};
-use crate::types::service::Service;
-use crate::types::task::Task;
+use crate::types::{EntityId, Service, ServiceProcess, ServiceRef, ServiceStatus, Task};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 
@@ -34,16 +29,18 @@ pub struct ServiceManager {
     services: Vec<ServiceRef>,
     db: Arc<DatabaseManager>,
     config: Arc<CloudConfig>,
-    _software_config: Arc<RwLock<SoftwareConfig>>,
+    _software_config: SoftwareConfigRef,
 }
 
 impl ServiceManager {
     pub async fn new(
         db: Arc<DatabaseManager>,
         cloud_config: Arc<CloudConfig>,
-        _software_config: Arc<RwLock<SoftwareConfig>>
+        _software_config: SoftwareConfigRef
     ) -> CloudResult<Self> {
-        let service = Self::get_all_from_file();
+        let mut service = Self::get_all_from_file();
+        service.iter_mut().for_each(|s| s.set_status(ServiceStatus::Stopped));
+        service.iter_mut().for_each(|s| s.save_to_file());
         TableServices::delete_others(db.as_ref(), &service, cloud_config.as_ref()).await?;
         let mut services: Vec<ServiceRef> = Vec::new();
         for s in service {

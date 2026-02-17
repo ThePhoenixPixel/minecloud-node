@@ -5,21 +5,19 @@ use tokio::sync::RwLock;
 use tokio::time;
 use tokio::time::Instant;
 
-use crate::config::cloud_config::CloudConfig;
-use crate::config::software_config::SoftwareConfig;
 use crate::{log_error, log_info};
+use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TablePlayerSessions;
-use crate::manager::service_manager::ServiceManager;
-use crate::manager::task_manager::TaskManager;
+use crate::manager::{NodeManager, TaskManager};
 use crate::types::Task;
 use crate::utils::error::CloudResult;
 
 pub struct Scheduler {
     db: Arc<DatabaseManager>,
     config: Arc<CloudConfig>,
-    software_config: Arc<RwLock<SoftwareConfig>>,
-    service_manager: Arc<RwLock<ServiceManager>>,
-    task_manager: Arc<RwLock<TaskManager>>,
+    software_config: SoftwareConfigRef,
+    node_manager: Arc<NodeManager>,
+    task_manager: Arc<TaskManager>,
     last_scale_action: Arc<RwLock<Option<Instant>>>,
 }
 
@@ -27,15 +25,15 @@ pub struct Scheduler {
 impl Scheduler {
     pub fn new(db: Arc<DatabaseManager>,
                config: Arc<CloudConfig>,
-               software_config: Arc<RwLock<SoftwareConfig>>,
-               service_manager: Arc<RwLock<ServiceManager>>,
-               task_manager: Arc<RwLock<TaskManager>>
+               software_config: SoftwareConfigRef,
+               node_manager: Arc<NodeManager>,
+               task_manager: Arc<TaskManager>
     ) -> Scheduler {
         Scheduler {
             db,
             config,
             software_config,
-            service_manager,
+            node_manager,
             task_manager,
             last_scale_action: Arc::new(RwLock::new(None)),
         }
