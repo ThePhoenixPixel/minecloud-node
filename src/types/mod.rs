@@ -11,7 +11,8 @@ pub use node::*;
 pub use process::*;
 pub use installer::*;
 pub use template::*;
-pub use software::Software;
+pub use software::*;
+pub use task_ref::*;
 
 mod group;
 mod task;
@@ -24,6 +25,7 @@ mod software;
 mod player;
 mod process;
 mod service_ref;
+mod task_ref;
 
 pub type EntityId = Uuid;
 
