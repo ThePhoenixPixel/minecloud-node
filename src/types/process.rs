@@ -13,7 +13,6 @@ use tokio::time::{sleep, timeout as wait, Instant};
 use crate::{error, log_error, log_info, log_warning};
 use crate::config::cloud_config::CloudConfig;
 use crate::config::software_config::SoftwareName;
-use crate::manager::service_manager::ServiceManager;
 use crate::types::service::Service;
 use crate::types::{EntityId, ServiceStatus};
 use crate::types::task::Task;
@@ -213,8 +212,8 @@ impl ServiceProcess {
             pub fn save_to_file(&self);
 
             pub fn set_status(&mut self, status: ServiceStatus);
-            pub async fn set_server_listener(&mut self, manager: &ServiceManager) -> CloudResult<()>;
-            pub async fn find_new_free_plugin_listener(&mut self, manager: &ServiceManager);
+            pub fn set_server_listener(&mut self, address: Address);
+            pub fn set_plugin_listener(&mut self, address: Address);
 
             pub fn install_software(&self) -> CloudResult<()>;
             pub fn install_system_plugin(&self) -> CloudResult<()>;

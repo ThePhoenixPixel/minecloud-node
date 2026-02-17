@@ -14,9 +14,7 @@ use crate::config::cloud_config::CloudConfig;
 use crate::config::software_config::SoftwareName;
 use crate::utils::error::*;
 use crate::{error, log_error, log_info, log_warning};
-use crate::manager::service_manager::ServiceManager;
 use crate::types::{EntityId, ServiceStatus};
-use crate::utils::utils::Utils;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Service {
@@ -154,9 +152,8 @@ impl Service {
         self.plugin_listener.clone()
     }
 
-    pub fn set_plugin_listener(&mut self, address: &Address) {
-        self.plugin_listener = address.clone();
-        self.save_to_file();
+    pub fn set_plugin_listener(&mut self, address: Address) {
+        self.plugin_listener = address;
     }
 
     pub fn get_cloud_listener(&self) -> Address {
@@ -172,7 +169,11 @@ impl Service {
         self.server_listener.clone()
     }
 
-    pub async fn set_server_listener(&mut self, manager: &ServiceManager) -> Result<(), CloudError> {
+    pub fn set_server_listener(&mut self, address: Address) {
+        self.server_listener = address
+    }
+
+    /*pub async fn set_server_listener(&mut self, manager: &ServiceManager) -> Result<(), CloudError> {
         let address = self.find_free_server_address(manager).await;
 
         let software_name = self.get_software_name();
@@ -207,7 +208,7 @@ impl Service {
         self.save_to_file();
 
         Ok(())
-    }
+    }*/
 
     pub fn is_delete(&self) -> bool {
         !self.get_task().is_static_service() && self.get_task().is_delete_on_stop()
@@ -221,7 +222,7 @@ impl Service {
         }
     }
 
-    pub async fn find_free_server_address(&self, manager: &ServiceManager) -> Address {
+    /*pub async fn find_free_server_address(&self, manager: &ServiceManager) -> Address {
         let ports = manager.get_bind_ports().await;
         let port = self.get_task().get_start_port();
         let server_host = manager.get_config().get_server_host();
@@ -233,7 +234,7 @@ impl Service {
         let port = self.get_server_listener().get_port() + 1;
         let server_host = manager.get_config().get_server_host();
         Address::new(&server_host, &find_port(ports, port, &server_host))
-    }
+    }*/
 
     pub fn get_path(&self) -> PathBuf {
         self.get_task().get_service_path().join(self.get_name())
@@ -244,11 +245,11 @@ impl Service {
             .join(self.get_task().get_software().get_server_file_name())
     }
 
-    pub async fn find_new_free_plugin_listener(&mut self, manager: &ServiceManager) {
+    /*pub async fn find_new_free_plugin_listener(&mut self, manager: &ServiceManager) {
         let address = self.find_free_plugin_address(&manager).await;
         self.set_plugin_listener(&address);
         self.save_to_file()
-    }
+    }*/
 
     pub fn get_path_with_service_config(&self) -> PathBuf {
         self.get_path().join(".minecloud")
