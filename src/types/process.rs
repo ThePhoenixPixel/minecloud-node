@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
 use bx::network::address::Address;
+use bx::network::url::Url;
 use delegate::delegate;
 use serde_json::json;
 use tokio::io;
@@ -197,8 +198,10 @@ impl ServiceProcess {
             pub fn is_start(&self) -> bool;
             pub fn is_stop(&self) -> bool;
             pub fn is_proxy(&self) -> bool;
+            pub fn is_delete(&self) -> bool;
             pub fn get_server_listener(&self) -> Address;
             pub fn get_plugin_listener(&self) -> Address;
+            pub fn get_service_url(&self) -> Url;
             pub fn get_software_name(&self) -> SoftwareName;
             pub fn get_path_with_server_file(&self) -> PathBuf;
             pub fn get_path_stdout_file(&self) -> PathBuf;
@@ -209,6 +212,7 @@ impl ServiceProcess {
             pub fn get_started_at_to_string(&self) -> Option<String>;
             pub fn get_stopped_at_to_string(&self) -> Option<String>;
             pub fn save_to_file(&self);
+            pub fn delete_files(&self);
 
             pub fn set_status(&mut self, status: ServiceStatus);
             pub fn set_server_listener(&mut self, address: Address);
