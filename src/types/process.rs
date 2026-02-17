@@ -198,6 +198,7 @@ impl ServiceProcess {
             pub fn is_start(&self) -> bool;
             pub fn is_stop(&self) -> bool;
             pub fn is_proxy(&self) -> bool;
+            pub fn is_backend_server(&self) -> bool;
             pub fn is_delete(&self) -> bool;
             pub fn get_server_listener(&self) -> Address;
             pub fn get_plugin_listener(&self) -> Address;
