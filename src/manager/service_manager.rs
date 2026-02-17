@@ -104,8 +104,7 @@ impl ServiceManager {
     pub async fn connect_to_network(&self, service: &Service) -> CloudResult<()> {
         for service_proxy in self.get_online_proxies().await {
             let s = service_proxy.read().await;
-            let proxy_service = s.get_service();
-            let url = proxy_service.get_service_url().join("add_server");
+            let url = s.get_service_url().join("add_server");
             let body = match Utils::convert_to_json(&RegisterServerData {
                 register_server: ServiceInfoResponse::new(service),
             }) {
@@ -120,7 +119,7 @@ impl ServiceManager {
                 Ok(_) => log_info!(
                     "Service {} successfully connected to Proxy [{}]",
                     service.get_name(),
-                    proxy_service.get_name()
+                    s.get_name()
                 ),
                 Err(e) => log_warning!(
                     "Service | {} | can't send request connect to Network \n Error: {}",
@@ -135,15 +134,14 @@ impl ServiceManager {
     pub async fn disconnect_from_network(&self, service: &Service) -> Result<(), Error> {
         for service_proxy in self.get_online_proxies().await {
             let s = service_proxy.read().await;
-            let proxy_service = s.get_service();
-            let url = proxy_service
+            let url = s
                 .get_service_url()
                 .join(format!("remove_server?name={}", service.get_name()).as_str());
             match url.post(&json!({}), Duration::from_secs(3)).await {
                 Ok(_) => log_info!(
                     "Service {} successfully disconnected from Proxy [{}]",
                     service.get_name(),
-                    proxy_service.get_name()
+                    s.get_name()
                 ),
                 Err(e) => log_warning!(
                     "Service | {} | can't send request disconnect from Network \n Error: {}",
@@ -157,7 +155,7 @@ impl ServiceManager {
 
     // FIX: Arc<RwLock<ServiceProcess>> -> ServiceRef
     pub async fn set_service(&mut self, service: ServiceRef) {
-        let id = service.read().await.get_service().get_id();
+        let id = service.get_id().await;
         if let Some(pos) = self.find_pos_by_id(&id).await {
             self.services[pos] = service;
         } else {
@@ -168,7 +166,7 @@ impl ServiceManager {
     async fn get_next_stopped_service(&self, task: &Task) -> Option<ServiceRef> {
         for arc in &self.services {
             let p = arc.read().await;
-            if p.get_service().is_stop() && p.get_service().get_task() == *task {
+            if p.is_stop() && p.get_task() == *task {
                 return Some(arc.clone());
             }
         }
@@ -179,7 +177,7 @@ impl ServiceManager {
         let ids: Vec<EntityId> = {
             let mut ids = Vec::new();
             for arc in &self.services {
-                ids.push(arc.read().await.get_service().get_id());
+                ids.push(arc.get_id().await);
             }
             ids
         };
@@ -207,8 +205,8 @@ impl ServiceManager {
         let arc = self.services[pos].clone();
         let mut p = arc.write().await;
 
-        if p.get_service().is_delete() {
-            p.get_service().delete_files();
+        if p.is_delete() {
+            p.delete_files();
             drop(p);
             self.services.remove(pos);
         } else {
@@ -223,7 +221,7 @@ impl ServiceManager {
 
     pub async fn get_from_id(&self, id: &EntityId) -> Option<ServiceRef> {
         for arc in &self.services {
-            if arc.read().await.get_service().get_id() == *id {
+            if arc.read().await.get_id() == *id {
                 return Some(arc.clone());
             }
         }
@@ -233,7 +231,7 @@ impl ServiceManager {
     pub async fn get_all_from_task(&self, task_name: &str) -> Vec<ServiceRef> {
         let mut result = Vec::new();
         for arc in &self.services {
-            if arc.read().await.get_service().get_task().get_name() == task_name {
+            if arc.read().await.get_task().get_name() == task_name {
                 result.push(arc.clone());
             }
         }
@@ -244,7 +242,7 @@ impl ServiceManager {
         let mut result = Vec::new();
         for arc in &self.services {
             let p = arc.read().await;
-            if p.get_service().get_task().get_name() == task_name && p.is_start() {
+            if p.get_task().get_name() == task_name && p.is_start() {
                 result.push(arc.clone());
             }
         }
@@ -265,7 +263,7 @@ impl ServiceManager {
         let mut result = Vec::new();
         for arc in &self.services {
             let p = arc.read().await;
-            if p.is_start() && p.get_service().is_proxy() {
+            if p.is_start() && p.is_proxy() {
                 result.push(arc.clone());
             }
         }
@@ -276,7 +274,7 @@ impl ServiceManager {
         let mut result = Vec::new();
         for arc in &self.services {
             let p = arc.read().await;
-            if p.is_start() && p.get_service().is_backend_server() {
+            if p.is_start() && p.is_backend_server() {
                 result.push(arc.clone());
             }
         }
@@ -338,9 +336,7 @@ impl ServiceManager {
                 continue;
             }
 
-            let p = arc.read().await;
-            let service = p.get_service();
-
+            let service = arc.read().await;
             let server_listener = service.get_server_listener();
             if server_listener.get_ip() == host {
                 ports.push(server_listener.get_port());
@@ -394,7 +390,7 @@ impl ServiceManager {
 
     async fn find_pos_by_id(&self, id: &EntityId) -> Option<usize> {
         for (pos, arc) in self.services.iter().enumerate() {
-            if arc.read().await.get_service().get_id() == *id {
+            if arc.get_id().await == *id {
                 return Some(pos);
             }
         }
