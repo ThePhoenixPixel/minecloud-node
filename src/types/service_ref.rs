@@ -19,6 +19,10 @@ impl ServiceRef {
         self.0.write().await
     }
 
+    pub fn ptr_eq(&self, other: &ServiceRef) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
     pub async fn get_id(&self) -> EntityId {
         self.0.read().await.get_id()
     }
