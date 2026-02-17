@@ -26,7 +26,7 @@ impl CommandManager for CmdTask {
         match arg1 {
             "create" => create(args),
             "delete" => Ok(delete(args)),
-            "list" => Ok(list()),
+            "list" => Ok(todo!("list")),
             "info" => Ok(info(args)),
             "setup" => setup(args),
             "reload" => reload(cloud).await,
@@ -448,12 +448,4 @@ fn delete(args: Vec<&str>) {
     // delete the task
     task.delete_as_file();
     log_info!("Task erfolgreich gelöscht");
-}
-
-fn list() {
-    log_info!("--------> Tasks <--------");
-    for task in Task::get_task_all() {
-        log_info!("{}", task.get_name());
-    }
-    log_info!("--------------------------");
 }
