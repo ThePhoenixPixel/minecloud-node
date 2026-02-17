@@ -1,4 +1,5 @@
-use std::fmt::Debug;
+use std::fs;
+use std::fs::read_to_string;
 use std::io::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -90,23 +91,15 @@ impl ServiceManager {
     }
 
     async fn prepare_to_start(&self, service: &ServiceRef) -> CloudResult<()> {
-        // FIX: read guard in eigenem Scope, damit er vor write() gedroppt wird
         {
             let s = service.read().await;
             s.install_software()?;
             s.install_system_plugin()?;
             s.install_software_lib(self.get_config())?;
-        } // read guard gedroppt
-
-        // FIX: Ports VOR dem write-Lock sammeln, weil set_server_listener intern
-        // get_bind_ports() aufruft → würde denselben Service read()-locken → Deadlock
-        let bind_ports = self.get_bind_ports().await;
-
-        {
-            let mut s = service.write().await;
-            s.set_server_listener_with_ports(&bind_ports, self.get_config()).await?;
-            s.find_new_free_plugin_listener_with_ports(&bind_ports, self.get_config()).await;
         }
+
+        self.set_server_listener(service).await?;
+        self.set_plugin_listener(service).await;
 
         Ok(())
     }
@@ -293,28 +286,63 @@ impl ServiceManager {
         result
     }
 
-    async fn set_server_listener(&self, service: &ServiceRef) {
+    async fn set_server_listener(&self, service: &ServiceRef) -> CloudResult<()> {
+        let bind_ports = self.get_bind_ports_except(service).await;
 
+        let mut s = service.write().await;
+        let start_port = s.get_task().get_start_port();
+        let host = self.config.get_server_host();
+        let port = Utils::find_free_port(&bind_ports, start_port, &host);
+        let address = Address::new(&host, &port);
 
+        let software_name = s.get_software_name();
+        let path = s.get_path();
 
+        let path_ip = path.join(software_name.get_ip_path());
+        if !path_ip.exists() {
+            return Err(error!(CantFindIPConfigFilePath));
+        }
+        let content = read_to_string(&path_ip).map_err(|e| error!(CantReadFileToString, e))?;
+        fs::write(&path_ip, content.replace("%ip%", &address.get_ip()))
+            .map_err(|e| error!(CantWriteIP, e))?;
+
+        let path_port = path.join(software_name.get_port_path());
+        if !path_port.exists() {
+            return Err(error!(CantFindPortConfigFilePath));
+        }
+        let content = read_to_string(&path_port).map_err(|e| error!(CantReadFileToString, e))?;
+        fs::write(&path_port, content.replace("%port%", &address.get_port().to_string()))
+            .map_err(|e| error!(CantWritePort, e))?;
+
+        s.set_server_listener(address);
+        s.save_to_file();
+        Ok(())
     }
 
     async fn set_plugin_listener(&self, service: &ServiceRef) {
+        let bind_ports = self.get_bind_ports_except(service).await;
 
+        let mut s = service.write().await;
+        let start_port = s.get_server_listener().get_port() + 1;
+        let host = self.config.get_server_host();
+        let port = Utils::find_free_port(&bind_ports, start_port, &host);
+        let address = Address::new(&host, &port);
 
-
+        s.set_plugin_listener(address);
+        s.save_to_file();
     }
 
-
-    async fn get_used_ports(&self) -> Vec<u32> {
+    async fn get_bind_ports_except(&self, exclude: &ServiceRef) -> Vec<u32> {
         let host = self.config.get_server_host();
         let mut ports = Vec::new();
 
         for arc in &self.services {
-            let service = arc.read().await;
-            if service.is_start() {
+            if arc.ptr_eq(exclude) {
                 continue;
             }
+
+            let p = arc.read().await;
+            let service = p.get_service();
 
             let server_listener = service.get_server_listener();
             if server_listener.get_ip() == host {
