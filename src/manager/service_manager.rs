@@ -154,7 +154,7 @@ impl ServiceManager {
     }
 
     // FIX: Arc<RwLock<ServiceProcess>> -> ServiceRef
-    pub async fn set_service(&mut self, service: ServiceRef) {
+    async fn set_service(&mut self, service: ServiceRef) {
         let id = service.get_id().await;
         if let Some(pos) = self.find_pos_by_id(&id).await {
             self.services[pos] = service;
@@ -201,7 +201,7 @@ impl ServiceManager {
         Ok(())
     }
 
-    pub async fn remove_service(&mut self, pos: usize) {
+    async fn remove_service(&mut self, pos: usize) {
         let arc = self.services[pos].clone();
         let mut p = arc.write().await;
 
@@ -215,7 +215,7 @@ impl ServiceManager {
         }
     }
 
-    pub fn get_config(&self) -> &Arc<CloudConfig> {
+    fn get_config(&self) -> &Arc<CloudConfig> {
         &self.config
     }
 
