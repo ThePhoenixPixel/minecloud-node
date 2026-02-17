@@ -218,9 +218,17 @@ impl ServiceProcess {
             pub fn set_status(&mut self, status: ServiceStatus);
             pub fn set_server_listener(&mut self, address: Address);
             pub fn set_plugin_listener(&mut self, address: Address);
+            pub fn update_current_player(&mut self, count: u32);
 
+            pub fn start_idle_timer(&mut self);
+
+            #[deprecated]
             pub fn install_software(&self) -> CloudResult<()>;
+
+            #[deprecated]
             pub fn install_system_plugin(&self) -> CloudResult<()>;
+
+            #[deprecated]
             pub fn install_software_lib(&self, config: &CloudConfig) -> CloudResult<()>;
         }
     }
