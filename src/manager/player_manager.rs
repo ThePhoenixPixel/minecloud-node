@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use database_manager::{DatabaseManager};
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{error, log_info};
@@ -12,11 +13,11 @@ use crate::utils::utils::Utils;
 
 pub struct PlayerManager {
     db_manager: Arc<DatabaseManager>,
-    service_manager: Arc<ServiceManager>,
+    service_manager: Arc<RwLock<ServiceManager>>,
 }
 
 impl PlayerManager {
-    pub fn new(db_manager: Arc<DatabaseManager>, service_manager: Arc<ServiceManager>) -> PlayerManager {
+    pub fn new(db_manager: Arc<DatabaseManager>, service_manager: Arc<RwLock<ServiceManager>>) -> PlayerManager {
         PlayerManager {
             db_manager,
             service_manager,
@@ -24,9 +25,12 @@ impl PlayerManager {
     }
 
     pub async fn handle_action(&self, req: PlayerActionRequest) -> CloudResult<()> {
-        let service_ref = self.service_manager.get_from_id(&req.get_service_uuid()).await?;
-        let mut player = self.get_or_create_player(&Player::from(req.get_player_req())).await?;
+        let service_ref = {
+            let sm = self.service_manager.read().await;
+            sm.get_from_id(&req.get_service_uuid()).await?
+        };
 
+        let mut player = self.get_or_create_player(&Player::from(req.get_player_req())).await?;
         let (mut current_players, task) = {
             let s = service_ref.read().await;
             let service = s.get_service();
