@@ -10,8 +10,8 @@ use database_manager::DatabaseManager;
 use serde::Serialize;
 use serde_json::json;
 
-use crate::api::internal::node_service::ServiceInfoResponse;
 use crate::{error, log_error, log_info, log_warning};
+use crate::api::internal::ServiceInfoResponse;
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
 use crate::types::{EntityId, Service, ServiceProcess, ServiceRef, ServiceStatus, Task};
@@ -101,6 +101,44 @@ impl ServiceManager {
         Ok(())
     }
 
+    pub async fn register_on_proxy(&self, service: &Service) -> CloudResult<()> {
+        for proxy in self.get_online_proxies().await {
+            let s = proxy.read().await;
+            let url = s.get_service_url().join("add_server");
+            let body = match Utils::convert_to_json(&RegisterServerData {
+                register_server: ServiceInfoResponse::new(&service),
+            }) {
+                Some(b) => b,
+                None => {
+                    log_warning!(2, "Service [{}] can't Serialize to ServiceInfo", service.get_name());
+                    continue;
+                }
+            };
+
+            match url.post(&body, Duration::from_secs(3)).await {
+                Ok(_) => log_info!(4, "Successfully connect Service [{}] to Proxy [{}] ", service.get_name(), s.get_name()),
+                Err(e) => log_warning!(2, "Can't Register Service [{}] to Proxy [{}] -> {}", service.get_name(), s.get_name(), e)
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn unregister_from_proxy(&self, service: &Service) -> CloudResult<()> {
+        for proxy in self.get_online_proxies().await {
+            let s = proxy.read().await;
+            let url = s
+                .get_service_url()
+                .join(format!("remove_server?name={}", service.get_name()).as_str());
+
+            match url.post(&json!({}), Duration::from_secs(3)).await {
+                Ok(_) => log_info!(4, "Successfully disconnect Service [{}] from Proxy [{}] ", service.get_name(), s.get_name()),
+                Err(e) => log_warning!(2, "Can't Unregister Service [{}] from Proxy [{}] -> {}", service.get_name(), s.get_name(), e)
+            }
+        }
+        Ok(())
+    }
+
+    #[deprecated]
     pub async fn connect_to_network(&self, service: &Service) -> CloudResult<()> {
         for service_proxy in self.get_online_proxies().await {
             let s = service_proxy.read().await;
@@ -131,6 +169,7 @@ impl ServiceManager {
         Ok(())
     }
 
+    #[deprecated]
     pub async fn disconnect_from_network(&self, service: &Service) -> Result<(), Error> {
         for service_proxy in self.get_online_proxies().await {
             let s = service_proxy.read().await;
@@ -226,6 +265,15 @@ impl ServiceManager {
             }
         }
         Err(error!(CantFindServiceFromUUID))
+    }
+
+    pub async fn find_from_id(&self, id: &EntityId) -> Option<ServiceRef> {
+        for arc in &self.services {
+            if arc.get_id().await == *id {
+                return Some(arc.clone());
+            }
+        }
+        None
     }
 
     pub async fn get_all_from_task(&self, task_name: &str) -> Vec<ServiceRef> {
