@@ -67,6 +67,9 @@ pub enum CloudErrorKind {
     CantFindServiceFromUUID,
     CantFindTaskFromName,
 
+
+    CantBindAddress,
+    CantStartAPIServer,
     /// 9.xxx
     /// Internal System
     IoError,
