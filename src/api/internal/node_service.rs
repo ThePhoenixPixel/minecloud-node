@@ -43,7 +43,7 @@ impl NodeService {
         cloud: web::Data<Arc<RwLock<Cloud>>>,
         request: web::Json<ShutdownRequest>,
     ) -> HttpResponse {
-        let service_manager = {
+        let node_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_node_manager()
         };
@@ -114,9 +114,9 @@ impl NodeService {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_node_manager()
         };
-
-        todo!();
-        /*let service = {
+todo!();
+        /*
+        let service = {
             match service_manager.write().await.get_from_id(&request.id) {
                 Some(mut service) => {
                     service.get_service_mut().set_status(ServiceStatus::Running);
@@ -144,26 +144,25 @@ impl NodeService {
                     e.to_string()
                 ))
             }
-        }*/
+        }
+        */
+
     }
 
     pub async fn get_online_backend_server(cloud: web::Data<Arc<RwLock<Cloud>>>) -> HttpResponse {
-        let service_manager = {
+        let node_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_node_manager()
         };
-        todo!();
-        /*
-        let all_service = {
-            service_manager.read().await.get_online_backend_server()
-        };
+
+        let all_service = node_manager.get_online_backend_server().await;
 
         let response: Vec<ServiceInfoResponse> = all_service
             .into_iter()
-            .map(|s| ServiceInfoResponse::new(&s.get_service()))
+            .map(|s| ServiceInfoResponse::new(&s))
             .collect();
 
-        HttpResponse::Ok().json(response)*/
+        HttpResponse::Ok().json(response)
     }
 
     pub async fn send_player_action(
@@ -174,13 +173,15 @@ impl NodeService {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_player_manager()
         };
+        todo!();
+        /*
         match player_manager.handle_action(request.into_inner()).await{
             Ok(()) => HttpResponse::Ok().finish(),
             Err(e) => {
                 log_error!("[Node-API] Cant Execute Player Action Request {:?}", e);
                 HttpResponse::InternalServerError().finish()
             }
-        }
+        }*/
     }
 }
 

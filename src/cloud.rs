@@ -8,7 +8,6 @@ use std::{env, fs};
 use database_manager::DatabaseManager;
 use tokio::sync::RwLock;
 
-use crate::api::internal::node_main::NodeServer;
 use crate::terminal::cmd::Cmd;
 use crate::utils::log::logger::Logger;
 use crate::{log_error, log_info, log_warning};
@@ -17,6 +16,8 @@ use crate::node::scheduler::Scheduler;
 use crate::database::table::Tables;
 use crate::manager::{Manager, NodeManager, PlayerManager, TaskManager};
 use crate::config::{CloudConfig, SoftwareConfig, SoftwareConfigRef};
+use crate::api::internal::APIInternal;
+
 
 #[cfg(feature = "rest-api")]
 use crate::api::external::restapi_main::ApiMain;
@@ -78,7 +79,7 @@ impl Cloud {
         self.player_manager.clone()
     }
 
-    pub async fn enable(version: &str) {
+    pub async fn enable(version: &str) -> CloudResult<()> {
         // download link
         let url = format!(
             "http://download.codergames.de/minecloud/version/{}/",
@@ -105,14 +106,9 @@ impl Cloud {
 
         let cloud = Arc::new(RwLock::new(Cloud::new().await.expect("Cant Create Cloud")));
 
-        // NodeServer
-        {
-            let cloud_clone = cloud.clone();
-            std::thread::spawn(move || {
-                let _ = NodeServer::start(cloud_clone);
-            });
-        }
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        // Internal API
+        APIInternal::start(cloud.clone()).await?;
+
         #[cfg(feature = "rest-api")]
         {
             let cloud_clone = cloud.clone();
@@ -138,6 +134,7 @@ impl Cloud {
         }
 
         cmd.start().await;
+        Ok(())
     }
 
     pub async fn disable(&mut self) {
