@@ -1,9 +1,4 @@
-use std::io::Write;
-use std::fs::OpenOptions;
-use chrono::Local;
-use database_manager::config::{DBMysqlConfig, DatabaseConfig};
 use crate::cloud::Cloud;
-use crate::utils::utils::Utils;
 
 pub mod types;
 pub mod config;
@@ -34,8 +29,11 @@ const VERSION: &str = "0.1";
 async fn main() {
     println!("Start MineCloud...");
 
-    // Cloud starten
-    Cloud::enable(VERSION).await;
+    // Cloud start
+    match Cloud::enable(VERSION).await {
+        Ok(_) => (),
+        Err(e) => log_error!("Cant Start Cloud {}", e),
+    }
 
     println!("MineCloud Stop");
     println!("Goodbye");
