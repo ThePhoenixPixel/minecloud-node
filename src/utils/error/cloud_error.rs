@@ -1,7 +1,11 @@
 use std::error::Error;
 use std::fmt;
+use actix_web::http::StatusCode;
+use actix_web::HttpResponse;
 use database_manager::types::DbError;
+use crate::log_error;
 use crate::utils::error::error_kind::CloudErrorKind;
+
 
 pub type CloudResult<T> = Result<T, CloudError>;
 
@@ -108,5 +112,19 @@ where
                 line: line!(),
             }
         })
+    }
+}
+
+impl actix_web::ResponseError for CloudError {
+    fn status_code(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        log_error!(1, "[API] {}", self.to_string());
+        
+        HttpResponse::build(self.status_code()).json(serde_json::json!({
+            "error": self.to_string()
+        }))
     }
 }
