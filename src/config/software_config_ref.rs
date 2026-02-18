@@ -8,9 +8,7 @@ pub struct SoftwareConfigRef(Arc<RwLock<SoftwareConfig>>);
 
 impl SoftwareConfigRef {
     pub fn new(cloud_config: Arc<CloudConfig>) -> SoftwareConfigRef {
-        SoftwareConfigRef {
-            0: Arc::new(RwLock::new(SoftwareConfig::new(cloud_config))),
-        }
+        SoftwareConfigRef(Arc::new(RwLock::new(SoftwareConfig::new(cloud_config))))
     }
 }
 
