@@ -2,12 +2,18 @@ use bx::network::address::Address;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::types::{PlayerAction, PlayerRequest, Service};
+use crate::types::{EntityId, PlayerAction, PlayerRequest, Service};
 
 
 #[derive(Deserialize)]
 pub struct ServiceIdRequest {
     id: Uuid,
+}
+
+impl From<&ServiceIdRequest> for EntityId {
+    fn from(value: &ServiceIdRequest) -> Self {
+        value.id
+    }
 }
 
 #[derive(Serialize, Debug)]
@@ -19,6 +25,16 @@ pub struct ServiceInfoResponse {
 }
 
 impl ServiceInfoResponse {
+
+    pub fn new(service: &Service) -> ServiceInfoResponse {
+        ServiceInfoResponse {
+            name: service.get_name(),
+            address: service.get_server_listener(),
+            default_connect: service.get_task().default_connect(),
+            join_permission: service.get_task().get_join_permission().to_string(),
+        }
+    }
+
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
