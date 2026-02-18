@@ -4,7 +4,8 @@ use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
 use crate::api::internal::{PlayerActionRequest, ServiceIdRequest, ServiceInfoResponse};
-
+use crate::types::EntityId;
+use crate::utils::error::CloudResult;
 
 // ============================================================
 //  GET  /api/internal/services/backend          → list all online Backend-Server
@@ -20,15 +21,18 @@ impl APIInternalHandler {
 
     /// POST /api/internal/service/shutdown
     /// Called by the Minecraft Process (Minecraft Plugin) when a service is shut down
-    pub async fn service_shutdown(
+    pub async fn service_notify_shutdown(
         cloud: web::Data<Arc<RwLock<Cloud>>>,
         request: web::Json<ServiceIdRequest>,
-    ) -> HttpResponse {
+    ) -> CloudResult<HttpResponse> {
         let node_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_node_manager()
         };
-        todo!()
+
+        node_manager.on_local_service_shutdown(EntityId::from(&request.into_inner())).await?;
+
+        Ok(HttpResponse::Ok().finish())
     }
 
     /// POST /api/internal/service/online
@@ -36,19 +40,22 @@ impl APIInternalHandler {
     pub async fn service_set_online(
         cloud: web::Data<Arc<RwLock<Cloud>>>,
         request: web::Json<ServiceIdRequest>,
-    ) -> HttpResponse {
+    ) -> CloudResult<HttpResponse> {
         let node_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_node_manager()
         };
-        todo!()
+
+        node_manager.on_local_service_registered(EntityId::from(&request.into_inner())).await?;
+
+        Ok(HttpResponse::Ok().finish())
     }
 
     /// GET /api/internal/services/backend
     /// Returns all backend servers currently available online
     pub async fn get_backend_services(
         cloud: web::Data<Arc<RwLock<Cloud>>>,
-    ) -> HttpResponse {
+    ) -> CloudResult<HttpResponse> {
         let node_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_node_manager()
@@ -61,7 +68,7 @@ impl APIInternalHandler {
             .map(|s| ServiceInfoResponse::from(&s))
             .collect();
 
-        HttpResponse::Ok().json(response)
+        Ok(HttpResponse::Ok().json(response))
     }
 
     /// POST /api/internal/player/action
@@ -69,11 +76,14 @@ impl APIInternalHandler {
     pub async fn player_action(
         cloud: web::Data<Arc<RwLock<Cloud>>>,
         request: web::Json<PlayerActionRequest>,
-    ) -> HttpResponse {
+    ) -> CloudResult<HttpResponse> {
         let player_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_player_manager()
         };
-        todo!()
+
+        player_manager.handle_action(request.into_inner()).await?;
+
+        Ok(HttpResponse::Ok().finish())
     }
 }
