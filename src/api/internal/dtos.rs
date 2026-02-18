@@ -1,9 +1,51 @@
+use bx::network::address::Address;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::types::{PlayerAction, PlayerRequest};
+use crate::types::{PlayerAction, PlayerRequest, Service};
 
 
+#[derive(Deserialize)]
+pub struct ServiceIdRequest {
+    id: Uuid,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ServiceInfoResponse {
+    name: String,
+    address: Address,
+    default_connect: bool,
+    join_permission: String,
+}
+
+impl ServiceInfoResponse {
+    pub fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn get_address(&self) -> Address {
+        self.address.clone()
+    }
+
+    pub fn is_default_connect(&self) -> bool {
+        self.default_connect
+    }
+
+    pub fn get_join_permission(&self) -> String {
+        self.join_permission.clone()
+    }
+}
+
+impl From<&Service> for ServiceInfoResponse {
+    fn from(service: &Service) -> Self {
+        ServiceInfoResponse {
+            name: service.get_name(),
+            address: service.get_server_listener(),
+            default_connect: service.get_task().default_connect(),
+            join_permission: service.get_task().get_join_permission().to_string(),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PlayerActionRequest {
@@ -23,5 +65,4 @@ impl PlayerActionRequest {
         self.service_uuid.clone()
     }
 }
-
 
