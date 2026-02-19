@@ -3,9 +3,9 @@ use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use tokio::sync::RwLock;
 
-use crate::api::internal::node_service::NodeService;
 use crate::cloud::Cloud;
 use crate::{error, log_error, log_info};
+use crate::api::internal::APIInternalHandler;
 use crate::utils::error::{CantBindAddress, CloudResult, IntoCloudError};
 
 pub struct APIInternal;
@@ -37,20 +37,20 @@ impl APIInternal {
                                 .supports_credentials(),
                         )
                         .service(
-                            web::resource("cloud/node/get_online_backend_server")
-                                .route(web::get().to(NodeService::get_online_backend_server)),
+                            web::resource("api/internal/services/backend")
+                                .route(web::get().to(APIInternalHandler::get_backend_services)),
                         )
                         .service(
                             web::resource("cloud/node/set_online_status")
-                                .route(web::post().to(NodeService::set_online_status)),
+                                .route(web::post().to(APIInternalHandler::service_set_online)),
                         )
                         .service(
                             web::resource("cloud/node/info_shutdown")
-                                .route(web::post().to(NodeService::shutdown)),
+                                .route(web::post().to(APIInternalHandler::service_notify_shutdown)),
                         )
                         .service(
-                            web::resource("cloud/node/send_player_action")
-                                .route(web::post().to(NodeService::send_player_action)),
+                            web::resource("api/internal/player/action")
+                                .route(web::post().to(APIInternalHandler::player_action)),
                         )
                 };
 
