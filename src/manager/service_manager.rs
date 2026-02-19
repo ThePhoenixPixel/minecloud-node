@@ -102,6 +102,10 @@ impl ServiceManager {
     }
 
     pub async fn register_on_proxy(&self, service: &Service) -> CloudResult<()> {
+        if service.is_proxy() {
+            return Ok(())
+        }
+
         for proxy in self.get_online_proxies().await {
             let s = proxy.read().await;
             let url = s.get_service_url().join("add_server");
@@ -124,6 +128,10 @@ impl ServiceManager {
     }
 
     pub async fn unregister_from_proxy(&self, service: &Service) -> CloudResult<()> {
+        if service.is_proxy() {
+            return Ok(())
+        }
+
         for proxy in self.get_online_proxies().await {
             let s = proxy.read().await;
             let url = s
