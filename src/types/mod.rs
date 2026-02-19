@@ -92,7 +92,7 @@ impl ServerType {
 }
 
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug, Default)]
 pub enum ServiceStatus {
     #[default]
     Failed,
