@@ -28,7 +28,7 @@ impl ServiceRef {
     }
 
     pub async fn get_name(&self) -> String {
-        self.0.read().await.get_name()
+        self.0.read().await.get_name().to_string()
     }
 
     pub async fn is_start(&self) -> bool {

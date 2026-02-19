@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::Arc;
 use std::time::Duration;
 use bx::network::address::Address;
 use bx::network::url::Url;
+use bx::path::Directory;
+use chrono::NaiveDateTime;
 use delegate::delegate;
 use serde_json::json;
 use tokio::io;
@@ -38,9 +41,14 @@ impl ServiceProcess {
         }
     }
 
-    pub fn create(task: &Task) -> CloudResult<ServiceProcess> {
+    pub fn create(task: &Task, config: Arc<CloudConfig>) -> CloudResult<ServiceProcess> {
+        let service_path = task.prepared_to_service()?;
+        // Todo: cluster nachfrage obn task + spliter + lfdnr noch frei ist (vllt. db abfrage??)
+        let name = Directory::get_last_folder_name(&service_path);
+        let service = Service::new(name, task, config);
+
         Ok(ServiceProcess {
-            service: Service::new(task)?,
+            service,
             shutdown_initiated_by_cloud: false,
             process: None,
             stdin: None,
@@ -196,47 +204,54 @@ impl ServiceProcess {
     }
 
     delegate! {
-        to self.service {
-            pub fn get_id(&self) -> EntityId;
-            pub fn get_name(&self) -> String;
-            pub fn get_status(&self) -> ServiceStatus;
-            pub fn is_start(&self) -> bool;
-            pub fn is_stop(&self) -> bool;
-            pub fn is_proxy(&self) -> bool;
-            pub fn is_backend_server(&self) -> bool;
-            pub fn is_delete(&self) -> bool;
-            pub fn get_server_listener(&self) -> Address;
-            pub fn get_plugin_listener(&self) -> Address;
-            pub fn get_service_url(&self) -> Url;
-            pub fn get_software_name(&self) -> SoftwareName;
-            pub fn get_path_with_server_file(&self) -> PathBuf;
-            pub fn get_path_stdout_file(&self) -> PathBuf;
-            pub fn get_path_stderr_file(&self) -> PathBuf;
-            pub fn get_path(&self) -> PathBuf;
-            pub fn get_start_node(&self) -> String;
-            pub fn get_task(&self) -> Task;
-            pub fn get_started_at_to_string(&self) -> Option<String>;
-            pub fn get_stopped_at_to_string(&self) -> Option<String>;
-            pub fn save_to_file(&self);
-            pub fn delete_files(&self);
+    to self.service {
+        pub fn get_id(&self) -> EntityId;
+        pub fn get_name(&self) -> &str;
+        pub fn get_status(&self) -> ServiceStatus;
+        pub fn get_parent_node(&self) -> &str;
+        pub fn get_current_players(&self) -> u32;
+        pub fn get_started_at(&self) -> Option<NaiveDateTime>;
+        pub fn get_stopped_at(&self) -> Option<NaiveDateTime>;
+        pub fn get_idle_since(&self) -> Option<NaiveDateTime>;
 
-            pub fn set_status(&mut self, status: ServiceStatus);
-            pub fn set_server_listener(&mut self, address: Address);
-            pub fn set_plugin_listener(&mut self, address: Address);
-            pub fn update_current_player(&mut self, count: u32);
+        pub fn get_started_at_to_string(&self) -> Option<String>;
+        pub fn get_stopped_at_to_string(&self) -> Option<String>;
 
-            pub fn start_idle_timer(&mut self);
+        pub fn get_server_listener(&self) -> &Address;
+        pub fn get_plugin_listener(&self) -> &Address;
+        pub fn get_cloud_listener(&self) -> &Address;
+        pub fn get_task(&self) -> &Task;
+        pub fn get_path(&self) -> PathBuf;
+        pub fn get_path_with_server_file(&self) -> PathBuf;
+        pub fn get_path_stdout_file(&self) -> PathBuf;
+        pub fn get_path_stderr_file(&self) -> PathBuf;
+        pub fn get_path_stdin_file(&self) -> PathBuf;
+        pub fn get_service_url(&self) -> Url;
+        pub fn get_software_name(&self) -> SoftwareName;
+        pub fn is_start(&self) -> bool;
+        pub fn is_stop(&self) -> bool;
+        pub fn is_proxy(&self) -> bool;
+        pub fn is_backend_server(&self) -> bool;
+        pub fn is_delete(&self) -> bool;
+        pub fn is_local(&self) -> bool;
 
-            #[deprecated]
-            pub fn install_software(&self) -> CloudResult<()>;
+        pub fn set_status(&mut self, status: ServiceStatus);
+        pub fn set_server_listener(&mut self, address: Address);
+        pub fn set_plugin_listener(&mut self, address: Address);
+        pub fn set_cloud_listener(&mut self, address: Address);
+        pub fn set_current_player(&mut self, count: u32);
+        pub fn start_idle_timer(&mut self);
+        pub fn save_to_file(&self);
+        pub fn delete_files(&self);
 
-            #[deprecated]
-            pub fn install_system_plugin(&self) -> CloudResult<()>;
-
-            #[deprecated]
-            pub fn install_software_lib(&self, config: &CloudConfig) -> CloudResult<()>;
-        }
+        #[deprecated]
+        pub fn install_software(&self) -> CloudResult<()>;
+        #[deprecated]
+        pub fn install_system_plugin(&self) -> CloudResult<()>;
+        #[deprecated]
+        pub fn install_software_lib(&self, config: &CloudConfig) -> CloudResult<()>;
     }
+}
 
 }
 

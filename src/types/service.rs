@@ -7,6 +7,7 @@ use std::fs::{File, read_to_string};
 use std::io::Write;
 use std::path::PathBuf;
 use std::fs;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::types::task::Task;
@@ -20,7 +21,7 @@ pub struct Service {
     id: EntityId,
     name: String,
     status: ServiceStatus,
-    start_node: String,
+    parent_node: String,
     current_players: u32,
     started_at: Option<NaiveDateTime>,
     stopped_at: Option<NaiveDateTime>,
@@ -32,73 +33,49 @@ pub struct Service {
 }
 
 impl Service {
-    pub fn new(task: &Task) -> Result<Service, CloudError> {
-        let port = match Address::find_next_port(&mut Address::new(
-            &CloudConfig::get().get_server_host(),
-            &task.get_start_port(),
-        )) {
-            Some(port) => port,
-            None => return Err(error!(NextFreePortNotFound)),
-        };
-        let server_address = Address::new(&CloudConfig::get().get_server_host(), &port);
-        let service_path = task.prepared_to_service()?;
-        let service = Service {
+    pub (crate) fn new(name: String, task: &Task, config: Arc<CloudConfig>) -> Service {
+        Service {
+            // Todo: vllt check ob uuid schon vergebe ist???? (in db???)
             id: Uuid::new_v4(),
-            name: Directory::get_last_folder_name(&service_path),
+            name,
             status: ServiceStatus::Stopped,
-            start_node: CloudConfig::get().get_name(),
+            parent_node: config.get_name(),
             current_players: 0,
             started_at: None,
             stopped_at: None,
             idle_since: None,
-            server_listener: server_address,
+            server_listener: Address::new(&config.get_server_host(), &0),
             plugin_listener: Address::get_local_ipv4(),
-            cloud_listener: CloudConfig::get().get_node_host(),
+            cloud_listener: config.get_node_host(),
             task: task.clone(),
-        };
-
-        service.save_to_file();
-        Ok(service)
+        }
     }
 
-    pub fn get_id(&self) -> Uuid {
-        self.id.clone()
+    pub fn get_id(&self) -> EntityId {
+        self.id
     }
 
-    pub fn is_local(&self) -> bool {
-        self.start_node == CloudConfig::get().get_name()
-    }
-
-    pub fn get_start_node(&self) -> String {
-        self.start_node.to_string()
-    }
-
-    pub fn set_start_node(&mut self, node: &String) {
-        self.start_node = node.to_string();
-    }
-
-    pub fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    pub fn set_name(&mut self, name: &String) {
-        self.name = name.clone();
-        self.save_to_file();
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 
     pub fn get_status(&self) -> ServiceStatus {
-        self.status.clone()
+        self.status
     }
 
     pub fn set_status(&mut self, status: ServiceStatus) {
         self.status = status;
     }
 
+    pub fn get_parent_node(&self) -> &str {
+        &self.parent_node
+    }
+
     pub fn get_current_players(&self) -> u32 {
         self.current_players
     }
 
-    pub fn update_current_player(&mut self, count: u32) {
+    pub fn set_current_player(&mut self, count: u32) {
         self.current_players = count;
     }
 
@@ -106,6 +83,54 @@ impl Service {
         self.started_at
     }
 
+    pub fn get_stopped_at(&self) -> Option<NaiveDateTime> {
+        self.stopped_at
+    }
+
+    pub fn get_idle_since(&self) -> Option<NaiveDateTime> {
+        self.idle_since
+    }
+
+    pub fn start_idle_timer(&mut self) {
+        self.idle_since = Some(Utc::now().naive_utc());
+    }
+
+    pub fn get_server_listener(&self) -> &Address {
+        &self.server_listener
+    }
+
+    pub fn set_server_listener(&mut self, address: Address) {
+        self.server_listener = address
+    }
+    pub fn get_plugin_listener(&self) -> &Address {
+        &self.plugin_listener
+    }
+
+    pub fn set_plugin_listener(&mut self, address: Address) {
+        self.plugin_listener = address;
+    }
+
+    pub fn get_cloud_listener(&self) -> &Address {
+        &self.cloud_listener
+    }
+
+    pub fn set_cloud_listener(&mut self, address: Address) {
+        self.cloud_listener = address;
+    }
+
+    pub fn get_task(&self) -> &Task {
+        &self.task
+    }
+
+
+    // Todo: old
+
+    #[deprecated]
+    pub fn is_local(&self) -> bool {
+        self.parent_node == CloudConfig::get().get_name()
+    }
+
+    #[deprecated]
     pub fn get_started_at_to_string(&self) -> Option<String> {
         if let Some(date) = self.started_at {
             return Some(date.format("%Y-%m-%d %H:%M:%S").to_string())
@@ -113,10 +138,7 @@ impl Service {
         None
     }
 
-    pub fn get_stopped_at(&self) -> Option<NaiveDateTime> {
-        self.stopped_at
-    }
-
+    #[deprecated]
     pub fn get_stopped_at_to_string(&self) -> Option<String> {
         if let Some(date) = self.stopped_at {
             return Some(date.format("%Y-%m-%d %H:%M:%S").to_string())
@@ -124,10 +146,7 @@ impl Service {
         None
     }
 
-    pub fn get_idle_since(&self) -> Option<NaiveDateTime> {
-        self.idle_since
-    }
-
+    #[deprecated]
     pub fn get_idle_since_to_string(&self) -> Option<String> {
         if let Some(date) = self.stopped_at {
             return Some(date.format("%Y-%m-%d %H:%M:%S").to_string())
@@ -135,42 +154,10 @@ impl Service {
         None
     }
 
-    pub fn start_idle_timer(&mut self) {
-        self.idle_since = Some(Utc::now().naive_utc());
-    }
-
-    pub fn get_task(&self) -> Task {
-        self.task.clone()
-    }
-
     pub fn get_software_name(&self) -> SoftwareName {
         self.get_task().get_software().get_software_name()
     }
 
-    pub fn get_plugin_listener(&self) -> Address {
-        self.plugin_listener.clone()
-    }
-
-    pub fn set_plugin_listener(&mut self, address: Address) {
-        self.plugin_listener = address;
-    }
-
-    pub fn get_cloud_listener(&self) -> Address {
-        self.cloud_listener.clone()
-    }
-
-    pub fn set_cloud_listener(&mut self, address: Address) {
-        self.cloud_listener = address;
-        self.save_to_file()
-    }
-
-    pub fn get_server_listener(&self) -> Address {
-        self.server_listener.clone()
-    }
-
-    pub fn set_server_listener(&mut self, address: Address) {
-        self.server_listener = address
-    }
 
     /*pub async fn set_server_listener(&mut self, manager: &ServiceManager) -> Result<(), CloudError> {
         let address = self.find_free_server_address(manager).await;
@@ -355,6 +342,7 @@ impl Service {
         .join(&self.get_name())
     }
 
+    #[deprecated]
     pub fn get_from_name(name: &String) -> Option<Service> {
         let mut path = CloudConfig::get()
             .get_cloud_path()
@@ -421,12 +409,4 @@ impl Service {
             .get_server_type()
             .is_backend_server()
     }
-}
-
-fn find_port(ports: Vec<u32>, mut port: u32, server_host: &String) -> u32 {
-    while ports.contains(&port) || !Address::is_port_available(&Address::new(&server_host, &port)) {
-        port = Address::find_next_port(&mut Address::new(&server_host, &(port + 1)))
-            .unwrap_or_else(|| 0);
-    }
-    port
 }

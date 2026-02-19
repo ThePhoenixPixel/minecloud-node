@@ -78,7 +78,7 @@ impl ServiceManager {
                 Ok(arc)
             }
             None => {
-                let s = ServiceProcess::create(task)?;
+                let s = ServiceProcess::create(task, self.config.clone())?;
                 let arc = ServiceRef::new(s);
                 TableServices::create(self.get_db(), &arc).await?;
                 self.services.push(arc.clone());
@@ -213,7 +213,7 @@ impl ServiceManager {
     async fn get_next_stopped_service(&self, task: &Task) -> Option<ServiceRef> {
         for arc in &self.services {
             let p = arc.read().await;
-            if p.is_stop() && p.get_task() == *task {
+            if p.is_stop() && p.get_task() == task {
                 return Some(arc.clone());
             }
         }

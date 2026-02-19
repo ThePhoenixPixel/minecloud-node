@@ -57,7 +57,7 @@ impl PlayerManager {
 
         {
             let mut s = service_ref.write().await;
-            s.update_current_player(current_players);
+            s.set_current_player(current_players);
 
             if start_timer {
                 s.start_idle_timer();

@@ -28,8 +28,8 @@ impl ServiceInfoResponse {
 
     pub fn new(service: &Service) -> ServiceInfoResponse {
         ServiceInfoResponse {
-            name: service.get_name(),
-            address: service.get_server_listener(),
+            name: service.get_name().to_string(),
+            address: service.get_server_listener().clone(),
             default_connect: service.get_task().default_connect(),
             join_permission: service.get_task().get_join_permission().to_string(),
         }
@@ -55,8 +55,8 @@ impl ServiceInfoResponse {
 impl From<&Service> for ServiceInfoResponse {
     fn from(service: &Service) -> Self {
         ServiceInfoResponse {
-            name: service.get_name(),
-            address: service.get_server_listener(),
+            name: service.get_name().to_string(),
+            address: service.get_server_listener().clone(),
             default_connect: service.get_task().default_connect(),
             join_permission: service.get_task().get_join_permission().to_string(),
         }
