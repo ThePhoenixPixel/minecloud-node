@@ -41,11 +41,11 @@ impl APIInternal {
                                 .route(web::get().to(APIInternalHandler::get_backend_services)),
                         )
                         .service(
-                            web::resource("cloud/node/set_online_status")
+                            web::resource("api/internal/service/online")
                                 .route(web::post().to(APIInternalHandler::service_set_online)),
                         )
                         .service(
-                            web::resource("cloud/node/info_shutdown")
+                            web::resource("api/internal/service/shutdown")
                                 .route(web::post().to(APIInternalHandler::service_notify_shutdown)),
                         )
                         .service(
