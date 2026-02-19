@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{error, log_info};
-use crate::api::internal::node_service::PlayerActionRequest;
+use crate::api::internal::PlayerActionRequest;
 use crate::utils::error::*;
 use crate::types::{Player, PlayerAction, PlayerSession, ServiceRef};
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
