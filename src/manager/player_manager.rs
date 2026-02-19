@@ -165,6 +165,7 @@ impl PlayerManager {
     }
 
     pub async fn add_event(&self, player: &Player, service: &ServiceRef, event_type: &PlayerAction) -> CloudResult<()> {
+        // Todo: beim zu schnellen join und leave vom proxy in player events session id = null
         let event = TablePlayerEvents::new(player, service, event_type.to_string()).await;
         event.create(self.get_db()).await?;
         Ok(())
