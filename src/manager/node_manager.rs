@@ -92,7 +92,7 @@ impl NodeManager {
     }
 
     async fn unregistered_local_service(&self, service_ref: &ServiceRef) -> CloudResult<()> {
-        self.service_manager.read().await.register_on_proxy(&service_ref.read().await.get_service()).await?;
+        self.service_manager.read().await.unregister_from_proxy(&service_ref.read().await.get_service()).await?;
 
         Ok(())
     }
