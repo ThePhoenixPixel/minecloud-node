@@ -53,7 +53,7 @@ impl PlayerManager {
             }
         }
 
-        let start_timer = task.get_percent_of_players_to_check_should_auto_stop_the_service() > (task.get_max_players() * 100) / current_players;
+        let start_timer = (current_players == 0) || (task.get_percent_of_players_to_check_should_auto_stop_the_service() > (task.get_max_players() * 100) / current_players);
 
         {
             let mut s = service_ref.write().await;
