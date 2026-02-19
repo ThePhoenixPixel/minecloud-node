@@ -21,6 +21,7 @@ use crate::utils::utils::Utils;
 
 pub struct ServiceProcess {
     service: Service,
+    shutdown_initiated_by_cloud: bool,
     process: Option<Child>,
     stdin: Option<ChildStdin>,
 }
@@ -31,6 +32,7 @@ impl ServiceProcess {
     pub fn new(service: Service) -> ServiceProcess {
         ServiceProcess {
             service,
+            shutdown_initiated_by_cloud: false,
             process: None,
             stdin: None,
         }
@@ -39,6 +41,7 @@ impl ServiceProcess {
     pub fn create(task: &Task) -> CloudResult<ServiceProcess> {
         Ok(ServiceProcess {
             service: Service::new(task)?,
+            shutdown_initiated_by_cloud: false,
             process: None,
             stdin: None,
         })
@@ -87,7 +90,7 @@ impl ServiceProcess {
         if self.service.is_stop() {
             return Ok(());
         }
-
+        self.shutdown_initiated_by_cloud = true;
         self.service.set_status(ServiceStatus::Stopping);
         self.service.save_to_file();
 
@@ -188,6 +191,10 @@ impl ServiceProcess {
 
     pub fn get_service(&self) -> Service {
         self.service.clone()
+    }
+
+    pub fn is_shutdown_init(&self) -> bool {
+        self.shutdown_initiated_by_cloud
     }
 
     delegate! {
