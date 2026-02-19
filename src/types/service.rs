@@ -1,10 +1,8 @@
 use bx::network::address::Address;
-use bx::network::url::{Url, UrlSchema};
 use bx::path::Directory;
 use chrono::{NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::fs::{File, read_to_string};
-use std::io::Write;
+use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::fs;
 use std::sync::Arc;
@@ -13,7 +11,7 @@ use uuid::Uuid;
 use crate::types::task::Task;
 use crate::config::{CloudConfig, SoftwareName};
 use crate::utils::error::*;
-use crate::{error, log_error, log_info, log_warning};
+use crate::{error, log_info};
 use crate::types::{EntityId, ServiceStatus};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -122,6 +120,39 @@ impl Service {
         &self.task
     }
 
+    pub fn is_delete(&self) -> bool {
+        !self.task.is_static_service() && self.task.is_delete_on_stop()
+    }
+
+    pub fn is_start(&self) -> bool {
+        self.status == ServiceStatus::Starting ||
+            self.status == ServiceStatus::Running
+    }
+    pub fn is_stop(&self) -> bool {
+        self.status == ServiceStatus::Stopped ||
+            self.status == ServiceStatus::Stopping ||
+            self.status == ServiceStatus::Failed
+    }
+
+    pub fn is_failed(&self) -> bool {
+        self.status == ServiceStatus::Failed
+    }
+
+    #[deprecated]
+    pub fn is_proxy(&self) -> bool {
+        self.get_software_name().get_server_type().is_proxy()
+    }
+
+    #[deprecated]
+    pub fn is_backend_server(&self) -> bool {
+        self.get_software_name()
+            .get_server_type()
+            .is_backend_server()
+    }
+
+
+
+
 
     // Todo: old
 
@@ -154,157 +185,55 @@ impl Service {
         None
     }
 
+    #[deprecated]
     pub fn get_software_name(&self) -> SoftwareName {
         self.get_task().get_software().get_software_name()
     }
 
 
-    /*pub async fn set_server_listener(&mut self, manager: &ServiceManager) -> Result<(), CloudError> {
-        let address = self.find_free_server_address(manager).await;
 
-        let software_name = self.get_software_name();
-        let path = self.get_path();
-
-        // replace ip1
-        let path_ip = path.join(software_name.get_ip_path());
-
-        if !path_ip.exists() {
-            return Err(error!(CantFindIPConfigFilePath));
-        }
-
-        let file_content_ip =
-            read_to_string(&path_ip).map_err(|e| error!(CantReadFileToString, e))?;
-        let edit_file_ip = file_content_ip.replace("%ip%", &*address.get_ip());
-        fs::write(&path_ip, edit_file_ip).map_err(|e| error!(CantWriteIP, e))?;
-
-        // replace port
-        let path_port = path.join(software_name.get_port_path());
-
-        if !path_port.exists() {
-            return Err(error!(CantFindPortConfigFilePath));
-        }
-
-        let file_content_port =
-            read_to_string(&path_port).map_err(|e| error!(CantReadFileToString, e))?;
-        let edit_file_port =
-            file_content_port.replace("%port%", address.get_port().to_string().as_str());
-        fs::write(&path_port, edit_file_port).map_err(|e| error!(CantWritePort, e))?;
-
-        self.server_listener = address;
-        self.save_to_file();
-
-        Ok(())
-    }*/
-
-    pub fn is_delete(&self) -> bool {
-        !self.get_task().is_static_service() && self.get_task().is_delete_on_stop()
-    }
-
-    pub fn delete_files(&self) {
-        if self.is_delete() {
-            if fs::remove_dir_all(self.get_path()).is_err() {
-                log_warning!("Service | {} | folder can't delete", self.get_name());
-            }
-        }
-    }
-
-    /*pub async fn find_free_server_address(&self, manager: &ServiceManager) -> Address {
-        let ports = manager.get_bind_ports().await;
-        let port = self.get_task().get_start_port();
-        let server_host = manager.get_config().get_server_host();
-        Address::new(&server_host, &find_port(ports, port, &server_host))
-    }
-
-    pub async fn find_free_plugin_address(&self, manager: &ServiceManager) -> Address {
-        let ports = manager.get_bind_ports().await;
-        let port = self.get_server_listener().get_port() + 1;
-        let server_host = manager.get_config().get_server_host();
-        Address::new(&server_host, &find_port(ports, port, &server_host))
-    }*/
-
+    #[deprecated]
     pub fn get_path(&self) -> PathBuf {
         self.get_task().get_service_path().join(self.get_name())
     }
 
+    #[deprecated]
     pub fn get_path_with_server_file(&self) -> PathBuf {
         self.get_path()
             .join(self.get_task().get_software().get_server_file_name())
     }
 
-    /*pub async fn find_new_free_plugin_listener(&mut self, manager: &ServiceManager) {
-        let address = self.find_free_plugin_address(&manager).await;
-        self.set_plugin_listener(&address);
-        self.save_to_file()
-    }*/
-
+    #[deprecated]
     pub fn get_path_with_service_config(&self) -> PathBuf {
         self.get_path().join(".minecloud")
     }
 
+    #[deprecated]
     pub fn get_path_with_service_file(&self) -> PathBuf {
         self.get_path_with_service_config()
             .join("service_config.json")
     }
 
-    pub fn get_from_path(path: &mut PathBuf) -> Option<Service> {
-        //path -> /service/temp/Lobby-1/
-        path.push(".minecloud");
-        path.push("service_config.json");
-        if let Ok(file_content) = read_to_string(path) {
-            if let Ok(service) = serde_json::from_str(&file_content) {
-                Some(service)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
 
+
+    #[deprecated]
     pub fn get_path_stdout_file(&self) -> PathBuf {
         self.get_path_with_service_config()
             .join("server_stdout.log")
     }
+    #[deprecated]
 
     pub fn get_path_stdin_file(&self) -> PathBuf {
         self.get_path_with_service_config().join("server_stdin.log")
     }
 
+    #[deprecated]
     pub fn get_path_stderr_file(&self) -> PathBuf {
         self.get_path_with_service_config()
             .join("server_stderr.log")
     }
 
-    pub fn save_to_file(&self) {
-        let path = self.get_path_with_service_config();
-        fs::create_dir_all(&path).expect("Cant create Service File in 'save_to_file'");
-        if File::create(self.get_path_with_service_file()).is_err() {
-            log_error!("Error by create to service config file");
-            return;
-        }
-
-        if let Ok(serialized) = serde_json::to_string_pretty(&self) {
-            if let Ok(mut file) = File::create(self.get_path_with_service_file()) {
-                file.write_all(serialized.as_bytes())
-                    .expect("Error by save the service config file");
-            }
-        }
-    }
-
-    pub fn is_start(&self) -> bool {
-        self.status == ServiceStatus::Starting ||
-            self.status == ServiceStatus::Running
-    }
-    pub fn is_stop(&self) -> bool {
-        self.status == ServiceStatus::Stopped ||
-            self.status == ServiceStatus::Stopping ||
-            self.status == ServiceStatus::Failed
-    }
-
-    pub fn is_failed(&self) -> bool {
-        self.status == ServiceStatus::Failed
-    }
-
+    #[deprecated]
     // wie viele services muss ich noch starten???
     pub fn get_starts_service_from_task(task: &Task) -> u64 {
         let service_path = task.get_service_path();
@@ -324,22 +253,12 @@ impl Service {
         start_service
     }
 
+    #[deprecated]
     pub fn is_service_start_or_prepare(path: &mut PathBuf) -> bool {
-        match Service::get_from_path(path) {
+        match get_from_path(path) {
             Some(service) => service.is_start() || !service.is_stop(),
             None => false,
         }
-    }
-
-
-
-    pub fn get_service_url(&self) -> Url {
-        Url::new(
-            UrlSchema::Http,
-            &self.get_plugin_listener(),
-            "cloud/service",
-        )
-        .join(&self.get_name())
     }
 
     #[deprecated]
@@ -349,9 +268,10 @@ impl Service {
             .get_service_folder()
             .get_temp_folder_path()
             .join(&name);
-        Service::get_from_path(&mut path)
+        get_from_path(&mut path)
     }
 
+    #[deprecated]
     pub fn install_software(&self) -> Result<(), CloudError> {
         let target_path = self
             .get_path()
@@ -362,6 +282,7 @@ impl Service {
         Ok(())
     }
 
+    #[deprecated]
     pub fn install_system_plugin(&self) -> Result<(), CloudError> {
         let software = self.get_software_name();
         let system_plugin_path = self.get_task().get_software().get_system_plugin_path();
@@ -388,6 +309,7 @@ impl Service {
         }
     }
 
+    #[deprecated]
     pub fn install_software_lib(&self, config: &CloudConfig) -> Result<(), CloudError> {
         let software_lib_path = config
             .get_cloud_path()
@@ -400,13 +322,20 @@ impl Service {
             .map_err(|e| error!(Internal, e))
     }
 
-    pub fn is_proxy(&self) -> bool {
-        self.get_software_name().get_server_type().is_proxy()
-    }
 
-    pub fn is_backend_server(&self) -> bool {
-        self.get_software_name()
-            .get_server_type()
-            .is_backend_server()
+}
+#[deprecated]
+fn get_from_path(path: &mut PathBuf) -> Option<Service> {
+    //path -> /service/temp/Lobby-1/
+    path.push(".minecloud");
+    path.push("service_config.json");
+    if let Ok(file_content) = read_to_string(path) {
+        if let Ok(service) = serde_json::from_str(&file_content) {
+            Some(service)
+        } else {
+            None
+        }
+    } else {
+        None
     }
 }
