@@ -30,7 +30,11 @@ impl NodeManager {
     }
 
     pub async fn stop_service(&self, id: EntityId, msg: &str) {
-        if let Some(service_ref) = self.service_manager.read().await.find_from_id(&id).await {
+        let service_ref = {
+            self.service_manager.read().await.find_from_id(&id).await
+        };
+
+        if let Some(service_ref) = service_ref {
             // service is local
             match self.unregistered_local_service(&service_ref).await {
                 Ok(_) => (),
