@@ -212,32 +212,14 @@ impl ServiceManager {
         None
     }
 
-    pub async fn stop_all(&mut self, shutdown_msg: &str) {
-        let ids: Vec<EntityId> = {
-            let mut ids = Vec::new();
-            for arc in &self.services {
-                ids.push(arc.get_id().await);
-            }
-            ids
-        };
-        for id in ids {
-            match self.stop_service(&id, shutdown_msg).await {
-                Ok(_) => log_info!(3, "Service successfully shutdown"),
-                Err(e) => log_error!(2, "Service Cant shutdown with Error: {}", e),
-            }
-        }
-    }
-
-    pub async fn stop_service(&mut self, id: &EntityId, shutdown_msg: &str) -> CloudResult<()> {
+    pub async fn stop_service(&mut self, id: &EntityId, shutdown_msg: &str) {
         let pos = match self.find_pos_by_id(id).await {
             Some(pos) => pos,
-            None => return Err(error!(CantFindServiceFromUUID)),
+            None => return,
         };
 
-        self.services[pos].write().await.shutdown(shutdown_msg).await?;
+        self.services[pos].write().await.shutdown(shutdown_msg).await;
         self.remove_service(pos).await;
-
-        Ok(())
     }
 
     async fn remove_service(&mut self, pos: usize) {

@@ -86,9 +86,9 @@ impl ServiceProcess {
     }
 
 
-    pub async fn shutdown(&mut self, msg: &str) -> CloudResult<()> {
+    pub async fn shutdown(&mut self, msg: &str) {
         if self.service.is_stop() {
-            return Ok(());
+            return;
         }
         self.shutdown_initiated_by_cloud = true;
         self.service.set_status(ServiceStatus::Stopping);
@@ -121,8 +121,6 @@ impl ServiceProcess {
 
         self.service.set_status(ServiceStatus::Stopped);
         self.service.save_to_file();
-
-        Ok(())
     }
 
     async fn kill(&mut self) -> io::Result<()> {

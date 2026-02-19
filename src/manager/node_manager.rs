@@ -22,25 +22,27 @@ impl NodeManager {
         })
     }
 
-    pub async fn stop_all_local_services(&self, msg: &str) -> CloudResult<()> {
+    pub async fn stop_all_local_services(&self, msg: &str) {
         let services = self.service_manager.read().await.get_online_all().await;
         for s in services {
-            self.stop_service(s.get_id().await, msg).await?;
+            self.stop_service(s.get_id().await, msg).await;
         }
-        Ok(())
     }
 
-    pub async fn stop_service(&self, id: EntityId, msg: &str) -> CloudResult<()> {
+    pub async fn stop_service(&self, id: EntityId, msg: &str) {
         if let Some(service_ref) = self.service_manager.read().await.find_from_id(&id).await {
             // service is local
-            self.unregistered_local_service(&service_ref).await?;
-            self.service_manager.write().await.stop_service(&id, msg).await?;
+            match self.unregistered_local_service(&service_ref).await {
+                Ok(_) => (),
+                Err(e) => (),
+            };
+
+            self.service_manager.write().await.stop_service(&id, msg).await;
 
         } else {
             // service is remote
             todo!("Send stop command to Other Node");
         }
-        Ok(())
     }
     pub async fn is_responsible_for_task(&self, task: &Task) -> bool {
         task.is_startup_local(&self.cloud_config)
