@@ -53,13 +53,14 @@ impl ServiceInfoResponse {
 }
 
 impl From<&Service> for ServiceInfoResponse {
-    fn from(service: &Service) -> Self {
-        ServiceInfoResponse {
-            name: service.get_name().to_string(),
-            address: service.get_server_listener().clone(),
-            default_connect: service.get_task().default_connect(),
-            join_permission: service.get_task().get_join_permission().to_string(),
-        }
+    fn from(service: &Service) -> ServiceInfoResponse {
+        ServiceInfoResponse::new(service)
+    }
+}
+
+impl From<Service> for ServiceInfoResponse {
+    fn from(service: Service) -> ServiceInfoResponse {
+        ServiceInfoResponse::new(&service)
     }
 }
 
@@ -78,7 +79,7 @@ impl PlayerActionRequest {
         self.player.clone()
     }
     pub fn get_service_uuid(&self) -> Uuid {
-        self.service_uuid.clone()
+        self.service_uuid
     }
 }
 
