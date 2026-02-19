@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::config::CloudConfig;
 use crate::database::DBTools;
-use crate::types::{Service, ServiceRef};
+use crate::types::{Service, ServiceProcess, ServiceRef};
 
 #[derive(TableDerive, Debug, Clone, Default)]
 #[table_name("t_services")]
@@ -77,7 +77,7 @@ impl TableServices {
         Ok(())
     }
 
-    pub async fn delete_others<M: DatabaseController>(db: &M, service_list: &Vec<Service>, config: &CloudConfig) -> DbResult<()> {
+    pub async fn delete_others<M: DatabaseController>(db: &M, service_list: &Vec<ServiceProcess>, config: &CloudConfig) -> DbResult<()> {
         let mut f = QueryFilters::new();
         f.add_filter(Filter::eq("node", Value::from(config.get_name())));
         for s in service_list {

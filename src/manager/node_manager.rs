@@ -81,7 +81,7 @@ impl NodeManager {
         let services = self.service_manager.read().await.get_online_backend_server().await;
         let mut result = Vec::new();
         for s in services {
-            result.push(s.read().await.get_service())
+            result.push(s.read().await.get_service().clone())
         }
         result
     }

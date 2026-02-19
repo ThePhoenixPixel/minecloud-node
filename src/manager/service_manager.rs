@@ -38,13 +38,13 @@ impl ServiceManager {
         cloud_config: Arc<CloudConfig>,
         _software_config: SoftwareConfigRef
     ) -> CloudResult<Self> {
-        let mut service = Self::get_all_from_file();
+        let mut service = get_all_from_file();
         service.iter_mut().for_each(|s| s.set_status(ServiceStatus::Stopped));
         service.iter_mut().for_each(|s| s.save_to_file());
         TableServices::delete_others(db.as_ref(), &service, cloud_config.as_ref()).await?;
         let mut services: Vec<ServiceRef> = Vec::new();
         for s in service {
-            services.push(ServiceRef::new(ServiceProcess::new(s)));
+            services.push(ServiceRef::new(s));
         }
         Ok(Self {
             services,
@@ -414,17 +414,6 @@ impl ServiceManager {
         ports
     }
 
-    pub fn get_all_from_file() -> Vec<Service> {
-        let mut service_list: Vec<Service> = Vec::new();
-        service_list.append(&mut get_services_from_path(
-            &CloudConfig::get().get_cloud_path().get_service_folder().get_temp_folder_path(),
-        ));
-        service_list.append(&mut get_services_from_path(
-            &CloudConfig::get().get_cloud_path().get_service_folder().get_static_folder_path(),
-        ));
-        service_list
-    }
-
 
     async fn find_pos_by_id(&self, id: &EntityId) -> Option<usize> {
         for (pos, arc) in self.services.iter().enumerate() {
@@ -440,14 +429,40 @@ impl ServiceManager {
     }
 }
 
-fn get_services_from_path(path: &PathBuf) -> Vec<Service> {
-    let mut service_list: Vec<Service> = Vec::new();
+fn get_all_from_file() -> Vec<ServiceProcess> {
+    let mut service_list: Vec<ServiceProcess> = Vec::new();
+    service_list.append(&mut get_services_from_path(
+        &CloudConfig::get().get_cloud_path().get_service_folder().get_temp_folder_path(),
+    ));
+    service_list.append(&mut get_services_from_path(
+        &CloudConfig::get().get_cloud_path().get_service_folder().get_static_folder_path(),
+    ));
+    service_list
+}
+
+fn get_services_from_path(path: &PathBuf) -> Vec<ServiceProcess> {
+    let mut service_list: Vec<ServiceProcess> = Vec::new();
     for folder in Directory::get_folders_name_from_path(&path) {
         let mut path = path.clone();
         path.push(folder);
-        if let Some(service) = Service::get_from_path(&mut path) {
-            service_list.push(service);
+        if let Some(service) = get_from_path(&mut path) {
+            service_list.push(ServiceProcess::new(service));
         };
     }
     service_list
+}
+
+fn get_from_path(path: &mut PathBuf) -> Option<Service> {
+    //path -> /service/temp/Lobby-1/
+    path.push(".minecloud");
+    path.push("service_config.json");
+    if let Ok(file_content) = read_to_string(path) {
+        if let Ok(service) = serde_json::from_str(&file_content) {
+            Some(service)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }

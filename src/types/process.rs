@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::fs;
 use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use bx::network::address::Address;
-use bx::network::url::Url;
+use bx::network::url::{Url, UrlSchema};
 use bx::path::Directory;
 use chrono::NaiveDateTime;
 use delegate::delegate;
@@ -24,6 +26,7 @@ use crate::utils::utils::Utils;
 
 pub struct ServiceProcess {
     service: Service,
+    path: PathBuf,              // Path -> ~/(temp/static)/servicename(zb. Lobby-1)/
     shutdown_initiated_by_cloud: bool,
     process: Option<Child>,
     stdin: Option<ChildStdin>,
@@ -35,6 +38,7 @@ impl ServiceProcess {
     pub fn new(service: Service) -> ServiceProcess {
         ServiceProcess {
             service,
+            path: PathBuf::new(),
             shutdown_initiated_by_cloud: false,
             process: None,
             stdin: None,
@@ -49,6 +53,7 @@ impl ServiceProcess {
 
         Ok(ServiceProcess {
             service,
+            path: service_path,
             shutdown_initiated_by_cloud: false,
             process: None,
             stdin: None,
@@ -100,7 +105,7 @@ impl ServiceProcess {
         }
         self.shutdown_initiated_by_cloud = true;
         self.service.set_status(ServiceStatus::Stopping);
-        self.service.save_to_file();
+        self.save_to_file();
 
         let timeout = self.service.get_task().get_time_shutdown_before_kill();
 
@@ -128,7 +133,7 @@ impl ServiceProcess {
         }
 
         self.service.set_status(ServiceStatus::Stopped);
-        self.service.save_to_file();
+        self.save_to_file();
     }
 
     async fn kill(&mut self) -> io::Result<()> {
@@ -141,7 +146,7 @@ impl ServiceProcess {
 
     async fn send_stop(&mut self, msg: &str) -> CloudResult<()> {
         let body = json!({ "msg": msg });
-        let url = self.service.get_service_url().join("shutdown");
+        let url = self.get_service_url().join("shutdown");
         let timeout = self.service.get_task().get_time_shutdown_before_kill();
         let fut = tokio::spawn(async move { url.post(&body, timeout).await });
 
@@ -195,63 +200,120 @@ impl ServiceProcess {
         }
     }
 
-    pub fn get_service(&self) -> Service {
-        self.service.clone()
+    pub fn get_service(&self) ->& Service {
+        &self.service
     }
 
     pub fn is_shutdown_init(&self) -> bool {
         self.shutdown_initiated_by_cloud
     }
 
-    delegate! {
-    to self.service {
-        pub fn get_id(&self) -> EntityId;
-        pub fn get_name(&self) -> &str;
-        pub fn get_status(&self) -> ServiceStatus;
-        pub fn get_parent_node(&self) -> &str;
-        pub fn get_current_players(&self) -> u32;
-        pub fn get_started_at(&self) -> Option<NaiveDateTime>;
-        pub fn get_stopped_at(&self) -> Option<NaiveDateTime>;
-        pub fn get_idle_since(&self) -> Option<NaiveDateTime>;
-
-        pub fn get_started_at_to_string(&self) -> Option<String>;
-        pub fn get_stopped_at_to_string(&self) -> Option<String>;
-
-        pub fn get_server_listener(&self) -> &Address;
-        pub fn get_plugin_listener(&self) -> &Address;
-        pub fn get_cloud_listener(&self) -> &Address;
-        pub fn get_task(&self) -> &Task;
-        pub fn get_path(&self) -> PathBuf;
-        pub fn get_path_with_server_file(&self) -> PathBuf;
-        pub fn get_path_stdout_file(&self) -> PathBuf;
-        pub fn get_path_stderr_file(&self) -> PathBuf;
-        pub fn get_path_stdin_file(&self) -> PathBuf;
-        pub fn get_service_url(&self) -> Url;
-        pub fn get_software_name(&self) -> SoftwareName;
-        pub fn is_start(&self) -> bool;
-        pub fn is_stop(&self) -> bool;
-        pub fn is_proxy(&self) -> bool;
-        pub fn is_backend_server(&self) -> bool;
-        pub fn is_delete(&self) -> bool;
-        pub fn is_local(&self) -> bool;
-
-        pub fn set_status(&mut self, status: ServiceStatus);
-        pub fn set_server_listener(&mut self, address: Address);
-        pub fn set_plugin_listener(&mut self, address: Address);
-        pub fn set_cloud_listener(&mut self, address: Address);
-        pub fn set_current_player(&mut self, count: u32);
-        pub fn start_idle_timer(&mut self);
-        pub fn save_to_file(&self);
-        pub fn delete_files(&self);
-
-        #[deprecated]
-        pub fn install_software(&self) -> CloudResult<()>;
-        #[deprecated]
-        pub fn install_system_plugin(&self) -> CloudResult<()>;
-        #[deprecated]
-        pub fn install_software_lib(&self, config: &CloudConfig) -> CloudResult<()>;
+    pub fn get_service_url(&self) -> Url {
+        Url::new(
+            UrlSchema::Http,
+            self.get_plugin_listener(),
+            "cloud/service",
+        )
+            .join(self.get_name())
     }
-}
+
+    pub fn get_path(&self) -> &PathBuf {
+        &self.path
+    }
+
+    pub fn get_path_with_service_config(&self) -> PathBuf {
+        self.path
+            .join(".minecloud")
+    }
+
+    pub fn get_path_with_service_file(&self) -> PathBuf {
+        self.get_path_with_service_config()
+            .join("service_config.json")
+    }
+
+    pub fn get_path_with_server_file(&self) -> PathBuf {
+        self.get_path()
+            .join(self.get_task().get_software().get_server_file_name())
+    }
+
+    pub fn save_to_file(&self) {
+        let path = self.get_path_with_service_config();
+        if fs::create_dir_all(&path).is_err() {
+            log_error!("Can't create service file in 'save_to_file'");
+            return;
+        }
+
+        if File::create(self.get_path_with_service_file()).is_err() {
+            log_error!("Error by create to service config file");
+            return;
+        }
+
+        if let Ok(serialized) = serde_json::to_string_pretty(self.get_service()) {
+            if let Ok(mut file) = File::create(self.get_path_with_service_file()) {
+                file.write_all(serialized.as_bytes())
+                    .expect("Error by save the service config file");
+            }
+        }
+    }
+
+    pub fn delete_files(&self) {
+        if fs::remove_dir_all(self.get_path()).is_err() {
+            log_warning!("Service | {} | folder can't delete", self.get_name());
+        }
+    }
+
+    delegate! {
+        to self.service {
+            pub fn get_id(&self) -> EntityId;
+            pub fn get_name(&self) -> &str;
+            pub fn get_status(&self) -> ServiceStatus;
+            pub fn get_parent_node(&self) -> &str;
+            pub fn get_current_players(&self) -> u32;
+            pub fn get_started_at(&self) -> Option<NaiveDateTime>;
+            pub fn get_stopped_at(&self) -> Option<NaiveDateTime>;
+            pub fn get_idle_since(&self) -> Option<NaiveDateTime>;
+            pub fn get_server_listener(&self) -> &Address;
+            pub fn get_plugin_listener(&self) -> &Address;
+            pub fn get_cloud_listener(&self) -> &Address;
+            pub fn get_task(&self) -> &Task;
+            pub fn is_delete(&self) -> bool;
+            pub fn is_start(&self) -> bool;
+            pub fn is_stop(&self) -> bool;
+
+            pub fn set_status(&mut self, status: ServiceStatus);
+            pub fn set_server_listener(&mut self, address: Address);
+            pub fn set_plugin_listener(&mut self, address: Address);
+            pub fn set_cloud_listener(&mut self, address: Address);
+            pub fn set_current_player(&mut self, count: u32);
+            pub fn start_idle_timer(&mut self);
+
+
+            #[deprecated]
+            pub fn get_started_at_to_string(&self) -> Option<String>;
+            #[deprecated]
+            pub fn get_stopped_at_to_string(&self) -> Option<String>;
+            #[deprecated]
+            pub fn get_path_stdout_file(&self) -> PathBuf;
+            #[deprecated]
+            pub fn get_path_stderr_file(&self) -> PathBuf;
+            #[deprecated]
+            pub fn get_path_stdin_file(&self) -> PathBuf;
+            #[deprecated]
+            pub fn get_software_name(&self) -> SoftwareName;
+            #[deprecated]
+            pub fn is_proxy(&self) -> bool;
+            #[deprecated]
+            pub fn is_backend_server(&self) -> bool;
+            #[deprecated]
+            pub fn is_local(&self) -> bool;
+            #[deprecated]
+            pub fn install_software(&self) -> CloudResult<()>;
+            #[deprecated]
+            pub fn install_system_plugin(&self) -> CloudResult<()>;
+            #[deprecated]
+            pub fn install_software_lib(&self, config: &CloudConfig) -> CloudResult<()>;
+        }
+    }
 
 }
 
