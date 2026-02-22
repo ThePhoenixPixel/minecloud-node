@@ -53,9 +53,7 @@ impl Logger {
     }
 
     fn write_in_file(msg: String) {
-        let mut log_path = Cloud::get_working_path();
-        log_path.pop();
-        log_path.push("log");
+        let mut log_path = Cloud::get_working_path().join("log");
         fs::create_dir_all(&log_path).expect("Cant create Log File path in 'write_in_file'");
 
         let file_name = format!("log_{}.log", Local::now().format("%Y-%m-%d"));

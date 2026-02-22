@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
+use database_manager::DatabaseController;
 use tokio::io;
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::time::{Instant, sleep, timeout as wait};
@@ -43,7 +44,7 @@ impl ServiceProcess {
         }
     }
 
-    pub fn create(task: &Task, config: Arc<CloudConfig>) -> CloudResult<ServiceProcess> {
+    pub fn create<M: DatabaseController>(db: &M, task: &Task, config: Arc<CloudConfig>) -> CloudResult<ServiceProcess> {
         let service_path = task.prepared_to_service()?;
         // Todo: cluster nachfrage obn task + spliter + lfdnr noch frei ist (vllt. db abfrage??)
         let name = Directory::get_last_folder_name(&service_path);

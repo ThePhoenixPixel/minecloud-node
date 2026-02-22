@@ -82,7 +82,7 @@ impl ServiceManager {
                 Ok(arc)
             }
             None => {
-                let s = ServiceProcess::create(task, self.config.clone())?;
+                let s = ServiceProcess::create(self.get_db(), task, self.config.clone())?;
                 let arc = ServiceRef::new(s);
                 TableServices::create_if_not_exists(self.get_db(), arc.read().await.get_service())
                     .await?;
