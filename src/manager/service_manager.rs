@@ -1,7 +1,7 @@
 use std::fs;
 use std::fs::read_to_string;
 use std::io::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use bx::network::address::Address;
@@ -451,18 +451,17 @@ fn get_services_from_path(path: &PathBuf) -> Vec<ServiceProcess> {
     for folder in Directory::get_folders_name_from_path(path) {
         let mut path = path.clone();
         path.push(folder);
-        if let Some(service) = get_from_path(&mut path) {
+        if let Some(service) = get_from_path(&path) {
             service_list.push(ServiceProcess::new(service, path));
         };
     }
     service_list
 }
 
-fn get_from_path(path: &mut PathBuf) -> Option<Service> {
+fn get_from_path(path: &Path) -> Option<Service> {
     //path -> /service/temp/Lobby-1/
-    path.push(".minecloud");
-    path.push("service_config.json");
-    if let Ok(file_content) = read_to_string(path) {
+    let p = path.join(".minecloud").join("service_config.json");
+    if let Ok(file_content) = read_to_string(p) {
         serde_json::from_str(&file_content).ok()
     } else {
         None
