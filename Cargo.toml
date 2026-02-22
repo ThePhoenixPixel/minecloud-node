@@ -19,7 +19,7 @@ uuid                = { version = "1.20.0", features = ["v4", "serde"] }
 bx                  = { git = "https://github.com/ThePhoenixPixel/bx.git", version = "1.2.0"}
 mysql               = "27.0.0"
 once_cell           = "1.21.3"
-database_manager    = { git = "https://github.com/ThePhoenixPixel/database_manager.git", branch = "add-join" }
+database_manager    = { git = "https://github.com/ThePhoenixPixel/database_manager.git", branch = "master" }
 
 [features]
 default             = ["mysql"]
