@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::config::CloudConfig;
 use crate::database::DBTools;
-use crate::types::{Service, ServiceProcess, ServiceRef};
+use crate::types::Service;
 
 #[derive(TableDerive, Debug, Clone, Default)]
 #[table_name("t_services")]
@@ -31,8 +31,7 @@ pub struct TableServices {
 }
 
 impl TableServices {
-    async fn new_from_service(service: &ServiceRef) -> Self {
-        let service = service.read().await;
+    async fn new_from_service(service: &Service) -> Self {
         TableServices {
             id: Default::default(),
             created_at: DBDatetime::get_now(),
@@ -49,14 +48,19 @@ impl TableServices {
         }
     }
     
-    pub async fn create<M: DatabaseController>(db: &M, service: &ServiceRef) -> DbResult<()> {
-        let ts = Self::new_from_service(service).await;
-        db.insert(Self::table_name(), &Self::to_row(&ts)).await?;
+    pub async fn create_if_not_exists<M: DatabaseController>(db: &M, service: &Service) -> DbResult<()> {
+        let f = QueryFilters::new().add(Filter::eq("uuid", DBTools::uuid_to_value(service.get_id())));
+        if db.count(Self::table_name(), &f).await? > 0 {
+            Self::update(db, service).await?;
+        } else {
+            let ts = Self::new_from_service(service).await;
+            db.insert(Self::table_name(), &Self::to_row(&ts)).await?;
+        }
         Ok(())
     }
     
-    pub async fn update<M: DatabaseController>(db: &M, service: &ServiceRef) -> DbResult<()> {
-        let f = QueryFilters::new().add(Filter::eq("uuid", DBTools::uuid_to_value(&service.get_id().await)));
+    pub async fn update<M: DatabaseController>(db: &M, service: &Service) -> DbResult<()> {
+        let f = QueryFilters::new().add(Filter::eq("uuid", DBTools::uuid_to_value(service.get_id())));
         let row = db.query_one(Self::table_name(), &f)
             .await?
             .ok_or(DbError::NotFound(String::from("Service not found")))?;
@@ -72,16 +76,16 @@ impl TableServices {
     }
     
     pub async fn delete<M: DatabaseController>(db: &M, service_uuid: &Uuid) -> DbResult<()> {
-        let f = QueryFilters::new().add(Filter::eq("uuid", DBTools::uuid_to_value(&service_uuid)));
+        let f = QueryFilters::new().add(Filter::eq("uuid", DBTools::uuid_to_value(service_uuid)));
         db.delete(Self::table_name(), &f).await?;
         Ok(())
     }
 
-    pub async fn delete_others<M: DatabaseController>(db: &M, service_list: &Vec<ServiceProcess>, config: &CloudConfig) -> DbResult<()> {
+    pub async fn delete_others<M: DatabaseController>(db: &M, service_list: &Vec<Service>, config: &CloudConfig) -> DbResult<()> {
         let mut f = QueryFilters::new();
         f.add_filter(Filter::eq("node", Value::from(config.get_name())));
         for s in service_list {
-            f.add_filter(Filter::eq("uuid", DBTools::uuid_to_value(&s.get_id())));
+            f.add_filter(Filter::not_eq("uuid", DBTools::uuid_to_value(s.get_id())));
         }
         db.delete(Self::table_name(), &f).await?;
         Ok(())
