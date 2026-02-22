@@ -35,10 +35,10 @@ pub struct ServiceProcess {
 
 impl ServiceProcess {
 
-    pub fn new(service: Service) -> ServiceProcess {
+    pub fn new(service: Service, path: PathBuf) -> ServiceProcess {
         ServiceProcess {
             service,
-            path: PathBuf::new(),
+            path,
             shutdown_initiated_by_cloud: false,
             process: None,
             stdin: None,

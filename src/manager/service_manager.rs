@@ -10,7 +10,7 @@ use database_manager::DatabaseManager;
 use serde::Serialize;
 use serde_json::json;
 
-use crate::{error, log_error, log_info, log_warning};
+use crate::{error, log_info, log_warning};
 use crate::api::internal::ServiceInfoResponse;
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
@@ -448,11 +448,11 @@ fn get_all_from_file() -> Vec<ServiceProcess> {
 
 fn get_services_from_path(path: &PathBuf) -> Vec<ServiceProcess> {
     let mut service_list: Vec<ServiceProcess> = Vec::new();
-    for folder in Directory::get_folders_name_from_path(&path) {
+    for folder in Directory::get_folders_name_from_path(path) {
         let mut path = path.clone();
         path.push(folder);
         if let Some(service) = get_from_path(&mut path) {
-            service_list.push(ServiceProcess::new(service));
+            service_list.push(ServiceProcess::new(service, path));
         };
     }
     service_list
@@ -463,11 +463,7 @@ fn get_from_path(path: &mut PathBuf) -> Option<Service> {
     path.push(".minecloud");
     path.push("service_config.json");
     if let Ok(file_content) = read_to_string(path) {
-        if let Ok(service) = serde_json::from_str(&file_content) {
-            Some(service)
-        } else {
-            None
-        }
+        serde_json::from_str(&file_content).ok()
     } else {
         None
     }
