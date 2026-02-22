@@ -236,6 +236,11 @@ impl ServiceProcess {
             .join(self.get_task().get_software().get_server_file_name())
     }
 
+    pub fn set_status(&mut self, status: ServiceStatus) {
+        self.service.set_status(status);
+        self.save_to_file();
+    }
+    
     pub fn save_to_file(&self) {
         let path = self.get_path_with_service_config();
         if fs::create_dir_all(&path).is_err() {
@@ -264,7 +269,7 @@ impl ServiceProcess {
 
     delegate! {
         to self.service {
-            pub fn get_id(&self) -> EntityId;
+            pub fn get_id(&self) -> &EntityId;
             pub fn get_name(&self) -> &str;
             pub fn get_status(&self) -> ServiceStatus;
             pub fn get_parent_node(&self) -> &str;
@@ -280,7 +285,6 @@ impl ServiceProcess {
             pub fn is_start(&self) -> bool;
             pub fn is_stop(&self) -> bool;
 
-            pub fn set_status(&mut self, status: ServiceStatus);
             pub fn set_server_listener(&mut self, address: Address);
             pub fn set_plugin_listener(&mut self, address: Address);
             pub fn set_cloud_listener(&mut self, address: Address);
