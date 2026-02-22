@@ -99,8 +99,13 @@ impl PlayerManager {
     ) -> CloudResult<()> {
         if service.is_proxy().await {
             // proxy leave handling
-            Utils::wait_sec(2).await;
-            self.delete_session(player).await?;
+            let db = self.db_manager.clone();
+            let player_id = player.get_id();
+            tokio::spawn(async move {
+                Utils::wait_sec(2).await;
+                let _ = TablePlayerSessions::delete_by_player_id(db.as_ref(), player_id).await;
+            });
+            player.clear_session();
         } else {
             // backend server leave handling
             // no special handling required for now
@@ -164,6 +169,7 @@ impl PlayerManager {
     }
 
     async fn create_session(&self, player: &mut Player, service_uuid: &Uuid) -> CloudResult<()> {
+        let _ = TablePlayerSessions::delete_by_player_id(self.get_db(), player.get_id()).await;
         let session = TablePlayerSessions::new(player.get_id(), service_uuid);
         session.create(self.db_manager.as_ref()).await?;
         self.set_session_for_player(player).await?;
