@@ -88,10 +88,11 @@ impl CloudConfig {
         self.path.clone()
     }
 
-    pub async fn check(url: &String) {
+    pub async fn check_and_get(url: &String) -> CloudConfig {
         if !Cloud::get_working_path().join("config.json").exists() {
             CloudConfig::install(url).await;
         }
+        CloudConfig::get()
     }
 
     pub async fn install(start_url: &String) {

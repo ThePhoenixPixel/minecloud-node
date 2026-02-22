@@ -4,7 +4,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::{env, fs};
 use once_cell::sync::OnceCell;
-
+use crate::cloud::Cloud;
 use crate::config::CloudConfig;
 use crate::utils::log::LogType;
 
@@ -15,8 +15,8 @@ pub struct Logger;
 
 impl Logger {
 
-    pub fn init_log_level() {
-        let _ = LOG_LEVEL.set(CloudConfig::get().get_log_level());
+    pub fn init_log_level(level: u8) {
+        let _ = LOG_LEVEL.set(level);
     }
 
     pub fn get_log_level() -> u8 {
@@ -55,8 +55,7 @@ impl Logger {
     }
 
     fn write_in_file(msg: String) {
-        let mut log_path =
-            env::current_exe().expect("Cloud Error can not get the exe path of the cloud system");
+        let mut log_path = Cloud::get_working_path();
         log_path.pop();
         log_path.push("log");
         fs::create_dir_all(&log_path).expect("Cant create Log File path in 'write_in_file'");

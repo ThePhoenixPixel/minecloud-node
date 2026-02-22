@@ -34,8 +34,8 @@ pub struct Cloud {
 }
 
 impl Cloud {
-    pub async fn new() -> CloudResult<Self> {
-        let config = Arc::new(CloudConfig::get());
+    pub async fn new(cloud_config: CloudConfig) -> CloudResult<Self> {
+        let config = Arc::new(cloud_config);
         let software_config = SoftwareConfigRef::new(config.clone());
         let mut db = DatabaseManager::new(config.get_db_config())?;
         db.connect().await?;
@@ -90,21 +90,21 @@ impl Cloud {
         Cloud::print_icon();
 
         //check the cloud config.json
-        CloudConfig::check(&url).await;
-        Logger::init_log_level();
+        let cloud_config = CloudConfig::check_and_get(&url).await;
+        Logger::init_log_level(cloud_config.get_log_level());
         
         // check folder
-        Cloud::check_folder().expect("Checking Folder failed");
+        Cloud::check_folder(&cloud_config).expect("Checking Folder failed");
 
         // check software config file
         SoftwareConfig::check(&url).await;
 
         // check the software files
-        Cloud::check_software()
+        Cloud::check_software(&cloud_config)
             .await
             .expect("Checking Software failed");
 
-        let cloud = Arc::new(RwLock::new(Cloud::new().await.expect("Cant Create Cloud")));
+        let cloud = Arc::new(RwLock::new(Cloud::new(cloud_config).await.expect("Cant Create Cloud")));
 
         // Internal API
         APIInternal::start(cloud.clone()).await?;
@@ -293,53 +293,53 @@ impl Cloud {
         println!(" ");
     }
 
-    pub fn check_folder() -> Result<(), Box<dyn Error>> {
-        let config_path = CloudConfig::get().get_cloud_path();
+    pub fn check_folder(cloud_config: &CloudConfig) -> Result<(), Box<dyn Error>> {
+        let config_path = cloud_config.get_cloud_path();
 
         // create task folder
-        fs::create_dir_all(&config_path.get_task_folder_path())?;
+        fs::create_dir_all(config_path.get_task_folder_path())?;
 
         // create template folder
-        fs::create_dir_all(&config_path.get_template_folder_path())?;
+        fs::create_dir_all(config_path.get_template_folder_path())?;
 
         // create group folder
-        fs::create_dir_all(&config_path.get_group_folder_path())?;
+        fs::create_dir_all(config_path.get_group_folder_path())?;
 
         // create service temp folder
-        fs::create_dir_all(&config_path.get_service_folder().get_temp_folder_path())?;
+        fs::create_dir_all(config_path.get_service_folder().get_temp_folder_path())?;
 
         // create service static folder
-        fs::create_dir_all(&config_path.get_service_folder().get_static_folder_path())?;
+        fs::create_dir_all(config_path.get_service_folder().get_static_folder_path())?;
 
         // create system_plugins_folder
         fs::create_dir_all(
-            &config_path
+            config_path
                 .get_system_folder()
                 .get_system_plugins_folder_path(),
         )?;
 
         // create software_files_folder
         fs::create_dir_all(
-            &config_path
+            config_path
                 .get_system_folder()
                 .get_software_files_folder_path(),
         )?;
 
         // create software_lib_folder
         fs::create_dir_all(
-            &config_path
+            config_path
                 .get_system_folder()
                 .get_software_lib_folder_path(),
         )?;
-        log_info!("All Folders are safe :=)");
+        log_info!(2, "All Folders are safe :=)");
         Ok(())
     }
 
     // check software && system plugins
-    pub async fn check_software() -> Result<(), Box<dyn Error>> {
+    pub async fn check_software(cloud_config: &CloudConfig) -> Result<(), Box<dyn Error>> {
         // Todo: refactoren 'check_software()'
         let software_types = SoftwareConfig::get().get_software_types();
-        let cloud_config_system = CloudConfig::get().get_cloud_path().get_system_folder();
+        let cloud_config_system = cloud_config.get_cloud_path().get_system_folder();
 
         // iter to software types
         for (software_type_name, software_type) in software_types {
