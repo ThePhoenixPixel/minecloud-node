@@ -74,7 +74,7 @@ impl Utils {
     }
 
     pub async fn wait_nano(nano: u128) {
-        tokio::time::sleep(Duration::from_nanos_u128(nano)).await;
+        tokio::time::sleep(Duration::from_nanos(nano as u64)).await;
     }
 
     pub async fn wait_sec(sec: u64) {
