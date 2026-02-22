@@ -24,7 +24,7 @@ impl ServiceRef {
     }
 
     pub async fn get_id(&self) -> EntityId {
-        self.0.read().await.get_id()
+        self.0.read().await.get_id().clone()
     }
 
     pub async fn get_name(&self) -> String {

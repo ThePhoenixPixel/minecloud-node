@@ -59,18 +59,19 @@ impl ServiceManager {
         })
     }
 
-    pub async fn start(&self, service: ServiceRef) -> CloudResult<()> {
-        {
-            let mut s = service.write().await;
+    pub async fn start(&self, service_ref: ServiceRef) -> CloudResult<()> {
+        let service = {
+            let mut s = service_ref.write().await;
             s.set_status(ServiceStatus::Starting);
-        }
+            s.get_service().clone()
+        };
 
         TableServices::update(self.get_db(), &service).await?;
 
-        self.prepare_to_start(&service).await?;
+        self.prepare_to_start(&service_ref).await?;
         TableServices::update(self.get_db(), &service).await?;
 
-        service.write().await.start()?;
+        service_ref.write().await.start()?;
         TableServices::update(self.get_db(), &service).await?;
 
         Ok(())
@@ -79,13 +80,13 @@ impl ServiceManager {
     pub async fn get_or_create_service_ref(&mut self, task: &Task) -> CloudResult<ServiceRef> {
         match self.get_next_stopped_service(task).await {
             Some(arc) => {
-                TableServices::update(self.get_db(), &arc).await?;
+                TableServices::update(self.get_db(), arc.read().await.get_service()).await?;
                 Ok(arc)
             }
             None => {
                 let s = ServiceProcess::create(task, self.config.clone())?;
                 let arc = ServiceRef::new(s);
-                TableServices::create(self.get_db(), &arc).await?;
+                TableServices::create_if_not_exists(self.get_db(), arc.read().await.get_service()).await?;
                 self.services.push(arc.clone());
                 Ok(arc)
             }
