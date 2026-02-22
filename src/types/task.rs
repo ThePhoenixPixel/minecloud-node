@@ -5,17 +5,17 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::{fs, io};
 use std::sync::Arc;
 use std::time::Duration;
+use std::{fs, io};
 
+use crate::config::{CloudConfig, SoftwareConfig};
 use crate::types::group::Group;
 use crate::types::installer::Installer;
 use crate::types::software::Software;
 use crate::types::template::Template;
-use crate::config::{CloudConfig, SoftwareConfig};
-use crate::{error, log_error, log_info};
 use crate::utils::error::*;
+use crate::{error, log_error, log_info};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Task {
@@ -261,11 +261,11 @@ impl Task {
     pub fn set_max_service_count(&mut self, max_service_count: i32) {
         self.max_service_count = max_service_count;
     }
-    
+
     pub fn get_time_shutdown_before_kill(&self) -> Duration {
         Duration::from_secs(self.time_shutdown_before_kill)
     }
-    
+
     // default_connect
     pub fn default_connect(&self) -> bool {
         self.default_connect
@@ -514,13 +514,21 @@ impl Task {
     fn create_next_free_service_folder(&self) -> Result<PathBuf, CloudError> {
         let mut folder_index: u32 = 1;
         let target_base_path = self.get_service_path();
-        let mut target_service_folder_path =
-            target_base_path.join(format!("{}{}{}", self.get_name(), self.get_split(), folder_index));
+        let mut target_service_folder_path = target_base_path.join(format!(
+            "{}{}{}",
+            self.get_name(),
+            self.get_split(),
+            folder_index
+        ));
 
         while target_service_folder_path.exists() {
             folder_index += 1;
-            target_service_folder_path =
-                target_base_path.join(format!("{}{}{}", self.get_name(), self.get_split(), folder_index));
+            target_service_folder_path = target_base_path.join(format!(
+                "{}{}{}",
+                self.get_name(),
+                self.get_split(),
+                folder_index
+            ));
         }
         fs::create_dir_all(&target_service_folder_path)
             .map_err(|e| error!(CantCreateServiceFolder, e))?;

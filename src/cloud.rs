@@ -1,27 +1,25 @@
 use bx::network::url::Url;
 use colored::{ColoredString, Colorize};
+use database_manager::DatabaseManager;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{env, fs};
-use database_manager::DatabaseManager;
 use tokio::sync::RwLock;
 
-use crate::terminal::cmd::Cmd;
-use crate::utils::log::logger::Logger;
-use crate::{log_error, log_info, log_warning};
-use crate::utils::error::*;
-use crate::node::scheduler::Scheduler;
+use crate::api::internal::APIInternal;
+use crate::config::{CloudConfig, SoftwareConfig, SoftwareConfigRef};
 use crate::database::table::Tables;
 use crate::manager::{Manager, NodeManager, PlayerManager, TaskManager};
-use crate::config::{CloudConfig, SoftwareConfig, SoftwareConfigRef};
-use crate::api::internal::APIInternal;
-
+use crate::node::scheduler::Scheduler;
+use crate::terminal::cmd::Cmd;
+use crate::utils::error::*;
+use crate::utils::log::logger::Logger;
+use crate::{log_error, log_info, log_warning};
 
 #[cfg(feature = "rest-api")]
 use crate::api::external::restapi_main::ApiMain;
-
 
 pub struct Cloud {
     config: Arc<CloudConfig>,
@@ -43,7 +41,8 @@ impl Cloud {
         Tables::check_tables(db.as_ref()).await?;
         log_info!("Database check successfully");
 
-        let (pm, tm, nm) = Manager::create_all(db.clone(), config.clone(), software_config.clone()).await?;
+        let (pm, tm, nm) =
+            Manager::create_all(db.clone(), config.clone(), software_config.clone()).await?;
         let scheduler = Arc::new(Scheduler::new(
             db.clone(),
             config.clone(),
@@ -92,7 +91,7 @@ impl Cloud {
         //check the cloud config.json
         let cloud_config = CloudConfig::check_and_get(&url).await;
         Logger::init_log_level(cloud_config.get_log_level());
-        
+
         // check folder
         Cloud::check_folder(&cloud_config).expect("Checking Folder failed");
 
@@ -104,7 +103,9 @@ impl Cloud {
             .await
             .expect("Checking Software failed");
 
-        let cloud = Arc::new(RwLock::new(Cloud::new(cloud_config).await.expect("Cant Create Cloud")));
+        let cloud = Arc::new(RwLock::new(
+            Cloud::new(cloud_config).await.expect("Cant Create Cloud"),
+        ));
 
         // Internal API
         APIInternal::start(cloud.clone()).await?;
@@ -138,7 +139,9 @@ impl Cloud {
     }
 
     pub async fn disable(&mut self) {
-        self.node_manager.stop_all_local_services("Cloud Disable").await;
+        self.node_manager
+            .stop_all_local_services("Cloud Disable")
+            .await;
         log_info!("Cloud shutdown");
         log_info!("bye bye");
         std::process::exit(0)
@@ -451,5 +454,3 @@ impl Cloud {
         Ok(())
     }
 }
-
-

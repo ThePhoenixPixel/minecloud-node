@@ -1,6 +1,6 @@
+use database_manager::DatabaseManager;
 use std::fs;
 use std::sync::Arc;
-use database_manager::DatabaseManager;
 
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::error;
@@ -11,14 +11,16 @@ pub struct TaskManager {
     db: Arc<DatabaseManager>,
     config: Arc<CloudConfig>,
     software_config: SoftwareConfigRef,
-    
+
     tasks: Vec<TaskRef>,
-    
 }
 
-
 impl TaskManager {
-    pub fn new(db: Arc<DatabaseManager>, cloud_config: Arc<CloudConfig>, software_config: SoftwareConfigRef) -> TaskManager {
+    pub fn new(
+        db: Arc<DatabaseManager>,
+        cloud_config: Arc<CloudConfig>,
+        software_config: SoftwareConfigRef,
+    ) -> TaskManager {
         TaskManager {
             db,
             config: cloud_config,
@@ -26,7 +28,7 @@ impl TaskManager {
             tasks: Self::get_all_task_from_file(),
         }
     }
-    
+
     pub fn get_all_task(&self) -> Vec<TaskRef> {
         self.tasks.clone()
     }
@@ -34,12 +36,11 @@ impl TaskManager {
     pub async fn get_from_name(&self, name: &String) -> CloudResult<TaskRef> {
         for arc in &self.tasks {
             if arc.get_name().await == *name {
-                return Ok(arc.clone())
+                return Ok(arc.clone());
             }
         }
         Err(error!(CantFindTaskFromName))
     }
-
 
     pub fn get_all_task_from_file() -> Vec<TaskRef> {
         let task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
@@ -64,4 +65,3 @@ impl TaskManager {
         tasks
     }
 }
-

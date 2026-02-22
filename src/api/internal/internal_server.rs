@@ -1,17 +1,16 @@
-use std::sync::Arc;
 use actix_cors::Cors;
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, web};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::cloud::Cloud;
-use crate::{error, log_error, log_info};
 use crate::api::internal::APIInternalHandler;
+use crate::cloud::Cloud;
 use crate::utils::error::{CantBindAddress, CloudResult, IntoCloudError};
+use crate::{error, log_error, log_info};
 
 pub struct APIInternal;
 
 impl APIInternal {
-
     pub async fn start(cloud: Arc<RwLock<Cloud>>) -> CloudResult<()> {
         log_info!(3, "Start Internal API Point");
         let config = {
@@ -77,4 +76,3 @@ impl APIInternal {
         Ok(())
     }
 }
-

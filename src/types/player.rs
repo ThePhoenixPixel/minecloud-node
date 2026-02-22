@@ -69,10 +69,7 @@ impl Player {
 
 impl PlayerSession {
     pub fn new(id: u64, service_uuid: Uuid) -> PlayerSession {
-        PlayerSession {
-            id,
-            service_uuid,
-        }
+        PlayerSession { id, service_uuid }
     }
     pub fn get_id(&self) -> u64 {
         self.id

@@ -1,20 +1,18 @@
-use chrono::Local;
-use colored::{ColoredString, Colorize};
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::{env, fs};
-use once_cell::sync::OnceCell;
 use crate::cloud::Cloud;
 use crate::config::CloudConfig;
 use crate::utils::log::LogType;
+use chrono::Local;
+use colored::{ColoredString, Colorize};
+use once_cell::sync::OnceCell;
+use std::fs;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 pub static LOG_LEVEL: OnceCell<u8> = OnceCell::new();
-
 
 pub struct Logger;
 
 impl Logger {
-
     pub fn init_log_level(level: u8) {
         let _ = LOG_LEVEL.set(level);
     }

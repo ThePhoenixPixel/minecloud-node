@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::{fs, io};
 
+use crate::config::CloudConfig;
+use crate::error;
 use crate::types::installer::Installer;
 use crate::types::template::Template;
-use crate::error;
-use crate::config::CloudConfig;
 use crate::utils::error::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

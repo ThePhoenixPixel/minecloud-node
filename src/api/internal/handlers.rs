@@ -2,8 +2,8 @@ use actix_web::{HttpResponse, web};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::cloud::Cloud;
 use crate::api::internal::{PlayerActionRequest, ServiceIdRequest, ServiceInfoResponse};
+use crate::cloud::Cloud;
 use crate::types::EntityId;
 use crate::utils::error::CloudResult;
 
@@ -14,11 +14,9 @@ use crate::utils::error::CloudResult;
 //  POST /api/internal/player/action             → Forward player action
 // ============================================================
 
-
 pub struct APIInternalHandler;
 
 impl APIInternalHandler {
-
     /// POST /api/internal/service/shutdown
     /// Called by the Minecraft Process (Minecraft Plugin) when a service is shut down
     pub async fn service_notify_shutdown(
@@ -30,7 +28,9 @@ impl APIInternalHandler {
             cloud_guard.get_node_manager()
         };
 
-        node_manager.on_local_service_shutdown(EntityId::from(&request.into_inner())).await?;
+        node_manager
+            .on_local_service_shutdown(EntityId::from(&request.into_inner()))
+            .await?;
 
         Ok(HttpResponse::Ok().finish())
     }
@@ -46,7 +46,9 @@ impl APIInternalHandler {
             cloud_guard.get_node_manager()
         };
 
-        node_manager.on_local_service_registered(EntityId::from(&request.into_inner())).await?;
+        node_manager
+            .on_local_service_registered(EntityId::from(&request.into_inner()))
+            .await?;
 
         Ok(HttpResponse::Ok().finish())
     }

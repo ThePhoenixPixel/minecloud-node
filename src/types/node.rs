@@ -7,8 +7,8 @@ pub struct Node {
     host: Address,
 }
 
-impl Node{
-    fn new(){
+impl Node {
+    fn new() {
         print!("noide etst");
     }
 }

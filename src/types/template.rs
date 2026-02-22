@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-use crate::types::task::Task;
 use crate::config::CloudConfig;
+use crate::types::task::Task;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Template {

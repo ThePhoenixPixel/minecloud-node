@@ -1,3 +1,9 @@
+use bx::network::address::Address;
+use bx::network::url::{Url, UrlSchema};
+use bx::path::Directory;
+use chrono::NaiveDateTime;
+use delegate::delegate;
+use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
@@ -6,35 +12,27 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
-use bx::network::address::Address;
-use bx::network::url::{Url, UrlSchema};
-use bx::path::Directory;
-use chrono::NaiveDateTime;
-use delegate::delegate;
-use serde_json::json;
 use tokio::io;
-use tokio::process::{ChildStdin, Child, Command};
-use tokio::time::{sleep, timeout as wait, Instant};
+use tokio::process::{Child, ChildStdin, Command};
+use tokio::time::{Instant, sleep, timeout as wait};
 
-use crate::{error, log_error, log_info, log_warning};
 use crate::config::{CloudConfig, SoftwareName};
 use crate::types::service::Service;
-use crate::types::{EntityId, ServiceStatus};
 use crate::types::task::Task;
+use crate::types::{EntityId, ServiceStatus};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
+use crate::{error, log_error, log_info, log_warning};
 
 pub struct ServiceProcess {
     service: Service,
-    path: PathBuf,              // Path -> ~/(temp/static)/servicename(zb. Lobby-1)/
+    path: PathBuf, // Path -> ~/(temp/static)/servicename(zb. Lobby-1)/
     shutdown_initiated_by_cloud: bool,
     process: Option<Child>,
     stdin: Option<ChildStdin>,
 }
 
-
 impl ServiceProcess {
-
     pub fn new(service: Service, path: PathBuf) -> ServiceProcess {
         ServiceProcess {
             service,
@@ -61,7 +59,8 @@ impl ServiceProcess {
     }
 
     pub fn start(&mut self) -> CloudResult<()> {
-        let server_file_path = self.get_path_with_server_file()
+        let server_file_path = self
+            .get_path_with_server_file()
             .to_str()
             .ok_or(error!(CantConvertServerFilePathToString))?
             .to_string();
@@ -92,12 +91,11 @@ impl ServiceProcess {
             .spawn()
             .map_err(|e| error!(CantStartServer, e))?;
 
-        self.stdin      = child.stdin.take();
-        self.process    = Some(child);
+        self.stdin = child.stdin.take();
+        self.process = Some(child);
 
         Ok(())
     }
-
 
     pub async fn shutdown(&mut self, msg: &str) {
         if self.service.is_stop() {
@@ -112,17 +110,14 @@ impl ServiceProcess {
         // 1. Stop senden
         if let Err(e) = self.send_stop(msg).await {
             log_error!(
-            "Stop command nicht senden an {} \n Error: {}",
-            self.service.get_name(),
-            e.to_string()
-        );
+                "Stop command nicht senden an {} \n Error: {}",
+                self.service.get_name(),
+                e.to_string()
+            );
         }
 
         // 2. Warten oder Kill entscheiden
-        let should_kill = self
-            .wait_for_exit_or_kill(timeout)
-            .await
-            .unwrap_or(true);
+        let should_kill = self.wait_for_exit_or_kill(timeout).await.unwrap_or(true);
 
         // 3. Kill falls nötig
         if should_kill {
@@ -151,31 +146,31 @@ impl ServiceProcess {
         let fut = tokio::spawn(async move { url.post(&body, timeout).await });
 
         match wait(timeout, fut).await {
-            Ok(join_result) => {
-                match join_result {
-                    Ok(Ok(_)) => {
-                        log_info!(6, "Service Stop command successes Send to Service: [{}]", self.service.get_name());
-                        Ok(())
-                    }
-                    Ok(Err(e)) => Err(error!(CantSendShutdownRequest, e)),
-                    Err(e) => Err(error!(CantSendShutdownRequest, e)),
+            Ok(join_result) => match join_result {
+                Ok(Ok(_)) => {
+                    log_info!(
+                        6,
+                        "Service Stop command successes Send to Service: [{}]",
+                        self.service.get_name()
+                    );
+                    Ok(())
                 }
-            }
+                Ok(Err(e)) => Err(error!(CantSendShutdownRequest, e)),
+                Err(e) => Err(error!(CantSendShutdownRequest, e)),
+            },
             Err(_) => {
                 // Timeout
-                log_warning!(5,
+                log_warning!(
+                    5,
                     "Shutdown request for [{}] take to long -> Kill Thread",
                     self.service.get_name()
                 );
-                Err(error!(CantSendShutdownRequest ,"Shutdown Timeout"))
+                Err(error!(CantSendShutdownRequest, "Shutdown Timeout"))
             }
         }
     }
 
-    async fn wait_for_exit_or_kill(
-        &mut self,
-        timeout: Duration,
-    ) -> io::Result<bool> {
+    async fn wait_for_exit_or_kill(&mut self, timeout: Duration) -> io::Result<bool> {
         let deadline = Instant::now() + timeout;
 
         loop {
@@ -200,7 +195,7 @@ impl ServiceProcess {
         }
     }
 
-    pub fn get_service(&self) ->& Service {
+    pub fn get_service(&self) -> &Service {
         &self.service
     }
 
@@ -209,12 +204,7 @@ impl ServiceProcess {
     }
 
     pub fn get_service_url(&self) -> Url {
-        Url::new(
-            UrlSchema::Http,
-            self.get_plugin_listener(),
-            "cloud/service",
-        )
-            .join(self.get_name())
+        Url::new(UrlSchema::Http, self.get_plugin_listener(), "cloud/service").join(self.get_name())
     }
 
     pub fn get_path(&self) -> &PathBuf {
@@ -222,8 +212,7 @@ impl ServiceProcess {
     }
 
     pub fn get_path_with_service_config(&self) -> PathBuf {
-        self.path
-            .join(".minecloud")
+        self.path.join(".minecloud")
     }
 
     pub fn get_path_with_service_file(&self) -> PathBuf {
@@ -240,7 +229,7 @@ impl ServiceProcess {
         self.service.set_status(status);
         self.save_to_file();
     }
-    
+
     pub fn save_to_file(&self) {
         let path = self.get_path_with_service_config();
         if fs::create_dir_all(&path).is_err() {
@@ -318,6 +307,4 @@ impl ServiceProcess {
             pub fn install_software_lib(&self, config: &CloudConfig) -> CloudResult<()>;
         }
     }
-
 }
-

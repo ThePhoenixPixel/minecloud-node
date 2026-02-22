@@ -14,7 +14,10 @@ pub struct NodeManager {
 }
 
 impl NodeManager {
-    pub async fn new(cloud_config: Arc<CloudConfig>, service_manager: Arc<RwLock<ServiceManager>>) -> CloudResult<NodeManager> {
+    pub async fn new(
+        cloud_config: Arc<CloudConfig>,
+        service_manager: Arc<RwLock<ServiceManager>>,
+    ) -> CloudResult<NodeManager> {
         Ok(NodeManager {
             service_manager,
             cluster: Box::new(RestClusterClient::new(cloud_config.clone())),
@@ -30,9 +33,7 @@ impl NodeManager {
     }
 
     pub async fn stop_service(&self, id: EntityId, msg: &str) {
-        let service_ref = {
-            self.service_manager.read().await.find_from_id(&id).await
-        };
+        let service_ref = { self.service_manager.read().await.find_from_id(&id).await };
 
         if let Some(service_ref) = service_ref {
             // service is local
@@ -41,8 +42,11 @@ impl NodeManager {
                 Err(e) => (),
             };
 
-            self.service_manager.write().await.stop_service(&id, msg).await;
-
+            self.service_manager
+                .write()
+                .await
+                .stop_service(&id, msg)
+                .await;
         } else {
             // service is remote
             todo!("Send stop command to Other Node");
@@ -53,7 +57,12 @@ impl NodeManager {
     }
 
     pub async fn get_all_services_from_task(&self, task_name: &String) -> Vec<Service> {
-        let service_refs = self.service_manager.read().await.get_all_from_task(task_name).await;
+        let service_refs = self
+            .service_manager
+            .read()
+            .await
+            .get_all_from_task(task_name)
+            .await;
         let mut services = Vec::new();
 
         for service_ref in service_refs {
@@ -66,7 +75,7 @@ impl NodeManager {
     pub async fn start_service_from_task(&self, task: &Task) -> CloudResult<()> {
         if self.cloud_config.get_name() != self.find_best_node(task).await {
             // send start request to Node
-            return Ok(())
+            return Ok(());
         }
         // start service local
         let service_ref = {
@@ -78,7 +87,12 @@ impl NodeManager {
     }
 
     pub async fn get_online_backend_server(&self) -> Vec<Service> {
-        let services = self.service_manager.read().await.get_online_backend_server().await;
+        let services = self
+            .service_manager
+            .read()
+            .await
+            .get_online_backend_server()
+            .await;
         let mut result = Vec::new();
         for s in services {
             result.push(s.read().await.get_service().clone())
@@ -88,24 +102,34 @@ impl NodeManager {
 
     /// Local (Server Plugin called) -> info sent to Cluster
     pub async fn on_local_service_registered(&self, id: EntityId) -> CloudResult<()> {
-        let service_ref = {
-            self.service_manager.read().await.get_from_id(&id).await?
-        };
+        let service_ref = { self.service_manager.read().await.get_from_id(&id).await? };
 
-        self.service_manager.read().await.register_on_proxy(&service_ref.read().await.get_service()).await?;
+        self.service_manager
+            .read()
+            .await
+            .register_on_proxy(&service_ref.read().await.get_service())
+            .await?;
 
         Ok(())
     }
 
     async fn unregistered_local_service(&self, service_ref: &ServiceRef) -> CloudResult<()> {
-        self.service_manager.read().await.unregister_from_proxy(&service_ref.read().await.get_service()).await?;
+        self.service_manager
+            .read()
+            .await
+            .unregister_from_proxy(&service_ref.read().await.get_service())
+            .await?;
 
         Ok(())
     }
 
     /// Remote (Node called) -> info Local
     pub async fn on_remote_service_registered(&self, service: Service) -> CloudResult<()> {
-        self.service_manager.read().await.register_on_proxy(&service).await?;
+        self.service_manager
+            .read()
+            .await
+            .register_on_proxy(&service)
+            .await?;
         Ok(())
     }
 
@@ -127,7 +151,11 @@ impl NodeManager {
 
     /// Remote (Node called) -> info Local
     pub async fn on_remote_service_shutdown(&self, service: Service) -> CloudResult<()> {
-        self.service_manager.read().await.unregister_from_proxy(&service).await?;
+        self.service_manager
+            .read()
+            .await
+            .unregister_from_proxy(&service)
+            .await?;
         Ok(())
     }
 
@@ -135,7 +163,4 @@ impl NodeManager {
     async fn find_best_node(&self, task: &Task) -> String {
         String::from("Node-1")
     }
-
 }
-
-

@@ -1,5 +1,5 @@
-use std::sync::{Arc, RwLock};
 use async_trait::async_trait;
+use std::sync::{Arc, RwLock};
 
 use crate::api::cluster::cluster_client::ClusterClient;
 use crate::config::CloudConfig;
@@ -26,4 +26,3 @@ impl ClusterClient for RestClusterClient {
         todo!()
     }
 }
-

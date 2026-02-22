@@ -1,8 +1,7 @@
-use std::sync::Arc;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::config::CloudConfig;
 use crate::types::Task;
-
+use std::sync::Arc;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub struct TaskRef(Arc<RwLock<Task>>);
 
@@ -37,4 +36,3 @@ impl Clone for TaskRef {
         Self(self.0.clone())
     }
 }
-

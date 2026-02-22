@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
 use bx::network::address::Address;
 use bx::network::url::Url;
 use database_manager::config::DatabaseConfig;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
 
 use crate::cloud::Cloud;
 use crate::utils::utils::Utils;

@@ -7,7 +7,7 @@ pub enum CloudErrorKind {
     CantReadFileToString,
     CantParseToValue,
     DeserializationError,
-    
+
     /// 11.xxx Directory
     PathServe,
 
@@ -51,8 +51,7 @@ pub enum CloudErrorKind {
     ///6x.xxx
     DatabaseError,
     CantRegisterPlayer,
-    
-    
+
     CantDBCreateConnection,
     CantDBGetConnection,
     CantConnectToDatabase,
@@ -66,7 +65,6 @@ pub enum CloudErrorKind {
 
     CantFindServiceFromUUID,
     CantFindTaskFromName,
-
 
     CantBindAddress,
     CantStartAPIServer,

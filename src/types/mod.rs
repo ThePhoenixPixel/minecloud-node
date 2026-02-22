@@ -1,30 +1,30 @@
+use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub use installer::*;
+pub use node::*;
 pub use player::*;
+pub use process::*;
 pub use service::*;
 pub use service_ref::*;
-pub use task::*;
-pub use node::*;
-pub use process::*;
-pub use installer::*;
-pub use template::*;
 pub use software::*;
+pub use task::*;
 pub use task_ref::*;
+pub use template::*;
 
 mod group;
+mod installer;
+mod node;
 mod task;
 mod template;
-mod node;
-mod installer;
 
-mod service;
-mod software;
 mod player;
 mod process;
+mod service;
 mod service_ref;
+mod software;
 mod task_ref;
 
 pub type EntityId = Uuid;
@@ -33,7 +33,6 @@ pub enum CloudUuid {
     Entity(EntityId),
     Str(String),
 }
-
 
 impl fmt::Display for CloudUuid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -68,7 +67,6 @@ impl From<String> for CloudUuid {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
 pub enum ServerType {
     #[default]
@@ -91,7 +89,6 @@ impl ServerType {
     }
 }
 
-
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug, Default)]
 pub enum ServiceStatus {
     #[default]
@@ -106,21 +103,21 @@ pub enum ServiceStatus {
 impl ServiceStatus {
     pub fn to_string(&self) -> String {
         match self {
-            ServiceStatus::Starting     => String::from("Starting"),
-            ServiceStatus::Running      => String::from("Running"),
-            ServiceStatus::Stopping     => String::from("Stopping"),
-            ServiceStatus::Stopped      => String::from("Stopped"),
-            ServiceStatus::Failed       => String::from("Failed"),
+            ServiceStatus::Starting => String::from("Starting"),
+            ServiceStatus::Running => String::from("Running"),
+            ServiceStatus::Stopping => String::from("Stopping"),
+            ServiceStatus::Stopped => String::from("Stopped"),
+            ServiceStatus::Failed => String::from("Failed"),
         }
     }
 
     pub fn from_string(str: &str) -> ServiceStatus {
         match str {
-            "Starting"      => ServiceStatus::Starting,
-            "Running"       => ServiceStatus::Running,
-            "Stopping"      => ServiceStatus::Stopping,
-            "Stopped"       => ServiceStatus::Stopped,
-            _               => ServiceStatus::Failed,
+            "Starting" => ServiceStatus::Starting,
+            "Running" => ServiceStatus::Running,
+            "Stopping" => ServiceStatus::Stopping,
+            "Stopped" => ServiceStatus::Stopped,
+            _ => ServiceStatus::Failed,
         }
     }
 
@@ -144,4 +141,3 @@ impl ServiceStatus {
         *self == ServiceStatus::Failed
     }
 }
-

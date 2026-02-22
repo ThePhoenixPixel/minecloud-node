@@ -3,9 +3,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::cloud::Cloud;
-use crate::types::Service;
 use crate::log_info;
 use crate::terminal::command_manager::CommandManager;
+use crate::types::Service;
 
 pub struct CmdService;
 
@@ -56,7 +56,7 @@ async fn list(cloud: Arc<RwLock<Cloud>>, args: Vec<&str>) -> Result<(), Error> {
         cloud_guard.get_node_manager()
     };
     todo!()
-/*
+    /*
     let services = service_manager
         .read()
         .await

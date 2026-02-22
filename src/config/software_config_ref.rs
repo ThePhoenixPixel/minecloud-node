@@ -3,7 +3,6 @@ use tokio::sync::RwLock;
 
 use crate::config::{CloudConfig, SoftwareConfig};
 
-
 pub struct SoftwareConfigRef(Arc<RwLock<SoftwareConfig>>);
 
 impl SoftwareConfigRef {
@@ -17,4 +16,3 @@ impl Clone for SoftwareConfigRef {
         Self(self.0.clone())
     }
 }
-

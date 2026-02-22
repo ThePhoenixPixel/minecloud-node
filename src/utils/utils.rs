@@ -1,13 +1,12 @@
+use bx::network::address::Address;
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
-use bx::network::address::Address;
-use chrono::{DateTime, Utc};
 
 use crate::cloud::Cloud;
 use crate::log_error;
-
 
 pub struct Utils;
 
@@ -77,13 +76,14 @@ impl Utils {
     pub async fn wait_nano(nano: u128) {
         tokio::time::sleep(Duration::from_nanos_u128(nano)).await;
     }
-    
+
     pub async fn wait_sec(sec: u64) {
         tokio::time::sleep(Duration::from_secs(sec)).await;
     }
 
     pub fn find_free_port(used_ports: &[u32], mut port: u32, host: &String) -> u32 {
-        while used_ports.contains(&port) || !Address::is_port_available(&Address::new(host, &port)) {
+        while used_ports.contains(&port) || !Address::is_port_available(&Address::new(host, &port))
+        {
             port += 1;
         }
         port

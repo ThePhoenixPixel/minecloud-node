@@ -1,29 +1,27 @@
+use bx::network::address::Address;
+use bx::path::Directory;
+use database_manager::DatabaseManager;
+use serde::Serialize;
+use serde_json::json;
 use std::fs;
 use std::fs::read_to_string;
 use std::io::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use bx::network::address::Address;
-use bx::path::Directory;
-use database_manager::DatabaseManager;
-use serde::Serialize;
-use serde_json::json;
 
-use crate::{error, log_info, log_warning};
 use crate::api::internal::ServiceInfoResponse;
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
 use crate::types::{EntityId, Service, ServiceProcess, ServiceRef, ServiceStatus, Task};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
-
+use crate::{error, log_info, log_warning};
 
 #[derive(Serialize)]
 struct RegisterServerData {
     register_server: ServiceInfoResponse,
 }
-
 
 pub struct ServiceManager {
     services: Vec<ServiceRef>,
@@ -36,7 +34,7 @@ impl ServiceManager {
     pub async fn new(
         db: Arc<DatabaseManager>,
         cloud_config: Arc<CloudConfig>,
-        _software_config: SoftwareConfigRef
+        _software_config: SoftwareConfigRef,
     ) -> CloudResult<Self> {
         let local_services = get_all_from_file();
         let mut services: Vec<ServiceRef> = Vec::new();
@@ -86,7 +84,8 @@ impl ServiceManager {
             None => {
                 let s = ServiceProcess::create(task, self.config.clone())?;
                 let arc = ServiceRef::new(s);
-                TableServices::create_if_not_exists(self.get_db(), arc.read().await.get_service()).await?;
+                TableServices::create_if_not_exists(self.get_db(), arc.read().await.get_service())
+                    .await?;
                 self.services.push(arc.clone());
                 Ok(arc)
             }
@@ -109,7 +108,7 @@ impl ServiceManager {
 
     pub async fn register_on_proxy(&self, service: &Service) -> CloudResult<()> {
         if service.is_proxy() {
-            return Ok(())
+            return Ok(());
         }
 
         for proxy in self.get_online_proxies().await {
@@ -120,14 +119,29 @@ impl ServiceManager {
             }) {
                 Some(b) => b,
                 None => {
-                    log_warning!(2, "Service [{}] can't Serialize to ServiceInfo", service.get_name());
+                    log_warning!(
+                        2,
+                        "Service [{}] can't Serialize to ServiceInfo",
+                        service.get_name()
+                    );
                     continue;
                 }
             };
 
             match url.post(&body, Duration::from_secs(3)).await {
-                Ok(_) => log_info!(4, "Successfully connect Service [{}] to Proxy [{}] ", service.get_name(), s.get_name()),
-                Err(e) => log_warning!(2, "Can't Register Service [{}] to Proxy [{}] -> {}", service.get_name(), s.get_name(), e)
+                Ok(_) => log_info!(
+                    4,
+                    "Successfully connect Service [{}] to Proxy [{}] ",
+                    service.get_name(),
+                    s.get_name()
+                ),
+                Err(e) => log_warning!(
+                    2,
+                    "Can't Register Service [{}] to Proxy [{}] -> {}",
+                    service.get_name(),
+                    s.get_name(),
+                    e
+                ),
             }
         }
         Ok(())
@@ -135,7 +149,7 @@ impl ServiceManager {
 
     pub async fn unregister_from_proxy(&self, service: &Service) -> CloudResult<()> {
         if service.is_proxy() {
-            return Ok(())
+            return Ok(());
         }
 
         for proxy in self.get_online_proxies().await {
@@ -145,8 +159,19 @@ impl ServiceManager {
                 .join(format!("remove_server?name={}", service.get_name()).as_str());
 
             match url.post(&json!({}), Duration::from_secs(3)).await {
-                Ok(_) => log_info!(4, "Successfully disconnect Service [{}] from Proxy [{}] ", service.get_name(), s.get_name()),
-                Err(e) => log_warning!(2, "Can't Unregister Service [{}] from Proxy [{}] -> {}", service.get_name(), s.get_name(), e)
+                Ok(_) => log_info!(
+                    4,
+                    "Successfully disconnect Service [{}] from Proxy [{}] ",
+                    service.get_name(),
+                    s.get_name()
+                ),
+                Err(e) => log_warning!(
+                    2,
+                    "Can't Unregister Service [{}] from Proxy [{}] -> {}",
+                    service.get_name(),
+                    s.get_name(),
+                    e
+                ),
             }
         }
         Ok(())
@@ -162,7 +187,10 @@ impl ServiceManager {
             }) {
                 Some(body) => body,
                 None => {
-                    log_warning!("Service {} can't Serialize to ServiceInfo", service.get_name());
+                    log_warning!(
+                        "Service {} can't Serialize to ServiceInfo",
+                        service.get_name()
+                    );
                     continue;
                 }
             };
@@ -232,7 +260,11 @@ impl ServiceManager {
             None => return,
         };
 
-        self.services[pos].write().await.shutdown(shutdown_msg).await;
+        self.services[pos]
+            .write()
+            .await
+            .shutdown(shutdown_msg)
+            .await;
         self.remove_service(pos).await;
     }
 
@@ -350,8 +382,11 @@ impl ServiceManager {
             return Err(error!(CantFindPortConfigFilePath));
         }
         let content = read_to_string(&path_port).map_err(|e| error!(CantReadFileToString, e))?;
-        fs::write(&path_port, content.replace("%port%", &address.get_port().to_string()))
-            .map_err(|e| error!(CantWritePort, e))?;
+        fs::write(
+            &path_port,
+            content.replace("%port%", &address.get_port().to_string()),
+        )
+        .map_err(|e| error!(CantWritePort, e))?;
 
         s.set_server_listener(address);
         s.save_to_file();
@@ -420,7 +455,6 @@ impl ServiceManager {
         ports
     }
 
-
     async fn find_pos_by_id(&self, id: &EntityId) -> Option<usize> {
         for (pos, arc) in self.services.iter().enumerate() {
             if arc.get_id().await == *id {
@@ -438,10 +472,16 @@ impl ServiceManager {
 fn get_all_from_file() -> Vec<ServiceProcess> {
     let mut service_list: Vec<ServiceProcess> = Vec::new();
     service_list.append(&mut get_services_from_path(
-        &CloudConfig::get().get_cloud_path().get_service_folder().get_temp_folder_path(),
+        &CloudConfig::get()
+            .get_cloud_path()
+            .get_service_folder()
+            .get_temp_folder_path(),
     ));
     service_list.append(&mut get_services_from_path(
-        &CloudConfig::get().get_cloud_path().get_service_folder().get_static_folder_path(),
+        &CloudConfig::get()
+            .get_cloud_path()
+            .get_service_folder()
+            .get_static_folder_path(),
     ));
     service_list
 }

@@ -4,7 +4,6 @@ use uuid::Uuid;
 
 use crate::types::{EntityId, PlayerAction, PlayerRequest, Service};
 
-
 #[derive(Deserialize)]
 pub struct ServiceIdRequest {
     id: Uuid,
@@ -25,7 +24,6 @@ pub struct ServiceInfoResponse {
 }
 
 impl ServiceInfoResponse {
-
     pub fn new(service: &Service) -> ServiceInfoResponse {
         ServiceInfoResponse {
             name: service.get_name().to_string(),
@@ -82,4 +80,3 @@ impl PlayerActionRequest {
         self.service_uuid
     }
 }
-

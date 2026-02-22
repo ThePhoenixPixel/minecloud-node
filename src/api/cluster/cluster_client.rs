@@ -6,4 +6,3 @@ use crate::utils::error::CloudResult;
 pub trait ClusterClient: Send + Sync {
     async fn join_cluster(&self) -> CloudResult<()>;
 }
-

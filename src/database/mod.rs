@@ -3,9 +3,7 @@ use uuid::Uuid;
 
 use crate::database::table::UUID_LENGTH;
 
-
 pub mod table;
-
 
 pub struct DBTools;
 
@@ -17,4 +15,3 @@ impl DBTools {
         DBVarChar::new(uuid.to_string(), UUID_LENGTH).unwrap()
     }
 }
-

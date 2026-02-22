@@ -1,5 +1,5 @@
-use database_manager::{DatabaseController, Table, TableDerive};
 use database_manager::types::{DBDatetime, DBText, DBUInt, DBVarChar, DbResult};
+use database_manager::{DatabaseController, Table, TableDerive};
 
 use crate::database::DBTools;
 use crate::types::{Player, ServiceRef};
@@ -9,8 +9,8 @@ use crate::types::{Player, ServiceRef};
 pub struct TablePlayerEvents {
     #[primary_key]
     #[auto_increment]
-    id: DBUInt,                     // session ID
-    created_at: DBDatetime,       // format -> YYYY-MM-DD HH:MM:SS
+    id: DBUInt, // session ID
+    created_at: DBDatetime, // format -> YYYY-MM-DD HH:MM:SS
 
     player_id: DBUInt,
     event_type: DBText,

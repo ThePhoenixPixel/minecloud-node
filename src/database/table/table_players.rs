@@ -1,33 +1,31 @@
-use database_manager::{DatabaseController, Table, TableDerive};
 use database_manager::types::*;
+use database_manager::{DatabaseController, Table, TableDerive};
 use uuid::Uuid;
 
 use crate::database::DBTools;
-use crate::utils::error::*;
 use crate::types::Player;
+use crate::utils::error::*;
 use crate::utils::utils::Utils;
 
-
 pub const UUID_LENGTH: usize = 36;
-
 
 #[derive(TableDerive, Debug, Clone)]
 #[table_name("t_players")]
 pub struct TablePlayers {
     #[primary_key]
     #[auto_increment]
-    id: DBUInt,  // player ID
-    
-    created_at: DBDatetime,     // format -> YYYY-MM-DD HH:MM:SS
+    id: DBUInt, // player ID
+
+    created_at: DBDatetime, // format -> YYYY-MM-DD HH:MM:SS
 
     uuid: DBVarChar,
     name: DBText,
 
     #[nullable]
-    last_seen: Option<DBDatetime>,      // format -> YYYY-MM-DD HH:MM:SS
+    last_seen: Option<DBDatetime>, // format -> YYYY-MM-DD HH:MM:SS
 
     #[nullable]
-    last_login: Option<DBDatetime>,     // format -> YYYY-MM-DD HH:MM:SS
+    last_login: Option<DBDatetime>, // format -> YYYY-MM-DD HH:MM:SS
 }
 
 impl TablePlayers {
@@ -42,30 +40,30 @@ impl TablePlayers {
         })
     }
 
-    pub async fn update_last_login<M: DatabaseController>(
-        manager: &M,
-        id: u64
-    ) -> DbResult<usize> {
-        manager.update(
-            Self::table_name(),
-            &QueryFilters::new().add(Filter::eq("id", Value::from(id))),
-            &Row::from([
-                ("last_login".into(), Value::DateTime(Utils::get_datetime_now().into()))
-            ])
-        ).await
+    pub async fn update_last_login<M: DatabaseController>(manager: &M, id: u64) -> DbResult<usize> {
+        manager
+            .update(
+                Self::table_name(),
+                &QueryFilters::new().add(Filter::eq("id", Value::from(id))),
+                &Row::from([(
+                    "last_login".into(),
+                    Value::DateTime(Utils::get_datetime_now().into()),
+                )]),
+            )
+            .await
     }
 
-    pub async fn update_last_seen<M: DatabaseController>(
-        manager: &M,
-        id: u64
-    ) -> DbResult<usize> {
-        manager.update(
-            Self::table_name(),
-            &QueryFilters::new().add(Filter::eq("id", Value::UInt(id.into()))),
-            &Row::from([
-                ("last_seen".into(), Value::DateTime(Utils::get_datetime_now().into()))
-            ])
-        ).await
+    pub async fn update_last_seen<M: DatabaseController>(manager: &M, id: u64) -> DbResult<usize> {
+        manager
+            .update(
+                Self::table_name(),
+                &QueryFilters::new().add(Filter::eq("id", Value::UInt(id.into()))),
+                &Row::from([(
+                    "last_seen".into(),
+                    Value::DateTime(Utils::get_datetime_now().into()),
+                )]),
+            )
+            .await
     }
 
     pub async fn find_by_uuid<M: DatabaseController>(
@@ -76,7 +74,8 @@ impl TablePlayers {
             .query_one(
                 Self::table_name(),
                 &QueryFilters::new().add(Filter::eq("uuid", DBTools::uuid_to_value(uuid))),
-            ).await?;
+            )
+            .await?;
 
         if let Some(row) = row {
             Ok(Some(Self::from_row(&row)?))
@@ -84,7 +83,7 @@ impl TablePlayers {
             Ok(None)
         }
     }
-    
+
     pub async fn create<M: DatabaseController>(&self, manager: &M) -> DbResult<()> {
         self.insert(manager).await?;
         Ok(())
@@ -130,4 +129,3 @@ impl From<TablePlayers> for Player {
         )
     }
 }
-

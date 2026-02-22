@@ -2,17 +2,17 @@ use bx::network::address::Address;
 use bx::path::Directory;
 use chrono::{NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::fs::read_to_string;
 use std::path::PathBuf;
-use std::fs;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::types::task::Task;
 use crate::config::{CloudConfig, SoftwareName};
+use crate::types::task::Task;
+use crate::types::{EntityId, ServiceStatus};
 use crate::utils::error::*;
 use crate::{error, log_info};
-use crate::types::{EntityId, ServiceStatus};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Service {
@@ -31,7 +31,7 @@ pub struct Service {
 }
 
 impl Service {
-    pub (crate) fn new(name: String, task: &Task, config: Arc<CloudConfig>) -> Service {
+    pub(crate) fn new(name: String, task: &Task, config: Arc<CloudConfig>) -> Service {
         Service {
             // Todo: vllt check ob uuid schon vergebe ist???? (in db???)
             id: Uuid::new_v4(),
@@ -125,13 +125,12 @@ impl Service {
     }
 
     pub fn is_start(&self) -> bool {
-        self.status == ServiceStatus::Starting ||
-            self.status == ServiceStatus::Running
+        self.status == ServiceStatus::Starting || self.status == ServiceStatus::Running
     }
     pub fn is_stop(&self) -> bool {
-        self.status == ServiceStatus::Stopped ||
-            self.status == ServiceStatus::Stopping ||
-            self.status == ServiceStatus::Failed
+        self.status == ServiceStatus::Stopped
+            || self.status == ServiceStatus::Stopping
+            || self.status == ServiceStatus::Failed
     }
 
     pub fn is_failed(&self) -> bool {
@@ -150,10 +149,6 @@ impl Service {
             .is_backend_server()
     }
 
-
-
-
-
     // Todo: old
 
     #[deprecated]
@@ -164,7 +159,7 @@ impl Service {
     #[deprecated]
     pub fn get_started_at_to_string(&self) -> Option<String> {
         if let Some(date) = self.started_at {
-            return Some(date.format("%Y-%m-%d %H:%M:%S").to_string())
+            return Some(date.format("%Y-%m-%d %H:%M:%S").to_string());
         }
         None
     }
@@ -172,7 +167,7 @@ impl Service {
     #[deprecated]
     pub fn get_stopped_at_to_string(&self) -> Option<String> {
         if let Some(date) = self.stopped_at {
-            return Some(date.format("%Y-%m-%d %H:%M:%S").to_string())
+            return Some(date.format("%Y-%m-%d %H:%M:%S").to_string());
         }
         None
     }
@@ -180,7 +175,7 @@ impl Service {
     #[deprecated]
     pub fn get_idle_since_to_string(&self) -> Option<String> {
         if let Some(date) = self.stopped_at {
-            return Some(date.format("%Y-%m-%d %H:%M:%S").to_string())
+            return Some(date.format("%Y-%m-%d %H:%M:%S").to_string());
         }
         None
     }
@@ -189,8 +184,6 @@ impl Service {
     pub fn get_software_name(&self) -> SoftwareName {
         self.get_task().get_software().get_software_name()
     }
-
-
 
     #[deprecated]
     pub fn get_path(&self) -> PathBuf {
@@ -213,8 +206,6 @@ impl Service {
         self.get_path_with_service_config()
             .join("service_config.json")
     }
-
-
 
     #[deprecated]
     pub fn get_path_stdout_file(&self) -> PathBuf {
@@ -321,8 +312,6 @@ impl Service {
         Directory::copy_folder_contents(&software_lib_path, &self.get_path())
             .map_err(|e| error!(Internal, e))
     }
-
-
 }
 #[deprecated]
 fn get_from_path(path: &mut PathBuf) -> Option<Service> {

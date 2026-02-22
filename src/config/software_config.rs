@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::config::cloud_config::CloudConfig;
-use crate::{log_error, log_info, log_warning};
 use crate::types::ServerType;
+use crate::{log_error, log_info, log_warning};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SoftwareConfig {
@@ -51,11 +51,11 @@ impl SoftwareConfig {
                 .get_system_folder()
                 .get_software_config_path(),
         )
-            .unwrap_or_else(|e| {
-                log_warning!("Please specify the correct path to the software file configuration");
-                log_error!("{}", &e.to_string());
-                get_default_software_config()
-            });
+        .unwrap_or_else(|e| {
+            log_warning!("Please specify the correct path to the software file configuration");
+            log_error!("{}", &e.to_string());
+            get_default_software_config()
+        });
 
         let mut config: SoftwareConfig = match serde_json::from_str(&file_content) {
             Ok(config) => config,

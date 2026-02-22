@@ -1,16 +1,14 @@
+use database_manager::DatabaseManager;
 use std::sync::Arc;
 use std::time::Duration;
-use database_manager::DatabaseManager;
 use tokio::sync::RwLock;
 use tokio::time;
 use tokio::time::Instant;
 
-use crate::{log_error, log_info};
 use crate::config::{CloudConfig, SoftwareConfigRef};
-use crate::database::table::TablePlayerSessions;
 use crate::manager::{NodeManager, TaskManager};
-use crate::types::Task;
 use crate::utils::error::CloudResult;
+use crate::{log_error, log_info};
 
 pub struct Scheduler {
     db: Arc<DatabaseManager>,
@@ -58,7 +56,10 @@ impl Scheduler {
             }
 
             let task_name = task.get_name();
-            let services = self.node_manager.get_all_services_from_task(&task_name).await;
+            let services = self
+                .node_manager
+                .get_all_services_from_task(&task_name)
+                .await;
             let start_count = services.iter().filter(|s| s.is_start()).count() as u64;
             let stop_count = services.iter().filter(|s| s.is_stop()).count() as u64;
             let failed_count = services.iter().filter(|s| s.is_failed()).count() as u64;
@@ -103,7 +104,7 @@ impl Scheduler {
                 continue;
             }
 
-           // self.check_player_scaling_by_task(&task).await;
+            // self.check_player_scaling_by_task(&task).await;
         }
         Ok(())
     }
