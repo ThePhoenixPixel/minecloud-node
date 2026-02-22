@@ -8,7 +8,7 @@ use crate::database::DBTools;
 use crate::database::table::TableServices;
 use crate::types::PlayerSession;
 
-#[derive(TableDerive, Debug, Clone, Default)]
+#[derive(TableDerive, Debug, Clone)]
 #[table_name("t_player_sessions")]
 pub struct TablePlayerSessions {
     #[primary_key]
@@ -23,7 +23,7 @@ pub struct TablePlayerSessions {
     service_uuid: DBVarChar,
 }
 
-#[derive(TableDerive, Debug, Clone, Default)]
+#[derive(TableDerive, Debug, Clone)]
 pub struct TablePlayerSessionsService {
     #[primary_key]
     #[auto_increment]
@@ -132,7 +132,7 @@ impl From<TablePlayerSessions> for PlayerSession {
     fn from(value: TablePlayerSessions) -> Self {
         PlayerSession::new(
             value.get_id(),
-            Uuid::parse_str(value.service_uuid.value.as_ref()).unwrap(),
+            Uuid::parse_str(value.service_uuid.value().as_ref()).unwrap(),
         )
     }
 }

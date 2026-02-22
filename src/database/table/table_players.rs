@@ -124,7 +124,7 @@ impl From<TablePlayers> for Player {
         Player::new(
             table.id.0,
             table.name.0,
-            Uuid::parse_str(table.uuid.value.as_ref()).unwrap(),
+            Uuid::parse_str(table.uuid.value().as_ref()).unwrap(),
             None,
         )
     }

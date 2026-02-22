@@ -4,7 +4,7 @@ use database_manager::{DatabaseController, Table, TableDerive};
 use crate::database::DBTools;
 use crate::types::{Player, ServiceRef};
 
-#[derive(TableDerive, Debug, Clone, Default)]
+#[derive(TableDerive, Debug, Clone)]
 #[table_name("t_player_events")]
 pub struct TablePlayerEvents {
     #[primary_key]
