@@ -38,14 +38,19 @@ impl ServiceManager {
         cloud_config: Arc<CloudConfig>,
         _software_config: SoftwareConfigRef
     ) -> CloudResult<Self> {
-        let mut service = get_all_from_file();
-        service.iter_mut().for_each(|s| s.set_status(ServiceStatus::Stopped));
-        service.iter_mut().for_each(|s| s.save_to_file());
-        TableServices::delete_others(db.as_ref(), &service, cloud_config.as_ref()).await?;
+        let local_services = get_all_from_file();
         let mut services: Vec<ServiceRef> = Vec::new();
-        for s in service {
-            services.push(ServiceRef::new(s));
+        let mut s: Vec<Service> = Vec::new();
+
+        for mut sp in local_services {
+            s.push(sp.get_service().clone());
+            sp.set_status(ServiceStatus::Stopped);
+            TableServices::create_if_not_exists(db.as_ref(), sp.get_service()).await?;
+            services.push(ServiceRef::new(sp));
         }
+
+        TableServices::delete_others(db.as_ref(), &s, cloud_config.as_ref()).await?;
+
         Ok(Self {
             services,
             db,
