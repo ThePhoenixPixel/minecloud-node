@@ -49,8 +49,8 @@ impl Service {
         }
     }
 
-    pub fn get_id(&self) -> EntityId {
-        self.id
+    pub fn get_id(&self) -> &EntityId {
+        &self.id
     }
 
     pub fn get_name(&self) -> &str {
