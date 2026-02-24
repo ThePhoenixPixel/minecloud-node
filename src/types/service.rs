@@ -31,10 +31,9 @@ pub struct Service {
 }
 
 impl Service {
-    pub(crate) fn new(name: String, task: &Task, config: Arc<CloudConfig>) -> Service {
+    pub(crate) fn new(id: EntityId, name: String, task: Task, config: Arc<CloudConfig>) -> Service {
         Service {
-            // Todo: vllt check ob uuid schon vergebe ist???? (in db???)
-            id: Uuid::new_v4(),
+            id,
             name,
             status: ServiceStatus::Stopped,
             parent_node: config.get_name(),
@@ -45,7 +44,7 @@ impl Service {
             server_listener: Address::new(&config.get_server_host(), &0),
             plugin_listener: Address::get_local_ipv4(),
             cloud_listener: config.get_node_host(),
-            task: task.clone(),
+            task,
         }
     }
 
