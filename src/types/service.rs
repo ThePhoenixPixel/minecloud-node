@@ -114,6 +114,10 @@ impl Service {
         self.cloud_listener = address;
     }
 
+    pub fn get_task_name(&self) -> &str {
+        &self.task_name
+    }
+
     #[deprecated]
     pub fn get_task(&self) -> &Task {
         &self.task

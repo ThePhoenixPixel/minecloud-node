@@ -325,6 +325,7 @@ impl ServiceProcess {
             pub fn get_task(&self) -> &Task;
             pub fn is_start(&self) -> bool;
             pub fn is_stop(&self) -> bool;
+            pub fn get_task_name(&self) -> &str;
             pub fn get_config(&self) -> &ServiceConfig;
 
             pub fn set_server_listener(&mut self, address: Address);
