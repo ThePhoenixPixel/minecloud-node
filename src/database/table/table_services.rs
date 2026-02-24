@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::config::CloudConfig;
 use crate::database::DBTools;
-use crate::types::{Service, TaskRef};
+use crate::types::{Service, ServiceProcessRef, TaskRef};
 
 #[derive(TableDerive, Debug, Clone)]
 #[table_name("t_services")]
@@ -56,14 +56,19 @@ impl TableServices {
 
     pub async fn create_if_not_exists<M: DatabaseController>(
         db: &M,
-        service: &Service,
+        service_process_ref: &ServiceProcessRef,
     ) -> DbResult<()> {
+        let service = {
+            let sp_ref = service_process_ref.read().await;
+            sp_ref.get_service().clone()
+        };
+
         let f =
             QueryFilters::new().add(Filter::eq("uuid", DBTools::uuid_to_value(service.get_id())));
         if db.count(Self::table_name(), &f).await? > 0 {
-            Self::update(db, service).await?;
+            Self::update(db, &service).await?;
         } else {
-            let ts = Self::new_from_service(service).await;
+            let ts = Self::new_from_service(&service).await;
             db.insert(Self::table_name(), &Self::to_row(&ts)).await?;
         }
         Ok(())
@@ -96,13 +101,13 @@ impl TableServices {
 
     pub async fn delete_others<M: DatabaseController>(
         db: &M,
-        service_list: &Vec<Service>,
+        service_list: &Vec<ServiceProcessRef>,
         config: &CloudConfig,
     ) -> DbResult<()> {
         let mut f = QueryFilters::new();
         f.add_filter(Filter::eq("node", Value::from(config.get_name())));
         for s in service_list {
-            f.add_filter(Filter::not_eq("uuid", DBTools::uuid_to_value(s.get_id())));
+            f.add_filter(Filter::not_eq("uuid", DBTools::uuid_to_value(&s.get_id().await)));
         }
         db.delete(Self::table_name(), &f).await?;
         Ok(())

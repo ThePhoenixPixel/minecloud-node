@@ -2,7 +2,7 @@ use database_manager::types::{DBDatetime, DBText, DBUInt, DBVarChar, DbResult};
 use database_manager::{DatabaseController, Table, TableDerive};
 
 use crate::database::DBTools;
-use crate::types::{Player, ServiceRef};
+use crate::types::{Player, ServiceProcessRef};
 
 #[derive(TableDerive, Debug, Clone)]
 #[table_name("t_player_events")]
@@ -22,7 +22,7 @@ pub struct TablePlayerEvents {
 }
 
 impl TablePlayerEvents {
-    pub async fn new(player: &Player, service: &ServiceRef, event_type: String) -> Self {
+    pub async fn new(player: &Player, service: &ServiceProcessRef, event_type: String) -> Self {
         TablePlayerEvents {
             id: Default::default(),
             created_at: DBDatetime::get_now(),
