@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use bx::network::address::Address;
 use bx::path::Directory;
 use database_manager::DatabaseManager;
@@ -5,20 +6,21 @@ use serde::Serialize;
 use serde_json::json;
 use std::fs;
 use std::fs::read_to_string;
-use std::io::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use uuid::Uuid;
+
 use crate::api::internal::ServiceInfoResponse;
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
-use crate::types::{EntityId, Service, ServiceProcess, ServiceRef, ServiceStatus, Task, TaskRef};
+use crate::types::{EntityId, Service, ServiceProcess, ServiceProcessRef, ServiceStatus, TaskRef};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_info, log_warning};
-use crate::manager::TaskManager;
+use crate::manager::TaskManagerRef;
+
 
 #[derive(Serialize)]
 struct RegisterServerData {
@@ -26,61 +28,58 @@ struct RegisterServerData {
 }
 
 pub struct ServiceManager {
-    services: Vec<ServiceRef>,
+    services: HashMap<EntityId, ServiceProcessRef>,
     db: Arc<DatabaseManager>,
     config: Arc<CloudConfig>,
-    task_manager: Arc<RwLock<TaskManager>>,
+    task_manager: TaskManagerRef,
     _software_config: SoftwareConfigRef,
 }
 
+pub struct ServiceManagerRef(Arc<RwLock<ServiceManager>>);
+
+
 impl ServiceManager {
-    pub async fn new(
-        db: Arc<DatabaseManager>,
-        cloud_config: Arc<CloudConfig>,
-        task_manager: Arc<RwLock<TaskManager>>,
-        _software_config: SoftwareConfigRef,
-    ) -> CloudResult<Self> {
-        let local_services = get_all_from_file();
-        let mut services: Vec<ServiceRef> = Vec::new();
-        let mut s: Vec<Service> = Vec::new();
-
-        for mut sp in local_services {
-            s.push(sp.get_service().clone());
-            sp.set_status(ServiceStatus::Stopped);
-            TableServices::create_if_not_exists(db.as_ref(), sp.get_service()).await?;
-            services.push(ServiceRef::new(sp));
-        }
-
-        TableServices::delete_others(db.as_ref(), &s, cloud_config.as_ref()).await?;
-
-        Ok(Self {
-            services,
-            db,
-            config: cloud_config,
-            task_manager,
-            _software_config,
-        })
-    }
-
-    pub async fn create_service(&self, task_ref: &TaskRef) -> CloudResult<ServiceProcess> {
-        let task = {
-            task_ref.read().await.clone()
+    pub async fn create_service(&mut self, task_ref: &TaskRef) -> CloudResult<ServiceProcessRef> {
+        let (name, split, task) = {
+            let t = task_ref.read().await;
+            (
+                t.get_name(),
+                t.get_split(),
+                t.clone(),
+            )
         };
 
-        let next_free_number = TableServices::find_next_free_number(self.get_db(), &task).await?;
+        let next_free_number = TableServices::find_next_free_number(self.get_db(), task_ref).await?;
         let id = Uuid::new_v4();
-        let name = format!("{}{}{}", task.get_name(), task.get_split(), next_free_number);
+        let name = format!("{}{}{}", name, split, next_free_number);
         let path = {
             let tm = self.task_manager.read().await;
-            tm.get_service_path(&task).join(&name)
+            tm.get_service_path(task_ref).await.join(&name)
         };
 
-        let service = Service::new(id, name, task, &self.config);
-        let sp = ServiceProcess::new(service, path);
+        let service = Service::new(id, name, &task, &self.config);
+        let sp = ServiceProcessRef::new(service, path);
+
+        // Insert in Database
+        TableServices::create_if_not_exists(self.get_db(), &sp).await?;
+
+        // insert in local List
+        self.services.insert(id, sp.clone());
+
         Ok(sp)
     }
 
-    pub async fn start(&self, service_ref: ServiceRef) -> CloudResult<()> {
+    pub async fn get_or_create_service(&mut self, task_ref: &TaskRef) -> CloudResult<ServiceProcessRef> {
+        let task_name = task_ref.get_name().await;
+        let s = self.filter_services(|sp| sp.is_stop() && sp.get_task_name() == task_name).await;
+        if let Some(sp) = s.first() {
+            return Ok(sp.clone())
+        }
+        // Create a new local service
+        self.create_service(task_ref).await
+    }
+
+    pub async fn start(&self, service_ref: ServiceProcessRef) -> CloudResult<()> {
         let service = {
             let mut s = service_ref.write().await;
             s.set_status(ServiceStatus::Starting);
@@ -98,34 +97,47 @@ impl ServiceManager {
         Ok(())
     }
 
-    pub async fn get_or_create_service_ref(&mut self, task: &Task) -> CloudResult<ServiceRef> {
-        match self.get_next_stopped_service(task).await {
-            Some(arc) => {
-                TableServices::update(self.get_db(), arc.read().await.get_service()).await?;
-                Ok(arc)
-            }
-            None => {
-
-                let s = self.create_service().await?;
-                let arc = ServiceRef::new(s);
-                TableServices::create_if_not_exists(self.get_db(), arc.read().await.get_service())
-                    .await?;
-                self.services.push(arc.clone());
-                Ok(arc)
-            }
-        }
-    }
-
-    async fn prepare_to_start(&self, service: &ServiceRef) -> CloudResult<()> {
+    async fn prepare_to_start(&self, service: &ServiceProcessRef) -> CloudResult<()> {
         {
             let s = service.read().await;
             s.install_software()?;
             s.install_system_plugin()?;
-            s.install_software_lib(self.get_config())?;
+            s.install_software_lib(&self.config)?;
         }
 
         self.set_server_listener(service).await?;
         self.set_plugin_listener(service).await;
+
+        Ok(())
+    }
+
+    pub async fn stop_service(&mut self, service_process_ref: &ServiceProcessRef, shutdown_msg: &str) -> CloudResult<()> {
+        let (id, task_name) = {
+            let sp = service_process_ref.read().await;
+            (
+                sp.get_id().clone(),
+                sp.get_task_name().to_string(),
+            )
+        };
+
+        let task_ref = self.task_manager.get_task_ref_from_name(&task_name).await?;
+        let should_delete = task_ref.read().await.is_delete();
+
+        // Shutdown
+        {
+            let mut sp = service_process_ref.write().await;
+            sp.shutdown(shutdown_msg).await;
+        }
+
+        // Cleanup
+        if should_delete {
+            service_process_ref.read().await.delete_files();
+            TableServices::delete(self.get_db(), &id).await?;
+            self.services.remove(&id);
+        } else {
+            let service = service_process_ref.read().await.get_service().clone();
+            TableServices::update(self.get_db(), &service).await?;
+        }
 
         Ok(())
     }
@@ -201,187 +213,106 @@ impl ServiceManager {
         Ok(())
     }
 
-    #[deprecated]
-    pub async fn connect_to_network(&self, service: &Service) -> CloudResult<()> {
-        for service_proxy in self.get_online_proxies().await {
-            let s = service_proxy.read().await;
-            let url = s.get_service_url().join("add_server");
-            let body = match Utils::convert_to_json(&RegisterServerData {
-                register_server: ServiceInfoResponse::new(service),
-            }) {
-                Some(body) => body,
-                None => {
-                    log_warning!(
-                        "Service {} can't Serialize to ServiceInfo",
-                        service.get_name()
-                    );
-                    continue;
-                }
-            };
-
-            match url.post(&body, Duration::from_secs(3)).await {
-                Ok(_) => log_info!(
-                    "Service {} successfully connected to Proxy [{}]",
-                    service.get_name(),
-                    s.get_name()
-                ),
-                Err(e) => log_warning!(
-                    "Service | {} | can't send request connect to Network \n Error: {}",
-                    service.get_name(),
-                    e.to_string()
-                ),
-            }
-        }
-        Ok(())
+    pub fn get_from_id(&self, id: &EntityId) -> CloudResult<ServiceProcessRef> {
+        self.find_from_id(id).ok_or(error!(CantFindServiceFromUUID))
     }
 
-    #[deprecated]
-    pub async fn disconnect_from_network(&self, service: &Service) -> Result<(), Error> {
-        for service_proxy in self.get_online_proxies().await {
-            let s = service_proxy.read().await;
-            let url = s
-                .get_service_url()
-                .join(format!("remove_server?name={}", service.get_name()).as_str());
-            match url.post(&json!({}), Duration::from_secs(3)).await {
-                Ok(_) => log_info!(
-                    "Service {} successfully disconnected from Proxy [{}]",
-                    service.get_name(),
-                    s.get_name()
-                ),
-                Err(e) => log_warning!(
-                    "Service | {} | can't send request disconnect from Network \n Error: {}",
-                    service.get_name(),
-                    e.to_string()
-                ),
-            }
-        }
-        Ok(())
-    }
-
-    // FIX: Arc<RwLock<ServiceProcess>> -> ServiceRef
-    async fn set_service(&mut self, service: ServiceRef) {
-        let id = service.get_id().await;
-        if let Some(pos) = self.find_pos_by_id(&id).await {
-            self.services[pos] = service;
-        } else {
-            self.services.push(service);
-        }
-    }
-
-    async fn get_next_stopped_service(&self, task: &Task) -> Option<ServiceRef> {
-        for arc in &self.services {
-            let p = arc.read().await;
-            if p.is_stop() && p.get_task() == task {
-                return Some(arc.clone());
+    pub fn find_from_id(&self, id: &EntityId) -> Option<ServiceProcessRef> {
+        for (id_ref, sp_ref) in &self.services {
+            if id_ref == id {
+                return Some(sp_ref.clone());
             }
         }
         None
     }
 
-    pub async fn stop_service(&mut self, id: &EntityId, shutdown_msg: &str) {
-        let pos = match self.find_pos_by_id(id).await {
-            Some(pos) => pos,
-            None => return,
-        };
-
-        self.services[pos]
-            .write()
-            .await
-            .shutdown(shutdown_msg)
-            .await;
-        self.remove_service(pos).await;
-    }
-
-    async fn remove_service(&mut self, pos: usize) {
-        let arc = self.services[pos].clone();
-        let mut p = arc.write().await;
-
-        if p.is_delete() {
-            p.delete_files();
-            drop(p);
-            self.services.remove(pos);
-        } else {
-            p.set_status(ServiceStatus::Stopped);
-            p.save_to_file();
-        }
-    }
-
-    fn get_config(&self) -> &Arc<CloudConfig> {
-        &self.config
-    }
-
-    pub async fn get_from_id(&self, id: &EntityId) -> CloudResult<ServiceRef> {
-        for arc in &self.services {
-            if arc.get_id().await == *id {
-                return Ok(arc.clone());
-            }
-        }
-        Err(error!(CantFindServiceFromUUID))
-    }
-
-    pub async fn find_from_id(&self, id: &EntityId) -> Option<ServiceRef> {
-        for arc in &self.services {
-            if arc.get_id().await == *id {
-                return Some(arc.clone());
-            }
-        }
-        None
-    }
-
-    pub async fn get_all_from_task(&self, task_name: &str) -> Vec<ServiceRef> {
+    pub async fn filter_services<F>(&self, mut filter: F) -> Vec<ServiceProcessRef>
+    where
+        F: FnMut(&ServiceProcess) -> bool,
+    {
         let mut result = Vec::new();
-        for arc in &self.services {
-            if arc.read().await.get_task().get_name() == task_name {
+
+        for arc in self.services.values() {
+            let sp = arc.read().await;
+
+            if filter(&sp) {
                 result.push(arc.clone());
             }
         }
+
         result
     }
 
-    pub async fn get_online_all_from_task(&self, task_name: &str) -> Vec<ServiceRef> {
+    #[deprecated]
+    pub async fn get_all_from_task_name(
+        &self,
+        task_name: &str,
+    ) -> Vec<ServiceProcessRef> {
+       self.filter_services(|sp| sp.get_task_name() == task_name).await
+    }
+
+    #[deprecated]
+    pub async fn get_online_all_from_task(
+        &self,
+        task_name: &str,
+    ) -> Vec<ServiceProcessRef> {
         let mut result = Vec::new();
-        for arc in &self.services {
-            let p = arc.read().await;
-            if p.get_task().get_name() == task_name && p.is_start() {
+
+        for arc in self.services.values() {
+            let sp = arc.read().await;
+
+            if sp.get_task_name() == task_name && sp.is_start() {
                 result.push(arc.clone());
             }
         }
+
         result
     }
 
-    pub async fn get_online_all(&self) -> Vec<ServiceRef> {
+    #[deprecated]
+    pub async fn get_online_all(&self) -> Vec<ServiceProcessRef> {
         let mut result = Vec::new();
-        for arc in &self.services {
+
+        for arc in self.services.values() {
             if arc.read().await.is_start() {
                 result.push(arc.clone());
             }
         }
+
         result
     }
 
-    pub async fn get_online_proxies(&self) -> Vec<ServiceRef> {
+    #[deprecated]
+    pub async fn get_online_proxies(&self) -> Vec<ServiceProcessRef> {
         let mut result = Vec::new();
-        for arc in &self.services {
-            let p = arc.read().await;
-            if p.is_start() && p.is_proxy() {
+
+        for arc in self.services.values() {
+            let sp = arc.read().await;
+
+            if sp.is_start() && sp.is_proxy() {
                 result.push(arc.clone());
             }
         }
+
         result
     }
 
-    pub async fn get_online_backend_server(&self) -> Vec<ServiceRef> {
+    #[deprecated]
+    pub async fn get_online_backend_server(&self) -> Vec<ServiceProcessRef> {
         let mut result = Vec::new();
-        for arc in &self.services {
-            let p = arc.read().await;
-            if p.is_start() && p.is_backend_server() {
+
+        for arc in self.services.values() {
+            let sp = arc.read().await;
+
+            if sp.is_start() && sp.is_backend_server() {
                 result.push(arc.clone());
             }
         }
+
         result
     }
 
-    async fn set_server_listener(&self, service: &ServiceRef) -> CloudResult<()> {
+    async fn set_server_listener(&self, service: &ServiceProcessRef) -> CloudResult<()> {
         let bind_ports = self.get_bind_ports_except(service).await;
 
         let mut s = service.write().await;
@@ -417,7 +348,7 @@ impl ServiceManager {
         Ok(())
     }
 
-    async fn set_plugin_listener(&self, service: &ServiceRef) {
+    async fn set_plugin_listener(&self, service: &ServiceProcessRef) {
         let bind_ports = self.get_bind_ports_except(service).await;
 
         let mut s = service.write().await;
@@ -430,12 +361,12 @@ impl ServiceManager {
         s.save_to_file();
     }
 
-    async fn get_bind_ports_except(&self, exclude: &ServiceRef) -> Vec<u32> {
+    async fn get_bind_ports_except(&self, exclude: &ServiceProcessRef) -> Vec<u32> {
         let host = self.config.get_server_host();
         let mut ports = Vec::new();
 
-        for arc in &self.services {
-            if arc.ptr_eq(exclude) {
+        for (id, arc) in &self.services {
+            if id == &exclude.get_id().await {
                 continue;
             }
 
@@ -452,40 +383,6 @@ impl ServiceManager {
         }
 
         ports
-    }
-
-    #[deprecated]
-    pub async fn get_bind_ports(&self) -> Vec<u32> {
-        let host = self.config.get_server_host();
-        let mut ports = Vec::new();
-
-        for arc in &self.services {
-            let service = arc.read().await;
-            if service.is_start() {
-                continue;
-            }
-
-            let server_listener = service.get_server_listener();
-            if server_listener.get_ip() == host {
-                ports.push(server_listener.get_port());
-            }
-
-            let plugin_listener = service.get_plugin_listener();
-            if plugin_listener.get_ip() == host {
-                ports.push(plugin_listener.get_port());
-            }
-        }
-
-        ports
-    }
-
-    async fn find_pos_by_id(&self, id: &EntityId) -> Option<usize> {
-        for (pos, arc) in self.services.iter().enumerate() {
-            if arc.get_id().await == *id {
-                return Some(pos);
-            }
-        }
-        None
     }
 
     fn get_db(&self) -> &DatabaseManager {
@@ -493,8 +390,8 @@ impl ServiceManager {
     }
 }
 
-fn get_all_from_file() -> Vec<ServiceProcess> {
-    let mut service_list: Vec<ServiceProcess> = Vec::new();
+fn get_all_from_file() -> Vec<ServiceProcessRef> {
+    let mut service_list: Vec<ServiceProcessRef> = Vec::new();
     service_list.append(&mut get_services_from_path(
         &CloudConfig::get()
             .get_cloud_path()
@@ -510,13 +407,13 @@ fn get_all_from_file() -> Vec<ServiceProcess> {
     service_list
 }
 
-fn get_services_from_path(path: &PathBuf) -> Vec<ServiceProcess> {
-    let mut service_list: Vec<ServiceProcess> = Vec::new();
+fn get_services_from_path(path: &PathBuf) -> Vec<ServiceProcessRef> {
+    let mut service_list: Vec<ServiceProcessRef> = Vec::new();
     for folder in Directory::get_folders_name_from_path(path) {
         let mut path = path.clone();
         path.push(folder);
         if let Some(service) = get_from_path(&path) {
-            service_list.push(ServiceProcess::new(service, path));
+            service_list.push(ServiceProcessRef::new(service, path));
         };
     }
     service_list
@@ -531,3 +428,54 @@ fn get_from_path(path: &Path) -> Option<Service> {
         None
     }
 }
+
+impl ServiceManagerRef {
+    pub async fn new(
+        db: Arc<DatabaseManager>,
+        cloud_config: Arc<CloudConfig>,
+        task_manager: TaskManagerRef,
+        _software_config: SoftwareConfigRef,
+    ) -> CloudResult<Self> {
+        let local_services = get_all_from_file();
+        TableServices::delete_others(db.as_ref(), &local_services, cloud_config.as_ref()).await?;
+        let mut services: HashMap<EntityId, ServiceProcessRef> = HashMap::new();
+
+        for sp_ref in local_services {
+            {
+                sp_ref.write().await.set_status(ServiceStatus::Stopped);
+            }
+            TableServices::create_if_not_exists(db.as_ref(), &sp_ref).await?;
+            services.insert(sp_ref.get_id().await, sp_ref);
+        }
+
+        let sm = ServiceManager {
+            services,
+            db,
+            config: cloud_config,
+            task_manager,
+            _software_config,
+        };
+
+        Ok(ServiceManagerRef(Arc::new(RwLock::new(sm))))
+    }
+
+    pub async fn read(&self) -> RwLockReadGuard<'_, ServiceManager> {
+        self.0.read().await
+    }
+
+    pub async fn write(&self) -> RwLockWriteGuard<'_, ServiceManager> {
+        self.0.write().await
+    }
+
+    pub async fn get_service_ref_from_id(&self, id: &EntityId) -> CloudResult<ServiceProcessRef> {
+        self.0.read().await.get_from_id(id)
+    }
+
+}
+
+impl Clone for ServiceManagerRef {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
