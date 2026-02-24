@@ -487,6 +487,9 @@ impl Task {
         self.templates.last()
     }
 
+    pub fn is_delete(&self) -> bool {
+        !self.static_service && self.delete_on_stop
+    }
     //print the task object in cmd
     #[deprecated]
     pub fn print(&self) {
