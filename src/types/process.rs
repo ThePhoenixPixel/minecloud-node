@@ -37,16 +37,6 @@ pub struct ServiceProcessRef(Arc<RwLock<ServiceProcess>>);
 
 
 impl ServiceProcess {
-    pub fn new(service: Service, path: PathBuf) -> ServiceProcess {
-        ServiceProcess {
-            service,
-            path,
-            shutdown_initiated_by_cloud: false,
-            process: None,
-            stdin: None,
-        }
-    }
-
     pub fn start(&mut self) -> CloudResult<()> {
         let server_file_path = self
             .get_path_with_server_file()
@@ -354,7 +344,15 @@ impl ServiceProcess {
 }
 
 impl ServiceProcessRef {
-    pub fn new(process: ServiceProcess) -> Self {
+    pub fn new(service: Service, path: PathBuf) -> Self {
+        let process = ServiceProcess {
+            service,
+            path,
+            shutdown_initiated_by_cloud: false,
+            process: None,
+            stdin: None,
+        };
+
         Self(Arc::new(RwLock::new(process)))
     }
 
