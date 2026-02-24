@@ -14,8 +14,7 @@ use crate::types::group::Group;
 use crate::types::installer::Installer;
 use crate::types::software::Software;
 use crate::types::template::Template;
-use crate::utils::error::*;
-use crate::{error, log_error, log_info};
+use crate::{log_error, log_info};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Task {
@@ -483,32 +482,6 @@ impl Task {
 
         // fallback
         self.templates.last()
-    }
-
-    // create the next not exist service folder
-    #[deprecated]
-    fn create_next_free_service_folder(&self) -> Result<PathBuf, CloudError> {
-        let mut folder_index: u32 = 1;
-        let target_base_path = self.get_service_path();
-        let mut target_service_folder_path = target_base_path.join(format!(
-            "{}{}{}",
-            self.get_name(),
-            self.get_split(),
-            folder_index
-        ));
-
-        while target_service_folder_path.exists() {
-            folder_index += 1;
-            target_service_folder_path = target_base_path.join(format!(
-                "{}{}{}",
-                self.get_name(),
-                self.get_split(),
-                folder_index
-            ));
-        }
-        fs::create_dir_all(&target_service_folder_path)
-            .map_err(|e| error!(CantCreateServiceFolder, e))?;
-        Ok(target_service_folder_path)
     }
 
     //print the task object in cmd
