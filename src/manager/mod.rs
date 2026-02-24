@@ -2,9 +2,9 @@ use database_manager::DatabaseManager;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-pub use node_manager::NodeManager;
-pub use player_manager::PlayerManager;
-pub use task_manager::TaskManager;
+pub use node_manager::*;
+pub use player_manager::*;
+pub use task_manager::*;
 
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::manager::service_manager::ServiceManager;
