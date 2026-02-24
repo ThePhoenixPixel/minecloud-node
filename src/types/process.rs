@@ -12,9 +12,9 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
-use database_manager::DatabaseController;
 use tokio::io;
 use tokio::process::{Child, ChildStdin, Command};
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tokio::time::{Instant, sleep, timeout as wait};
 
 use crate::config::{CloudConfig, SoftwareName};
@@ -24,7 +24,6 @@ use crate::types::{EntityId, ServiceConfig, ServiceStatus};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
-use crate::database::table::TableServices;
 
 pub struct ServiceProcess {
     service: Service,
@@ -33,6 +32,9 @@ pub struct ServiceProcess {
     process: Option<Child>,
     stdin: Option<ChildStdin>,
 }
+
+pub struct ServiceProcessRef(Arc<RwLock<ServiceProcess>>);
+
 
 impl ServiceProcess {
     pub fn new(service: Service, path: PathBuf) -> ServiceProcess {
@@ -348,5 +350,46 @@ impl ServiceProcess {
             #[deprecated]
             pub fn is_local(&self) -> bool;
         }
+    }
+}
+
+impl ServiceProcessRef {
+    pub fn new(process: ServiceProcess) -> Self {
+        Self(Arc::new(RwLock::new(process)))
+    }
+
+    pub async fn read(&self) -> RwLockReadGuard<'_, ServiceProcess> {
+        self.0.read().await
+    }
+
+    pub async fn write(&self) -> RwLockWriteGuard<'_, ServiceProcess> {
+        self.0.write().await
+    }
+
+    pub fn ptr_eq(&self, other: &ServiceProcessRef) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
+    pub async fn get_id(&self) -> EntityId {
+        self.0.read().await.get_id().clone()
+    }
+
+    pub async fn get_name(&self) -> String {
+        self.0.read().await.get_name().to_string()
+    }
+
+    pub async fn is_start(&self) -> bool {
+        self.0.read().await.is_start()
+    }
+
+    #[deprecated]
+    pub async fn is_proxy(&self) -> bool {
+        self.0.read().await.is_proxy()
+    }
+}
+
+impl Clone for ServiceProcessRef {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
