@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::api::internal::PlayerActionRequest;
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
 use crate::manager::service_manager::ServiceManager;
-use crate::types::{Player, PlayerAction, PlayerSession, ServiceRef};
+use crate::types::{Player, PlayerAction, PlayerSession, ServiceProcessRef};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_info};
@@ -30,7 +30,7 @@ impl PlayerManager {
     pub async fn handle_action(&self, req: PlayerActionRequest) -> CloudResult<()> {
         let service_ref = {
             let sm = self.service_manager.read().await;
-            sm.get_from_id(&req.get_service_uuid()).await?
+            sm.get_from_id(&req.get_service_uuid())?
         };
 
         let mut player = self
@@ -76,7 +76,7 @@ impl PlayerManager {
     pub async fn on_player_join(
         &self,
         player: &mut Player,
-        service: &ServiceRef,
+        service: &ServiceProcessRef,
     ) -> CloudResult<()> {
         let id = service.get_id().await;
         if service.is_proxy().await {
@@ -95,7 +95,7 @@ impl PlayerManager {
     pub async fn on_player_leave(
         &self,
         player: &mut Player,
-        service: &ServiceRef,
+        service: &ServiceProcessRef,
     ) -> CloudResult<()> {
         if service.is_proxy().await {
             // proxy leave handling
@@ -206,7 +206,7 @@ impl PlayerManager {
     pub async fn add_event(
         &self,
         player: &Player,
-        service: &ServiceRef,
+        service: &ServiceProcessRef,
         event_type: &PlayerAction,
     ) -> CloudResult<()> {
         // Todo: beim zu schnellen join und leave vom proxy in player events session id = null
