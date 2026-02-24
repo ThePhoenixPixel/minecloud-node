@@ -10,10 +10,11 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
+use uuid::Uuid;
 use crate::api::internal::ServiceInfoResponse;
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
-use crate::types::{EntityId, Service, ServiceProcess, ServiceRef, ServiceStatus, Task};
+use crate::types::{EntityId, Service, ServiceProcess, ServiceRef, ServiceStatus, Task, TaskRef};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_info, log_warning};
@@ -61,6 +62,24 @@ impl ServiceManager {
         })
     }
 
+    pub async fn create_service(&self, task_ref: &TaskRef) -> CloudResult<ServiceProcess> {
+        let task = {
+            task_ref.read().await.clone()
+        };
+
+        let next_free_number = TableServices::find_next_free_number(self.get_db(), &task).await?;
+        let id = Uuid::new_v4();
+        let name = format!("{}{}{}", task.get_name(), task.get_split(), next_free_number);
+        let path = {
+            let tm = self.task_manager.read().await;
+            tm.get_service_path(&task).join(&name)
+        };
+
+        let service = Service::new(id, name, task, &self.config);
+        let sp = ServiceProcess::new(service, path);
+        Ok(sp)
+    }
+
     pub async fn start(&self, service_ref: ServiceRef) -> CloudResult<()> {
         let service = {
             let mut s = service_ref.write().await;
@@ -86,8 +105,8 @@ impl ServiceManager {
                 Ok(arc)
             }
             None => {
-                let next_free_number = TableServices::find_next_free_number(self.get_db(), task).await?;
-                let s = ServiceProcess::create(task, next_free_number, self.config.clone())?;
+
+                let s = self.create_service().await?;
                 let arc = ServiceRef::new(s);
                 TableServices::create_if_not_exists(self.get_db(), arc.read().await.get_service())
                     .await?;
