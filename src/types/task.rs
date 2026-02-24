@@ -485,37 +485,6 @@ impl Task {
         self.templates.last()
     }
 
-    #[deprecated]
-    pub fn prepared_to_service(&self) -> Result<PathBuf, CloudError> {
-        // create the next free service folder with the template
-        let target_path = self.create_next_free_service_folder()?;
-        for group in self.get_groups() {
-            group.install_in_path(&target_path)?;
-        }
-
-        let mut templates: Vec<Template> = Vec::new();
-        match self.get_installer() {
-            Installer::InstallAll => templates = self.get_templates_sorted_by_priority(),
-            Installer::InstallAllDesc => templates = self.get_templates_sorted_by_priority_desc(),
-            Installer::InstallRandom => match self.get_template_rng() {
-                Some(template) => templates.push(template.clone()),
-                None => return Err(error!(TemplateNotFound)),
-            },
-            Installer::InstallRandomWithPriority => {
-                match self.get_template_rng_based_on_priority() {
-                    Some(template) => templates.push(template.clone()),
-                    None => return Err(error!(TemplateNotFound)),
-                }
-            }
-        }
-
-        for template in templates {
-            Directory::copy_folder_contents(&template.get_path(), &target_path)
-                .map_err(|e| error!(CantCopyTemplateToNewServiceFolder, e))?;
-        }
-        Ok(target_path)
-    }
-
     // create the next not exist service folder
     #[deprecated]
     fn create_next_free_service_folder(&self) -> Result<PathBuf, CloudError> {
@@ -540,23 +509,6 @@ impl Task {
         fs::create_dir_all(&target_service_folder_path)
             .map_err(|e| error!(CantCreateServiceFolder, e))?;
         Ok(target_service_folder_path)
-    }
-
-    //get temp or static for the service
-    #[deprecated]
-    pub fn get_service_path(&self) -> PathBuf {
-        let path = if self.static_service {
-            CloudConfig::get()
-                .get_cloud_path()
-                .get_service_folder()
-                .get_static_folder_path()
-        } else {
-            CloudConfig::get()
-                .get_cloud_path()
-                .get_service_folder()
-                .get_temp_folder_path()
-        };
-        path
     }
 
     //print the task object in cmd
