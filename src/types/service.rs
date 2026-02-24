@@ -31,7 +31,7 @@ pub struct Service {
 }
 
 impl Service {
-    pub(crate) fn new(id: EntityId, name: String, task: Task, config: Arc<CloudConfig>) -> Service {
+    pub(crate) fn new(id: EntityId, name: String, task: Task, config: &Arc<CloudConfig>) -> Service {
         Service {
             id,
             name,
