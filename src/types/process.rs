@@ -45,21 +45,6 @@ impl ServiceProcess {
         }
     }
 
-    pub fn create(task: &Task, number: u32, config: Arc<CloudConfig>) -> CloudResult<ServiceProcess> {
-        let service_path = task.prepared_to_service()?;
-        //let name = Directory::get_last_folder_name(&service_path);
-        let name = format!("{}{}{}", task.get_name(), task.get_split(), number);
-        let service = Service::new(name, task, config);
-
-        Ok(ServiceProcess {
-            service,
-            path: service_path,
-            shutdown_initiated_by_cloud: false,
-            process: None,
-            stdin: None,
-        })
-    }
-
     pub fn start(&mut self) -> CloudResult<()> {
         let server_file_path = self
             .get_path_with_server_file()
@@ -227,6 +212,21 @@ impl ServiceProcess {
             .join(self.get_task().get_software().get_server_file_name())
     }
 
+    pub fn get_path_stdout_file(&self) -> PathBuf {
+        self.get_path_with_service_config()
+            .join("server_stdout.log")
+    }
+
+    pub fn get_path_stdin_file(&self) -> PathBuf {
+        self.get_path_with_service_config()
+            .join("server_stdin.log")
+    }
+
+    pub fn get_path_stderr_file(&self) -> PathBuf {
+        self.get_path_with_service_config()
+            .join("server_stderr.log")
+    }
+
     pub fn set_status(&mut self, status: ServiceStatus) {
         self.service.set_status(status);
         self.save_to_file();
@@ -258,6 +258,57 @@ impl ServiceProcess {
         }
     }
 
+    #[deprecated]
+    pub fn install_software(&self) -> Result<(), CloudError> {
+        let target_path = self
+            .get_path()
+            .join(&self.get_task().get_software().get_server_file_name());
+        let software_path = self.get_task().get_software().get_software_file_path();
+
+        fs::copy(&software_path, &target_path).map_err(|e| error!(CantCopySoftware, e))?;
+        Ok(())
+    }
+
+    #[deprecated]
+    pub fn install_system_plugin(&self) -> Result<(), CloudError> {
+        let software = self.get_software_name();
+        let system_plugin_path = self.get_task().get_software().get_system_plugin_path();
+        let mut target_path = self
+            .get_path()
+            .join(&software.get_system_plugin().get_path());
+
+        if !target_path.exists() {
+            fs::create_dir_all(&target_path).map_err(|e| error!(CantCreateSystemPluginPath, e))?;
+        }
+
+        target_path.push(self.get_task().get_software().get_system_plugin_name());
+
+        if !system_plugin_path.exists() {
+            return Err(error!(CantFindSystemPlugin));
+        }
+
+        match fs::copy(system_plugin_path, target_path) {
+            Ok(_) => {
+                log_info!("Successfully install the System Plugin");
+                Ok(())
+            }
+            Err(e) => Err(error!(CantCopySystemPlugin, e)),
+        }
+    }
+
+    #[deprecated]
+    pub fn install_software_lib(&self, config: &CloudConfig) -> Result<(), CloudError> {
+        let software_lib_path = config
+            .get_cloud_path()
+            .get_system_folder()
+            .get_software_lib_folder_path()
+            .join(self.get_task().get_software().get_software_type())
+            .join(self.get_task().get_software().get_name());
+
+        Directory::copy_folder_contents(&software_lib_path, &self.get_path())
+            .map_err(|e| error!(Internal, e))
+    }
+
     delegate! {
         to self.service {
             pub fn get_id(&self) -> &EntityId;
@@ -272,7 +323,6 @@ impl ServiceProcess {
             pub fn get_plugin_listener(&self) -> &Address;
             pub fn get_cloud_listener(&self) -> &Address;
             pub fn get_task(&self) -> &Task;
-            pub fn is_delete(&self) -> bool;
             pub fn is_start(&self) -> bool;
             pub fn is_stop(&self) -> bool;
 
@@ -288,12 +338,6 @@ impl ServiceProcess {
             #[deprecated]
             pub fn get_stopped_at_to_string(&self) -> Option<String>;
             #[deprecated]
-            pub fn get_path_stdout_file(&self) -> PathBuf;
-            #[deprecated]
-            pub fn get_path_stderr_file(&self) -> PathBuf;
-            #[deprecated]
-            pub fn get_path_stdin_file(&self) -> PathBuf;
-            #[deprecated]
             pub fn get_software_name(&self) -> SoftwareName;
             #[deprecated]
             pub fn is_proxy(&self) -> bool;
@@ -301,12 +345,6 @@ impl ServiceProcess {
             pub fn is_backend_server(&self) -> bool;
             #[deprecated]
             pub fn is_local(&self) -> bool;
-            #[deprecated]
-            pub fn install_software(&self) -> CloudResult<()>;
-            #[deprecated]
-            pub fn install_system_plugin(&self) -> CloudResult<()>;
-            #[deprecated]
-            pub fn install_software_lib(&self, config: &CloudConfig) -> CloudResult<()>;
         }
     }
 }
