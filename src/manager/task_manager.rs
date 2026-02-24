@@ -1,50 +1,44 @@
+use std::collections::HashMap;
 use database_manager::DatabaseManager;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use bx::path::Directory;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::error;
 use crate::types::{Installer, ServiceRef, Task, TaskRef, Template};
 use crate::utils::error::*;
+
 
 pub struct TaskManager {
     db: Arc<DatabaseManager>,
     config: Arc<CloudConfig>,
     software_config: SoftwareConfigRef,
 
-    tasks: Vec<TaskRef>,
+    tasks: HashMap<String, TaskRef>,
 }
 
-impl TaskManager {
-    pub fn new(
-        db: Arc<DatabaseManager>,
-        cloud_config: Arc<CloudConfig>,
-        software_config: SoftwareConfigRef,
-    ) -> TaskManager {
-        TaskManager {
-            db,
-            config: cloud_config,
-            software_config,
-            tasks: Self::get_all_task_from_file(),
-        }
-    }
+pub struct TaskManagerRef(Arc<RwLock<TaskManager>>);
 
-    pub fn get_all_task(&self) -> Vec<TaskRef> {
+
+impl TaskManager {
+    pub fn get_all_tasks(&self) -> HashMap<String, TaskRef> {
         self.tasks.clone()
     }
 
-    pub async fn get_from_name(&self, name: &String) -> CloudResult<TaskRef> {
-        for arc in &self.tasks {
-            if arc.get_name().await == *name {
-                return Ok(arc.clone());
+    pub fn get_from_name(&self, name: &str) -> CloudResult<TaskRef> {
+        for (task_name, task_ref) in &self.tasks {
+            if task_name == name {
+                return Ok(task_ref.clone());
             }
         }
         Err(error!(CantFindTaskFromName))
     }
 
-    pub fn get_service_path(&self, task: &Task) -> PathBuf {
-        let path = if task.is_static_service() {
+    pub async fn get_service_path(&self, task_ref: &TaskRef) -> PathBuf {
+        let path = if task_ref.read().await.is_static_service() {
             self.config
                 .get_cloud_path()
                 .get_service_folder()
@@ -57,7 +51,7 @@ impl TaskManager {
         };
         path
     }
-    
+
     #[deprecated]
     pub fn prepared_to_service(&self, service_ref: ServiceRef) -> CloudResult<()> {
         // create the next free service folder with the template
@@ -88,27 +82,64 @@ impl TaskManager {
         }
         Ok(target_path)
     }
-    
-    pub fn get_all_task_from_file() -> Vec<TaskRef> {
-        let task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
+}
 
-        let mut tasks: Vec<TaskRef> = Vec::new();
+impl TaskManagerRef {
+    pub fn new(
+        db: Arc<DatabaseManager>,
+        cloud_config: Arc<CloudConfig>,
+        software_config: SoftwareConfigRef,
+    ) -> TaskManagerRef {
+        let tm = TaskManager {
+            db,
+            tasks: get_all_task_from_file(&cloud_config),
+            config: cloud_config,
+            software_config,
+        };
+        TaskManagerRef(Arc::new(RwLock::new(tm)))
+    }
 
-        if task_path.exists() && task_path.is_dir() {
-            if let Ok(entries) = fs::read_dir(task_path) {
-                for entry in entries.flatten() {
-                    if let Some(file_name) = entry.file_name().to_str() {
-                        if file_name.ends_with(".json") {
-                            let name = file_name.trim_end_matches(".json");
-                            if let Some(task) = Task::get_task(&name.to_string()) {
-                                tasks.push(TaskRef::new(task));
-                            }
+    pub async fn read(&self) -> RwLockReadGuard<'_, TaskManager> {
+        self.0.read().await
+    }
+
+    pub async fn write(&self) -> RwLockWriteGuard<'_, TaskManager> {
+        self.0.write().await
+    }
+
+    pub async fn get_task_ref_from_name(&self, name: &str) -> CloudResult<TaskRef> {
+        self.0.read().await.get_from_name(name)
+    }
+
+}
+
+impl Clone for TaskManagerRef {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+
+fn get_all_task_from_file(config: &Arc<CloudConfig>) -> HashMap<String, TaskRef> {
+    let task_path = config.get_cloud_path().get_task_folder_path();
+
+    let mut tasks: HashMap<String, TaskRef> = HashMap::new();
+
+    if task_path.exists() && task_path.is_dir() {
+        if let Ok(entries) = fs::read_dir(task_path) {
+            for entry in entries.flatten() {
+                if let Some(file_name) = entry.file_name().to_str() {
+                    if file_name.ends_with(".json") {
+                        let name = file_name.trim_end_matches(".json");
+                        if let Some(task) = Task::get_task(&name.to_string()) {
+                            tasks.insert(task.get_name().to_string(), TaskRef::new(task));
                         }
                     }
                 }
             }
         }
-
-        tasks
     }
+
+    tasks
 }
+
