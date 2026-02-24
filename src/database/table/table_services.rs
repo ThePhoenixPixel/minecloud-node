@@ -1,4 +1,3 @@
-use std::io::BufRead;
 use database_manager::types::{
     DBDatetime, DBText, DBUInt, DBVarChar, DbError, DbResult, Filter, QueryFilters, Value,
 };
@@ -7,7 +6,7 @@ use uuid::Uuid;
 
 use crate::config::CloudConfig;
 use crate::database::DBTools;
-use crate::types::{Service, Task};
+use crate::types::{Service, TaskRef};
 
 #[derive(TableDerive, Debug, Clone)]
 #[table_name("t_services")]
@@ -111,10 +110,18 @@ impl TableServices {
 
     pub async fn find_next_free_number<M: DatabaseController>(
         db: &M,
-        task: &Task,
+        task: &TaskRef,
     ) -> DbResult<u32> {
+        let (name, split) = {
+            let t = task.read().await;
+            (
+                t.get_name().to_string(),
+                t.get_split().clone()
+            )
+        };
+
         let filters = QueryFilters::new()
-            .add(Filter::eq("task", Value::from(task.get_name())));
+            .add(Filter::eq("task", Value::from(name)));
 
         let services = db.query(Self::table_name(), &filters).await?;
 
@@ -124,14 +131,13 @@ impl TableServices {
             let service = Self::from_row(&row)?;
             let name = service.name.value();
 
-            if let Some(last_part) = name.split(|c| c == task.get_split()).last() {
+            if let Some(last_part) = name.split(|c| c == split).last() {
                 if let Ok(num) = last_part.parse::<u32>() {
                     used_numbers.push(num);
                 }
             }
         }
 
-        // Finde kleinste freie Nummer
         let mut next_num = 1u32;
         used_numbers.sort();
 
