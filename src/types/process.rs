@@ -20,7 +20,7 @@ use tokio::time::{Instant, sleep, timeout as wait};
 use crate::config::{CloudConfig, SoftwareName};
 use crate::types::service::Service;
 use crate::types::task::Task;
-use crate::types::{EntityId, ServiceStatus};
+use crate::types::{EntityId, ServiceConfig, ServiceStatus};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
@@ -325,6 +325,7 @@ impl ServiceProcess {
             pub fn get_task(&self) -> &Task;
             pub fn is_start(&self) -> bool;
             pub fn is_stop(&self) -> bool;
+            pub fn get_config(&self) -> &ServiceConfig;
 
             pub fn set_server_listener(&mut self, address: Address);
             pub fn set_plugin_listener(&mut self, address: Address);
