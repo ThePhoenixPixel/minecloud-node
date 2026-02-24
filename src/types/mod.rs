@@ -8,10 +8,8 @@ pub use node::*;
 pub use player::*;
 pub use process::*;
 pub use service::*;
-pub use service_ref::*;
 pub use software::*;
 pub use task::*;
-pub use task_ref::*;
 pub use template::*;
 pub use service_config::*;
 
@@ -24,9 +22,7 @@ mod template;
 mod player;
 mod process;
 mod service;
-mod service_ref;
 mod software;
-mod task_ref;
 mod service_config;
 
 pub type EntityId = Uuid;
