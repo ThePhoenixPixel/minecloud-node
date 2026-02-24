@@ -373,6 +373,7 @@ impl Task {
     }
 
     // get task object from name
+    #[deprecated]
     pub fn get_task(name: &str) -> Option<Task> {
         let task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
 
@@ -397,6 +398,7 @@ impl Task {
     }
 
     // from path to task object
+    #[deprecated]
     pub fn from_path(path: &PathBuf) -> io::Result<Task> {
         let mut file = File::open(path)?;
         let mut content = String::new();
@@ -408,11 +410,13 @@ impl Task {
         Ok(task)
     }
 
+    #[deprecated]
     pub fn is_startup_local(&self, config: &Arc<CloudConfig>) -> bool {
         let nodes = self.get_nodes();
         nodes.is_empty() || nodes.iter().any(|n| *n == config.get_name())
     }
 
+    #[deprecated]
     pub fn save_to_file(&self) {
         let serialized_task =
             serde_json::to_string_pretty(&self).expect("Error beim Serialisieren der Task");
@@ -430,6 +434,7 @@ impl Task {
             .expect("Error beim Schreiben in die Task-Datei");
     }
 
+    #[deprecated]
     pub fn delete_as_file(&self) {
         let mut task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
         task_path.push(format!("{}.json", &self.name));
@@ -480,6 +485,7 @@ impl Task {
         self.templates.last()
     }
 
+    #[deprecated]
     pub fn prepared_to_service(&self) -> Result<PathBuf, CloudError> {
         // create the next free service folder with the template
         let target_path = self.create_next_free_service_folder()?;
@@ -511,6 +517,7 @@ impl Task {
     }
 
     // create the next not exist service folder
+    #[deprecated]
     fn create_next_free_service_folder(&self) -> Result<PathBuf, CloudError> {
         let mut folder_index: u32 = 1;
         let target_base_path = self.get_service_path();
@@ -536,6 +543,7 @@ impl Task {
     }
 
     //get temp or static for the service
+    #[deprecated]
     pub fn get_service_path(&self) -> PathBuf {
         let path = if self.static_service {
             CloudConfig::get()
@@ -552,6 +560,7 @@ impl Task {
     }
 
     //print the task object in cmd
+    #[deprecated]
     pub fn print(&self) {
         log_info!("--------> Task Info <--------");
         log_info!("name: {}", self.get_name());
