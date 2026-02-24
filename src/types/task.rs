@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fs, io};
-
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::config::{CloudConfig, SoftwareConfig};
 use crate::types::group::Group;
 use crate::types::installer::Installer;
@@ -44,6 +44,9 @@ pub struct Task {
     // --copy_files_after_stop:
     //
 }
+
+pub struct TaskRef(Arc<RwLock<Task>>);
+
 
 impl Task {
     pub fn create(
@@ -514,5 +517,33 @@ impl Task {
             log_info!("     priority: {}", template.get_priority());
         }
         log_info!("-----------------------------");
+    }
+}
+
+impl TaskRef {
+    pub fn new(task: Task) -> Self {
+        Self(Arc::new(RwLock::new(task)))
+    }
+
+    pub async fn read(&self) -> RwLockReadGuard<'_, Task> {
+        self.0.read().await
+    }
+
+    pub async fn write(&self) -> RwLockWriteGuard<'_, Task> {
+        self.0.write().await
+    }
+
+    pub fn ptr_eq(&self, other: &TaskRef) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
+    pub async fn get_name(&self) -> String {
+        self.0.read().await.get_name()
+    }
+}
+
+impl Clone for TaskRef {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
