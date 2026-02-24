@@ -9,7 +9,7 @@ use std::io::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-
+use tokio::sync::RwLock;
 use crate::api::internal::ServiceInfoResponse;
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
@@ -17,6 +17,7 @@ use crate::types::{EntityId, Service, ServiceProcess, ServiceRef, ServiceStatus,
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_info, log_warning};
+use crate::manager::TaskManager;
 
 #[derive(Serialize)]
 struct RegisterServerData {
@@ -27,6 +28,7 @@ pub struct ServiceManager {
     services: Vec<ServiceRef>,
     db: Arc<DatabaseManager>,
     config: Arc<CloudConfig>,
+    task_manager: Arc<RwLock<TaskManager>>,
     _software_config: SoftwareConfigRef,
 }
 
@@ -34,6 +36,7 @@ impl ServiceManager {
     pub async fn new(
         db: Arc<DatabaseManager>,
         cloud_config: Arc<CloudConfig>,
+        task_manager: Arc<RwLock<TaskManager>>,
         _software_config: SoftwareConfigRef,
     ) -> CloudResult<Self> {
         let local_services = get_all_from_file();
@@ -53,6 +56,7 @@ impl ServiceManager {
             services,
             db,
             config: cloud_config,
+            task_manager,
             _software_config,
         })
     }
@@ -82,7 +86,8 @@ impl ServiceManager {
                 Ok(arc)
             }
             None => {
-                let s = ServiceProcess::create(self.get_db(), task, self.config.clone())?;
+                let next_free_number = TableServices::find_next_free_number(self.get_db(), task).await?;
+                let s = ServiceProcess::create(task, next_free_number, self.config.clone())?;
                 let arc = ServiceRef::new(s);
                 TableServices::create_if_not_exists(self.get_db(), arc.read().await.get_service())
                     .await?;

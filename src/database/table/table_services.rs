@@ -109,12 +109,12 @@ impl TableServices {
         Ok(())
     }
 
-    pub async fn get_next_free_number<M: DatabaseController>(
+    pub async fn find_next_free_number<M: DatabaseController>(
         db: &M,
         task: &Task,
     ) -> DbResult<u32> {
         let filters = QueryFilters::new()
-            .add(Filter::like("task", format!("{}{}", task.get_name(), task.get_split())));
+            .add(Filter::eq("task", Value::from(task.get_name())));
 
         let services = db.query(Self::table_name(), &filters).await?;
 

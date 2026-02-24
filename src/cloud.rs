@@ -26,7 +26,7 @@ pub struct Cloud {
     software_config: SoftwareConfigRef,
     db: Arc<DatabaseManager>,
     scheduler: Arc<Scheduler>,
-    task_manager: Arc<TaskManager>,
+    task_manager: Arc<RwLock<TaskManager>>,
     node_manager: Arc<NodeManager>,
     player_manager: Arc<PlayerManager>,
 }

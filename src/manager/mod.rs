@@ -22,18 +22,21 @@ impl Manager {
         db: Arc<DatabaseManager>,
         cloud_config: Arc<CloudConfig>,
         software_config: SoftwareConfigRef,
-    ) -> CloudResult<(Arc<PlayerManager>, Arc<TaskManager>, Arc<NodeManager>)> {
+    ) -> CloudResult<(Arc<PlayerManager>, Arc<RwLock<TaskManager>>, Arc<NodeManager>)> {
+        let task_manager =
+            Arc::new(RwLock::new(TaskManager::new(db.clone(), cloud_config.clone(), software_config.clone())));
+        
+        
         let service_manager = Arc::new(RwLock::new(
-            ServiceManager::new(db.clone(), cloud_config.clone(), software_config.clone()).await?,
+            ServiceManager::new(db.clone(), cloud_config.clone(), task_manager.clone(), software_config.clone()).await?,
         ));
         let player_manager = PlayerManager::new(db.clone(), service_manager.clone());
         let node_manager = NodeManager::new(cloud_config.clone(), service_manager).await?;
-        let task_manager =
-            TaskManager::new(db.clone(), cloud_config.clone(), software_config.clone());
+        
 
         Ok((
             Arc::new(player_manager),
-            Arc::new(task_manager),
+            task_manager,
             Arc::new(node_manager),
         ))
     }

@@ -15,7 +15,7 @@ pub struct Scheduler {
     config: Arc<CloudConfig>,
     software_config: SoftwareConfigRef,
     node_manager: Arc<NodeManager>,
-    task_manager: Arc<TaskManager>,
+    task_manager: Arc<RwLock<TaskManager>>,
     last_scale_action: Arc<RwLock<Option<Instant>>>,
 }
 
@@ -25,7 +25,7 @@ impl Scheduler {
         config: Arc<CloudConfig>,
         software_config: SoftwareConfigRef,
         node_manager: Arc<NodeManager>,
-        task_manager: Arc<TaskManager>,
+        task_manager: Arc<RwLock<TaskManager>>,
     ) -> Scheduler {
         Scheduler {
             db,
@@ -48,7 +48,12 @@ impl Scheduler {
     }
 
     pub async fn check_service(&self) {
-        for task_ref in self.task_manager.get_all_task() {
+        let tasks = {
+            let tm = self.task_manager.read().await;
+            tm.get_all_task()
+        };
+
+        for task_ref in tasks {
             let task = task_ref.read().await;
 
             if !self.node_manager.is_responsible_for_task(&task).await {
@@ -95,7 +100,10 @@ impl Scheduler {
     }
 
     pub async fn check_player_scaling_all(&self) -> CloudResult<()> {
-        let tasks = self.task_manager.get_all_task();
+        let tasks = {
+            let tm = self.task_manager.read().await;
+            tm.get_all_task()
+        };
 
         for task_ref in tasks {
             let task = task_ref.read().await;

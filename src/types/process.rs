@@ -24,6 +24,7 @@ use crate::types::{EntityId, ServiceStatus};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
+use crate::database::table::TableServices;
 
 pub struct ServiceProcess {
     service: Service,
@@ -44,10 +45,10 @@ impl ServiceProcess {
         }
     }
 
-    pub fn create<M: DatabaseController>(db: &M, task: &Task, config: Arc<CloudConfig>) -> CloudResult<ServiceProcess> {
+    pub fn create(task: &Task, number: u32, config: Arc<CloudConfig>) -> CloudResult<ServiceProcess> {
         let service_path = task.prepared_to_service()?;
-        // Todo: cluster nachfrage obn task + spliter + lfdnr noch frei ist (vllt. db abfrage??)
-        let name = Directory::get_last_folder_name(&service_path);
+        //let name = Directory::get_last_folder_name(&service_path);
+        let name = format!("{}{}{}", task.get_name(), task.get_split(), number);
         let service = Service::new(name, task, config);
 
         Ok(ServiceProcess {
