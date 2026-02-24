@@ -1,11 +1,10 @@
 use database_manager::DatabaseManager;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::api::internal::PlayerActionRequest;
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
-use crate::manager::service_manager::ServiceManager;
+use crate::manager::ServiceManagerRef;
 use crate::types::{Player, PlayerAction, PlayerSession, ServiceProcessRef};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
@@ -13,13 +12,13 @@ use crate::{error, log_info};
 
 pub struct PlayerManager {
     db_manager: Arc<DatabaseManager>,
-    service_manager: Arc<RwLock<ServiceManager>>,
+    service_manager: ServiceManagerRef,
 }
 
 impl PlayerManager {
     pub fn new(
         db_manager: Arc<DatabaseManager>,
-        service_manager: Arc<RwLock<ServiceManager>>,
+        service_manager: ServiceManagerRef,
     ) -> PlayerManager {
         PlayerManager {
             db_manager,
