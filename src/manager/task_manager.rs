@@ -24,8 +24,13 @@ pub struct TaskManagerRef(Arc<RwLock<TaskManager>>);
 
 
 impl TaskManager {
-    pub fn get_all_tasks(&self) -> HashMap<String, TaskRef> {
-        self.tasks.clone()
+    pub fn get_all_tasks(&self) -> Vec<TaskRef> {
+        let mut tasks: Vec<TaskRef> = Vec::new();
+        for task in &self.tasks {
+            tasks.push(task.1.clone())
+        }
+
+        tasks
     }
 
     pub fn get_from_name(&self, name: &str) -> CloudResult<TaskRef> {
