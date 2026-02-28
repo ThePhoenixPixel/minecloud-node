@@ -8,7 +8,7 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::error;
-use crate::types::{Installer, ServiceRef, Task, TaskRef, Template};
+use crate::types::{Installer, ServiceProcessRef, Task, TaskRef, Template};
 use crate::utils::error::*;
 
 
@@ -37,6 +37,23 @@ impl TaskManager {
         Err(error!(CantFindTaskFromName))
     }
 
+    pub async fn filter_tasks<F>(&self, mut filter: F) -> Vec<TaskRef>
+    where
+        F: FnMut(&Task) -> bool,
+    {
+        let mut result = Vec::new();
+
+        for arc in self.tasks.values() {
+            let sp = arc.read().await;
+
+            if filter(&sp) {
+                result.push(arc.clone());
+            }
+        }
+
+        result
+    }
+
     pub async fn get_service_path(&self, task_ref: &TaskRef) -> PathBuf {
         let path = if task_ref.read().await.is_static_service() {
             self.config
@@ -52,24 +69,40 @@ impl TaskManager {
         path
     }
 
-    #[deprecated]
-    pub fn prepared_to_service(&self, service_ref: ServiceRef) -> CloudResult<()> {
-        // create the next free service folder with the template
-        let target_path = self.create_next_free_service_folder()?;
+    pub async fn prepared_to_service(&self, service_ref: &ServiceProcessRef) -> CloudResult<()> {
+        let task = {
+            let s_ref = service_ref.read().await;
+            let tasks = self.filter_tasks(|t| &t.get_name() == s_ref.get_name()).await;
+
+            let task = match tasks.first() {
+                Some(task) => task,
+                None => return Err(error!(CantFindTaskFromName)),
+            }.read().await.clone();
+            task
+        };
+
+        let target_path = {
+            let s_ref = service_ref.read().await;
+            s_ref.get_path().clone()
+        };
+
+        /*
         for group in self.get_groups() {
+            Todo: "Group Manager"
             group.install_in_path(&target_path)?;
         }
+        */
 
         let mut templates: Vec<Template> = Vec::new();
-        match self.get_installer() {
-            Installer::InstallAll => templates = self.get_templates_sorted_by_priority(),
-            Installer::InstallAllDesc => templates = self.get_templates_sorted_by_priority_desc(),
-            Installer::InstallRandom => match self.get_template_rng() {
+        match task.get_installer() {
+            Installer::InstallAll => templates = task.get_templates_sorted_by_priority(),
+            Installer::InstallAllDesc => templates = task.get_templates_sorted_by_priority_desc(),
+            Installer::InstallRandom => match task.get_template_rng() {
                 Some(template) => templates.push(template.clone()),
                 None => return Err(error!(TemplateNotFound)),
             },
             Installer::InstallRandomWithPriority => {
-                match self.get_template_rng_based_on_priority() {
+                match task.get_template_rng_based_on_priority() {
                     Some(template) => templates.push(template.clone()),
                     None => return Err(error!(TemplateNotFound)),
                 }
@@ -80,7 +113,8 @@ impl TaskManager {
             Directory::copy_folder_contents(&template.get_path(), &target_path)
                 .map_err(|e| error!(CantCopyTemplateToNewServiceFolder, e))?;
         }
-        Ok(target_path)
+
+        Ok(())
     }
 }
 

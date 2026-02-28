@@ -54,6 +54,7 @@ impl ServiceManager {
 
         let service = Service::new(id, name, &task, &self.config);
         let sp = ServiceProcessRef::new(service, path);
+        self.task_manager.read().await.prepared_to_service(&sp).await?;
 
         // Insert in Database
         TableServices::create_if_not_exists(self.get_db(), &sp).await?;
