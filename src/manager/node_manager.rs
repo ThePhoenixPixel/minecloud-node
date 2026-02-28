@@ -1,14 +1,15 @@
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use crate::api::cluster::{ClusterClient, RestClusterClient};
 use crate::config::CloudConfig;
-use crate::manager::service_manager::ServiceManager;
-use crate::types::{EntityId, Service, ServiceRef, Task};
-use crate::utils::error::CloudResult;
+use crate::{error, log_warning};
+use crate::manager::{ServiceManagerRef, TaskManagerRef};
+use crate::types::{EntityId, Service, ServiceProcessRef, Task};
+use crate::utils::error::{CantFindTaskFromName, CloudResult};
 
 pub struct NodeManager {
-    service_manager: Arc<RwLock<ServiceManager>>,
+    service_manager: ServiceManagerRef,
+    task_manager: TaskManagerRef,
     cluster: Box<dyn ClusterClient>,
     cloud_config: Arc<CloudConfig>,
 }
@@ -16,36 +17,38 @@ pub struct NodeManager {
 impl NodeManager {
     pub async fn new(
         cloud_config: Arc<CloudConfig>,
-        service_manager: Arc<RwLock<ServiceManager>>,
+        service_manager: ServiceManagerRef,
+        task_manager: TaskManagerRef,
     ) -> CloudResult<NodeManager> {
         Ok(NodeManager {
             service_manager,
+            task_manager,
             cluster: Box::new(RestClusterClient::new(cloud_config.clone())),
             cloud_config,
         })
     }
 
     pub async fn stop_all_local_services(&self, msg: &str) {
-        let services = self.service_manager.read().await.get_online_all().await;
+        let services = self.service_manager.read().await.filter_services(|s | s.is_start()).await;
         for s in services {
             self.stop_service(s.get_id().await, msg).await;
         }
     }
 
     pub async fn stop_service(&self, id: EntityId, msg: &str) {
-        let service_ref = { self.service_manager.read().await.find_from_id(&id).await };
+        let service_ref = { self.service_manager.read().await.find_from_id(&id) };
 
         if let Some(service_ref) = service_ref {
             // service is local
             match self.unregistered_local_service(&service_ref).await {
                 Ok(_) => (),
-                Err(e) => (),
+                Err(e) => log_warning!(3, "{:?}", e),
             };
 
             self.service_manager
                 .write()
                 .await
-                .stop_service(&id, msg)
+                .stop_service(&service_ref, msg)
                 .await;
         } else {
             // service is remote
@@ -56,12 +59,12 @@ impl NodeManager {
         task.is_startup_local(&self.cloud_config)
     }
 
-    pub async fn get_all_services_from_task(&self, task_name: &String) -> Vec<Service> {
+    pub async fn get_all_services_from_task(&self, task_name: &str) -> Vec<Service> {
         let service_refs = self
             .service_manager
             .read()
             .await
-            .get_all_from_task(task_name)
+            .filter_services(|s | s.get_name() == task_name)
             .await;
         let mut services = Vec::new();
 
@@ -79,9 +82,20 @@ impl NodeManager {
         }
         // start service local
         let service_ref = {
+            let tasks = {
+                let tm = self.task_manager.read().await;
+                tm.filter_tasks(|t| t.get_name() == task.get_name()).await
+            };
+
+            let task_ref = match tasks.first() {
+                Some(task_ref) => task_ref,
+                None => return Err(error!(CantFindTaskFromName)),
+            };
+
             let mut sm = self.service_manager.write().await;
-            sm.get_or_create_service_ref(task).await?
+            sm.get_or_create_service(task_ref).await?
         };
+
         self.service_manager.read().await.start(service_ref).await?;
         Ok(())
     }
@@ -102,7 +116,7 @@ impl NodeManager {
 
     /// Local (Server Plugin called) -> info sent to Cluster
     pub async fn on_local_service_registered(&self, id: EntityId) -> CloudResult<()> {
-        let service_ref = { self.service_manager.read().await.get_from_id(&id).await? };
+        let service_ref = { self.service_manager.read().await.get_from_id(&id)? };
 
         self.service_manager
             .read()
@@ -113,7 +127,7 @@ impl NodeManager {
         Ok(())
     }
 
-    async fn unregistered_local_service(&self, service_ref: &ServiceRef) -> CloudResult<()> {
+    async fn unregistered_local_service(&self, service_ref: &ServiceProcessRef) -> CloudResult<()> {
         self.service_manager
             .read()
             .await
@@ -137,7 +151,7 @@ impl NodeManager {
     pub async fn on_local_service_shutdown(&self, id: EntityId) -> CloudResult<()> {
         let service_ref = {
             let sm = self.service_manager.read().await;
-            sm.get_from_id(&id).await?
+            sm.get_from_id(&id)?
         };
 
         if service_ref.read().await.is_shutdown_init() {
@@ -160,7 +174,7 @@ impl NodeManager {
     }
 
     /// find the best Node in Cluster to Start the new Service from Task
-    async fn find_best_node(&self, task: &Task) -> String {
+    async fn find_best_node(&self, _task: &Task) -> String {
         String::from("Node-1")
     }
 }
