@@ -81,12 +81,8 @@ impl ServiceProcess {
             return;
         }
         self.shutdown_initiated_by_cloud = true;
-        self.service.set_status(ServiceStatus::Stopping);
-        self.save_to_file();
 
-        let timeout = self.service.get_task().get_time_shutdown_before_kill();
-
-        // 1. Stop senden
+        // 1. Stop send
         if let Err(e) = self.send_stop(msg).await {
             log_error!(
                 "Stop command nicht senden an {} \n Error: {}",
@@ -95,19 +91,17 @@ impl ServiceProcess {
             );
         }
 
-        // 2. Warten oder Kill entscheiden
+        let timeout = self.service.get_task().get_time_shutdown_before_kill();
+        // 2. wait or kill
         let should_kill = self.wait_for_exit_or_kill(timeout).await.unwrap_or(true);
 
-        // 3. Kill falls nötig
+        // 3. maybe kill
         if should_kill {
             match self.kill().await {
                 Ok(_) => log_info!(5, "Service: [{}] kill", self.service.get_name()),
                 Err(_) => log_warning!(2, "Service: [{}] can't kill", self.service.get_name()),
             }
         }
-
-        self.service.set_status(ServiceStatus::Stopped);
-        self.save_to_file();
     }
 
     async fn kill(&mut self) -> io::Result<()> {

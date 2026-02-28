@@ -4,7 +4,7 @@ use crate::api::cluster::{ClusterClient, RestClusterClient};
 use crate::config::CloudConfig;
 use crate::{error, log_warning};
 use crate::manager::{ServiceManagerRef, TaskManagerRef};
-use crate::types::{EntityId, Service, ServiceProcessRef, Task};
+use crate::types::{EntityId, Service, ServiceProcessRef, ServiceStatus, Task};
 use crate::utils::error::{CantFindTaskFromName, CloudResult};
 
 pub struct NodeManager {
@@ -40,6 +40,11 @@ impl NodeManager {
 
         if let Some(service_ref) = service_ref {
             // service is local
+            {
+                let mut s_ref = service_ref.write().await;
+                s_ref.set_status(ServiceStatus::Stopping);
+            }
+
             match self.unregistered_local_service(&service_ref).await {
                 Ok(_) => (),
                 Err(e) => log_warning!(3, "{:?}", e),
@@ -50,6 +55,7 @@ impl NodeManager {
                 .await
                 .stop_service(&service_ref, msg)
                 .await;
+
         } else {
             // service is remote
             todo!("Send stop command to Other Node");
@@ -121,7 +127,7 @@ impl NodeManager {
         self.service_manager
             .read()
             .await
-            .register_on_proxy(&service_ref.read().await.get_service())
+            .register_on_proxy(service_ref.read().await.get_service())
             .await?;
 
         Ok(())
@@ -131,7 +137,7 @@ impl NodeManager {
         self.service_manager
             .read()
             .await
-            .unregister_from_proxy(&service_ref.read().await.get_service())
+            .unregister_from_proxy(service_ref.read().await.get_service())
             .await?;
 
         Ok(())

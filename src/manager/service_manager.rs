@@ -54,7 +54,6 @@ impl ServiceManager {
 
         let service = Service::new(id, name, &task, &self.config);
         let sp = ServiceProcessRef::new(service, path);
-        self.task_manager.read().await.prepared_to_service(&sp).await?;
 
         // Insert in Database
         TableServices::create_if_not_exists(self.get_db(), &sp).await?;
@@ -81,13 +80,12 @@ impl ServiceManager {
     }
 
     pub async fn start(&self, service_ref: ServiceProcessRef) -> CloudResult<()> {
+        self.update_status(&service_ref, ServiceStatus::Starting).await;
+
         let service = {
-            let mut s = service_ref.write().await;
-            s.set_status(ServiceStatus::Starting);
+            let s = service_ref.read().await;
             s.get_service().clone()
         };
-
-        TableServices::update(self.get_db(), &service).await?;
 
         self.prepare_to_start(&service_ref).await?;
         TableServices::update(self.get_db(), &service).await?;
@@ -99,6 +97,7 @@ impl ServiceManager {
     }
 
     async fn prepare_to_start(&self, service: &ServiceProcessRef) -> CloudResult<()> {
+        self.task_manager.read().await.prepared_to_service(service).await?;
         {
             let s = service.read().await;
             s.install_software()?;
@@ -117,6 +116,8 @@ impl ServiceManager {
         service_process_ref: &ServiceProcessRef,
         shutdown_msg: &str,
     ) {
+        self.update_status(service_process_ref, ServiceStatus::Stopping).await;
+
         let (id, task_name) = {
             let sp = service_process_ref.read().await;
             (sp.get_id().clone(), sp.get_task_name().to_string())
@@ -138,18 +139,9 @@ impl ServiceManager {
                         log_warning!("Error by deleting Service {}  in Database: {:?}", id, e);
                     }
 
-                    // Aus ServiceManager entfernen
                     self.services.remove(&id);
                 } else {
-                    // Update in DB
-                    let service = service_process_ref.read().await.get_service().clone();
-                    if let Err(e) = TableServices::update(self.get_db(), &service).await {
-                        log_warning!(
-                            "Fehler beim Aktualisieren von Service {} in DB: {:?}",
-                            id,
-                            e
-                        );
-                    }
+                    self.update_status(service_process_ref, ServiceStatus::Stopped).await;
                 }
             }
 
@@ -161,7 +153,7 @@ impl ServiceManager {
                 );
                 service_process_ref.read().await.delete_files();
                 if let Err(e) = TableServices::delete(self.get_db(), &id).await {
-                    log_warning!("Error by deleting Service {}  in Database: {:?}", id, e);
+                    log_warning!("Error by deleting Service {} in Database: {:?}", id, e);
                 }
 
                 self.services.remove(&id);
@@ -381,6 +373,16 @@ impl ServiceManager {
 
         s.set_plugin_listener(address);
         s.save_to_file();
+    }
+
+    pub async fn update_status(&self, service_process_ref: &ServiceProcessRef, status: ServiceStatus) {
+        {
+            let mut sp = service_process_ref.write().await;
+            sp.set_status(status);
+            if let Err(e) = TableServices::update(self.get_db(), sp.get_service()).await {
+                log_warning!(2, "Cant Update Service Object in DB {}", e.to_string())
+            }
+        }
     }
 
     async fn get_bind_ports_except(&self, exclude: &ServiceProcessRef) -> Vec<u32> {
