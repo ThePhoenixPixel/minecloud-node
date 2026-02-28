@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 use crate::api::internal::APIInternal;
 use crate::config::{CloudConfig, SoftwareConfig, SoftwareConfigRef};
 use crate::database::table::Tables;
-use crate::manager::{Manager, NodeManager, PlayerManager, TaskManager};
+use crate::manager::{Manager, NodeManager, PlayerManager, TaskManagerRef};
 use crate::node::scheduler::Scheduler;
 use crate::terminal::cmd::Cmd;
 use crate::utils::error::*;
@@ -26,7 +26,7 @@ pub struct Cloud {
     software_config: SoftwareConfigRef,
     db: Arc<DatabaseManager>,
     scheduler: Arc<Scheduler>,
-    task_manager: Arc<RwLock<TaskManager>>,
+    task_manager: TaskManagerRef,
     node_manager: Arc<NodeManager>,
     player_manager: Arc<PlayerManager>,
 }
