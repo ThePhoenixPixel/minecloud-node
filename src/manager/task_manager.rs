@@ -77,18 +77,19 @@ impl TaskManager {
     pub async fn prepared_to_service(&self, service_ref: &ServiceProcessRef) -> CloudResult<()> {
         let task = {
             let s_ref = service_ref.read().await;
-            let tasks = self.filter_tasks(|t| &t.get_name() == s_ref.get_name()).await;
+            let tasks = self.filter_tasks(|t| t.get_name() == s_ref.get_task_name()).await;
 
-            let task = match tasks.first() {
+            match tasks.first() {
                 Some(task) => task,
                 None => return Err(error!(CantFindTaskFromName)),
-            }.read().await.clone();
-            task
+            }.read().await.clone()
         };
 
         let target_path = {
             let s_ref = service_ref.read().await;
-            s_ref.get_path().clone()
+            let path = s_ref.get_path().clone();
+            fs::create_dir_all(&path).into_cloud_error(CantCreateServiceFolder)?;
+            path
         };
 
         /*
@@ -115,7 +116,7 @@ impl TaskManager {
         }
 
         for template in templates {
-            Directory::copy_folder_contents(&template.get_path(), &target_path)
+            fs::copy(template.get_path(), &target_path)
                 .map_err(|e| error!(CantCopyTemplateToNewServiceFolder, e))?;
         }
 
@@ -129,9 +130,10 @@ impl TaskManagerRef {
         cloud_config: Arc<CloudConfig>,
         software_config: SoftwareConfigRef,
     ) -> TaskManagerRef {
+        let tasks = get_all_task_from_file(&cloud_config);
         let tm = TaskManager {
             db,
-            tasks: get_all_task_from_file(&cloud_config),
+            tasks,
             config: cloud_config,
             software_config,
         };
