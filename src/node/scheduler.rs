@@ -6,7 +6,7 @@ use tokio::time;
 use tokio::time::Instant;
 
 use crate::config::{CloudConfig, SoftwareConfigRef};
-use crate::manager::{NodeManager, TaskManager};
+use crate::manager::{NodeManager, TaskManagerRef};
 use crate::utils::error::CloudResult;
 use crate::{log_error, log_info};
 
@@ -15,7 +15,7 @@ pub struct Scheduler {
     config: Arc<CloudConfig>,
     software_config: SoftwareConfigRef,
     node_manager: Arc<NodeManager>,
-    task_manager: Arc<RwLock<TaskManager>>,
+    task_manager: TaskManagerRef,
     last_scale_action: Arc<RwLock<Option<Instant>>>,
 }
 
@@ -25,7 +25,7 @@ impl Scheduler {
         config: Arc<CloudConfig>,
         software_config: SoftwareConfigRef,
         node_manager: Arc<NodeManager>,
-        task_manager: Arc<RwLock<TaskManager>>,
+        task_manager: TaskManagerRef,
     ) -> Scheduler {
         Scheduler {
             db,
@@ -50,7 +50,7 @@ impl Scheduler {
     pub async fn check_service(&self) {
         let tasks = {
             let tm = self.task_manager.read().await;
-            tm.get_all_task()
+            tm.get_all_tasks()
         };
 
         for task_ref in tasks {
@@ -99,7 +99,7 @@ impl Scheduler {
         }
     }
 
-    pub async fn check_player_scaling_all(&self) -> CloudResult<()> {
+    /*pub async fn check_player_scaling_all(&self) -> CloudResult<()> {
         let tasks = {
             let tm = self.task_manager.read().await;
             tm.get_all_task()
@@ -115,7 +115,7 @@ impl Scheduler {
             // self.check_player_scaling_by_task(&task).await;
         }
         Ok(())
-    }
+    }*/
 }
 /*
 
@@ -194,7 +194,7 @@ async fn scaling_up(&self, task: &Task) {
 
 async fn scaling_down(
     &self,
-    running_services: &[crate::types::ServiceRef],
+    running_services: &[crate::types::ServiceProcessRef],
     task: &Task,
     usage_percent: u64,
 ) {
