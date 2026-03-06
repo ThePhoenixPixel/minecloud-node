@@ -41,8 +41,8 @@ impl NodeManager {
         if let Some(service_ref) = service_ref {
             // service is local
             {
-                let mut s_ref = service_ref.write().await;
-                s_ref.set_status(ServiceStatus::Stopping);
+                let sm = self.service_manager.read().await;
+                sm.update_status(&service_ref, ServiceStatus::Stopping).await;
             }
 
             match self.unregistered_local_service(&service_ref).await {
@@ -123,6 +123,11 @@ impl NodeManager {
     /// Local (Server Plugin called) -> info sent to Cluster
     pub async fn on_local_service_registered(&self, id: EntityId) -> CloudResult<()> {
         let service_ref = { self.service_manager.read().await.get_from_id(&id)? };
+
+        {
+            let sm = self.service_manager.read().await;
+            sm.update_status(&service_ref, ServiceStatus::Running).await;
+        }
 
         self.service_manager
             .read()
