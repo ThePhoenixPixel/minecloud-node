@@ -98,25 +98,10 @@ impl TaskManager {
             group.install_in_path(&target_path)?;
         }
         */
-
-        let mut templates: Vec<Template> = Vec::new();
-        match task.get_installer() {
-            Installer::InstallAll => templates = task.get_templates_sorted_by_priority(),
-            Installer::InstallAllDesc => templates = task.get_templates_sorted_by_priority_desc(),
-            Installer::InstallRandom => match task.get_template_rng() {
-                Some(template) => templates.push(template.clone()),
-                None => return Err(error!(TemplateNotFound)),
-            },
-            Installer::InstallRandomWithPriority => {
-                match task.get_template_rng_based_on_priority() {
-                    Some(template) => templates.push(template.clone()),
-                    None => return Err(error!(TemplateNotFound)),
-                }
-            }
-        }
+        let templates = get_templates_by_installer(&task)?;
 
         for template in templates {
-            fs::copy(template.get_path(), &target_path)
+            Directory::copy_folder_contents(&template.get_path(), &target_path)
                 .map_err(|e| error!(CantCopyTemplateToNewServiceFolder, e))?;
         }
 
@@ -184,3 +169,25 @@ fn get_all_task_from_file(config: &Arc<CloudConfig>) -> HashMap<String, TaskRef>
     tasks
 }
 
+fn get_templates_by_installer(task: &Task) -> CloudResult<Vec<Template>> {
+    let mut templates = Vec::new();
+     let t = match task.get_installer() {
+        Installer::InstallAll => templates = task.get_templates_sorted_by_priority(),
+
+        Installer::InstallAllDesc => templates = task.get_templates_sorted_by_priority_desc(),
+
+        Installer::InstallRandom => match task.get_template_rng() {
+            Some(template) => Vec::new().push(template.clone()),
+            None => return Err(error!(TemplateNotFound)),
+        },
+
+        Installer::InstallRandomWithPriority => {
+            match task.get_template_rng_based_on_priority() {
+                Some(template) => templates.push(template.clone()),
+                None => return Err(error!(TemplateNotFound)),
+            }
+        }
+    };
+
+    Ok(templates)
+}
