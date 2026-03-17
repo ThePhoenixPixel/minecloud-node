@@ -116,6 +116,10 @@ impl ServiceManager {
         service_process_ref: &ServiceProcessRef,
         shutdown_msg: &str,
     ) {
+        if !service_process_ref.is_start().await {
+            return;
+        }
+        
         self.update_status(service_process_ref, ServiceStatus::Stopping).await;
 
         let (id, task_name) = {

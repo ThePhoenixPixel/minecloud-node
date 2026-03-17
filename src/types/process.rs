@@ -77,9 +77,6 @@ impl ServiceProcess {
     }
 
     pub async fn shutdown(&mut self, msg: &str) {
-        if self.service.is_stop() {
-            return;
-        }
         self.shutdown_initiated_by_cloud = true;
 
         // 1. Stop send
