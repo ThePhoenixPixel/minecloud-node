@@ -4,6 +4,7 @@ use std::sync::Arc;
 pub use node_manager::*;
 pub use player_manager::*;
 pub use task_manager::*;
+pub use group_manager::*;
 
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::manager::service_manager::ServiceManagerRef;
@@ -13,6 +14,7 @@ mod node_manager;
 mod player_manager;
 mod service_manager;
 mod task_manager;
+mod group_manager;
 
 pub struct Manager;
 

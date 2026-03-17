@@ -65,6 +65,7 @@ pub enum CloudErrorKind {
 
     CantFindServiceFromUUID,
     CantFindTaskFromName,
+    CantFindGroupFromName,
 
     CantBindAddress,
     CantStartAPIServer,
