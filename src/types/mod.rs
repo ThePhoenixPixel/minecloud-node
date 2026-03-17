@@ -12,6 +12,7 @@ pub use software::*;
 pub use task::*;
 pub use template::*;
 pub use service_config::*;
+pub use group::*;
 
 mod group;
 mod installer;
