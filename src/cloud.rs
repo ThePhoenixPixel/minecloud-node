@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 use crate::api::internal::APIInternal;
 use crate::config::{CloudConfig, SoftwareConfig, SoftwareConfigRef};
 use crate::database::table::Tables;
-use crate::manager::{Manager, NodeManager, PlayerManager, TaskManagerRef};
+use crate::manager::{GroupManagerRef, Manager, NodeManager, PlayerManager, TaskManagerRef};
 use crate::node::scheduler::Scheduler;
 use crate::terminal::cmd::Cmd;
 use crate::utils::error::*;
@@ -29,6 +29,7 @@ pub struct Cloud {
     task_manager: TaskManagerRef,
     node_manager: Arc<NodeManager>,
     player_manager: Arc<PlayerManager>,
+    group_manager: GroupManagerRef,
 }
 
 impl Cloud {
@@ -41,7 +42,7 @@ impl Cloud {
         Tables::check_tables(db.as_ref()).await?;
         log_info!("Database check successfully");
 
-        let (pm, tm, nm) =
+        let (pm, tm, nm, gm) =
             Manager::create_all(db.clone(), config.clone(), software_config.clone()).await?;
         let scheduler = Arc::new(Scheduler::new(
             db.clone(),
@@ -59,6 +60,7 @@ impl Cloud {
             node_manager: nm,
             task_manager: tm,
             player_manager: pm,
+            group_manager: gm,
         })
     }
 
