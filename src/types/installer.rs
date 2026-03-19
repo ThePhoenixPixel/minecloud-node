@@ -9,7 +9,7 @@ pub enum Installer {
 }
 
 impl Installer {
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_string(s: &str) -> Self {
         match s {
             "InstallAll" => Installer::InstallAll,
             "InstallAllDesc" => Installer::InstallAllDesc,
@@ -19,7 +19,7 @@ impl Installer {
         }
     }
 
-    pub fn too_str(value: &Installer) -> &str {
+    pub fn too_string(value: &Installer) -> &str {
         match value {
             Installer::InstallAll => "InstallAll",
             Installer::InstallAllDesc => "InstallAllDesc",
@@ -31,24 +31,24 @@ impl Installer {
 
 impl From<&str> for Installer {
     fn from(s: &str) -> Self {
-        Installer::from_str(s)
+        Installer::from_string(s)
     }
 }
 
 impl From<String> for Installer {
     fn from(s: String) -> Self {
-        Installer::from_str(s.as_str())
+        Installer::from_string(s.as_str())
     }
 }
 
 impl From<Installer> for String {
     fn from(value: Installer) -> Self {
-       Installer::too_str(&value).to_string()
+       Installer::too_string(&value).to_string()
     }
 }
 
 impl From<&Installer> for String {
     fn from(value: &Installer) -> Self {
-        Installer::too_str(value).to_string()
+        Installer::too_string(value).to_string()
     }
 }
