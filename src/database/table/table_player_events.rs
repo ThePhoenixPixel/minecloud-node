@@ -26,7 +26,7 @@ impl TablePlayerEvents {
         TablePlayerEvents {
             id: Default::default(),
             created_at: DBDatetime::get_now(),
-            session_id: player.get_session().map(|s| DBUInt::from(s.get_id())),
+            session_id: player.get_session().clone().map(|s| DBUInt::from(s.get_id())),
             player_id: DBUInt::from(player.get_id()),
             service_uuid: DBTools::uuid_to_varchar(&service.get_id().await),
             event_type: DBText::from(event_type),

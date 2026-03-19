@@ -50,12 +50,12 @@ impl Player {
         self.uuid.to_string()
     }
 
-    pub fn get_name(&self) -> String {
-        self.name.clone()
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 
-    pub fn get_session(&self) -> Option<PlayerSession> {
-        self.session.clone()
+    pub fn get_session(&self) -> &Option<PlayerSession> {
+        &self.session
     }
 
     pub fn set_session(&mut self, session: PlayerSession) {
@@ -76,15 +76,15 @@ impl PlayerSession {
     }
 
     pub fn set_id(&mut self, id: u64) {
-        self.id = id
+        self.id = id;
     }
 
-    pub fn get_service_uuid(&self) -> Uuid {
-        self.service_uuid.clone()
+    pub fn get_service_uuid(&self) -> &Uuid {
+        &self.service_uuid
     }
 
-    pub fn set_service_id(&mut self, uuid: &Uuid) {
-        self.service_uuid = uuid.clone()
+    pub fn set_service_id(&mut self, uuid: Uuid) {
+        self.service_uuid = uuid;
     }
 }
 
@@ -92,14 +92,14 @@ impl PlayerRequest {
     pub fn get_uuid(&self) -> Uuid {
         self.uuid
     }
-    pub fn get_name(&self) -> String {
-        self.name.clone()
+    pub fn get_name(&self) -> &String {
+        &self.name
     }
 }
 
 impl From<PlayerRequest> for Player {
     fn from(value: PlayerRequest) -> Self {
-        Player::new(0, value.get_name(), value.get_uuid(), None)
+        Player::new(0, value.get_name().clone(), value.get_uuid(), None)
     }
 }
 
