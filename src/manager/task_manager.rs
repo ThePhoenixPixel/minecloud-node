@@ -7,7 +7,8 @@ use bx::path::Directory;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::config::{CloudConfig, SoftwareConfigRef};
-use crate::error;
+use crate::{error, log_info, log_warning};
+use crate::manager::GroupManagerRef;
 use crate::types::{Installer, ServiceProcessRef, Task, TaskRef, Template};
 use crate::utils::error::*;
 
@@ -16,7 +17,7 @@ pub struct TaskManager {
     db: Arc<DatabaseManager>,
     config: Arc<CloudConfig>,
     software_config: SoftwareConfigRef,
-
+    group_manager: GroupManagerRef,
     tasks: HashMap<String, TaskRef>,
 }
 
@@ -92,12 +93,30 @@ impl TaskManager {
             path
         };
 
-        /*
-        for group in self.get_groups() {
-            Todo: "Group Manager"
-            group.install_in_path(&target_path)?;
+        {
+            // Group System
+            let gm = self.group_manager.read().await;
+
+            for group_name in task.get_group_names() {
+                let group_ref = match gm.get_from_name(group_name) {
+                    Ok(g) => g,
+                    Err(e) => {
+                        log_warning!(3, "Group |{}| not found in Task |{}|", group_name, task.get_name());
+                        log_warning!(3, "{}", e);
+                        continue;
+                    }
+                };
+
+                match gm.install_in_path(&group_ref, &target_path).await {
+                    Ok(_) => log_info!(7, "Group |{}| successfully install in Path |{:?}|", group_name, target_path),
+                    Err(e) => {
+                        log_warning!(3, "Group |{}| cant install in Path |{:?}|", group_name, target_path);
+                        log_warning!(3, "{}", e);
+                    }
+                }
+            }
         }
-        */
+
         let templates = get_templates_by_installer(&task)?;
 
         for template in templates {
@@ -114,6 +133,7 @@ impl TaskManagerRef {
         db: Arc<DatabaseManager>,
         cloud_config: Arc<CloudConfig>,
         software_config: SoftwareConfigRef,
+        group_manager: GroupManagerRef,
     ) -> TaskManagerRef {
         let tasks = get_all_task_from_file(&cloud_config);
         let tm = TaskManager {
@@ -121,6 +141,7 @@ impl TaskManagerRef {
             tasks,
             config: cloud_config,
             software_config,
+            group_manager,
         };
         TaskManagerRef(Arc::new(RwLock::new(tm)))
     }

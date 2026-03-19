@@ -9,8 +9,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{fs, io};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+
 use crate::config::{CloudConfig, SoftwareConfig};
-use crate::types::group::Group;
 use crate::types::installer::Installer;
 use crate::types::software::Software;
 use crate::types::template::Template;
@@ -218,6 +218,10 @@ impl Task {
     }
 
     // Getter and Setter for groups
+    pub fn get_group_names(&self) -> &Vec<String> {
+        &self.groups
+    }
+
     pub fn add_group(&mut self, group: &String) {
         self.groups.push(group.clone());
         self.save_to_file();
