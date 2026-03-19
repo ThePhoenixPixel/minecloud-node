@@ -4,17 +4,20 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
+use bx::path::Directory;
 use database_manager::DatabaseManager;
+use rand::prelude::IteratorRandom;
+use rand::RngExt;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::config::CloudConfig;
 use crate::error;
-use crate::types::{Group, GroupRef};
+use crate::types::{Group, GroupRef, Installer, Template};
 use crate::utils::error::*;
 
 pub struct GroupManager {
     _db: Arc<DatabaseManager>,
-    config: Arc<CloudConfig>,
+    _config: Arc<CloudConfig>,
 
     groups: HashMap<String, GroupRef>,
 }
@@ -23,7 +26,7 @@ pub struct GroupManagerRef(Arc<RwLock<GroupManager>>);
 
 
 impl GroupManager {
-    pub fn get_all_groups(&self) -> Vec<GroupRef> {
+    pub fn get_all(&self) -> Vec<GroupRef> {
         let mut groups: Vec<GroupRef> = Vec::new();
         for (_, group) in &self.groups {
             groups.push(group.clone())
@@ -57,6 +60,83 @@ impl GroupManager {
 
         result
     }
+
+    pub async fn get_templates_sorted_by_priority(&self, group_ref: &GroupRef) -> Vec<Template> {
+        let mut templates = group_ref.read().await.get_templates().clone();
+        templates.sort_by(|a, b| a.priority.cmp(&b.priority));
+        templates
+    }
+
+    pub async fn get_templates_sorted_by_priority_desc(&self, group_ref: &GroupRef) -> Vec<Template> {
+        let mut templates = group_ref.read().await.get_templates().clone();
+        templates.sort_by(|a, b| b.priority.cmp(&a.priority));
+        templates
+    }
+
+    pub async fn get_template_rng(&self, group_ref: &GroupRef) -> Option<Template> {
+        let mut rng = rand::rng();
+        group_ref.read().await.get_templates().clone().into_iter().choose(&mut rng)
+    }
+
+    // Select Template based on Priority (higher priority = higher chance)
+    pub async fn get_template_rng_based_on_priority(&self, group_ref: &GroupRef) -> Option<Template> {
+        let templates = {
+            group_ref.read().await.get_templates().clone()
+        };
+
+        if templates.is_empty() {
+            return None;
+        }
+
+        let total_weight: u32 = templates.iter().map(|t| t.priority).sum();
+
+        if total_weight == 0 {
+            return self.get_template_rng(group_ref).await;
+        }
+
+        let mut rng = rand::rng();
+        let mut random_value = rng.random_range(0..total_weight);
+
+        for template in &templates {
+            if random_value < template.get_priority() {
+                return Some(template.clone());
+            }
+            random_value -= template.priority;
+        }
+
+        // fallback
+        templates.last().cloned()
+    }
+
+    pub async fn install_in_path(&self, group_ref: &GroupRef, target_path: &PathBuf) -> CloudResult<()> {
+        let mut templates: Vec<Template> = Vec::new();
+        let group = {
+            let g_ref = group_ref.read().await;
+            g_ref.clone()
+        };
+
+        match group.get_installer() {
+            Installer::InstallAll => templates = self.get_templates_sorted_by_priority(group_ref).await,
+            Installer::InstallAllDesc => templates = self.get_templates_sorted_by_priority_desc(group_ref).await,
+            Installer::InstallRandom => match self.get_template_rng(group_ref).await {
+                Some(template) => templates.push(template),
+                None => return Err(error!(GroupTemplateNotFound)),
+            },
+            Installer::InstallRandomWithPriority => {
+                match self.get_template_rng_based_on_priority(group_ref).await {
+                    Some(template) => templates.push(template.clone()),
+                    None => return Err(error!(GroupTemplateNotFound)),
+                }
+            }
+        }
+
+        for template in templates {
+            Directory::copy_folder_contents(&template.get_path(), target_path)
+                .map_err(|e| error!(CantCopyGroupTemplateToNewServiceFolder, e))?;
+        }
+        Ok(())
+    }
+
 }
 
 impl GroupManagerRef {
@@ -68,7 +148,7 @@ impl GroupManagerRef {
         let gm = GroupManager {
             _db,
             groups,
-            config: cloud_config,
+            _config: cloud_config,
         };
 
         GroupManagerRef(Arc::new(RwLock::new(gm)))

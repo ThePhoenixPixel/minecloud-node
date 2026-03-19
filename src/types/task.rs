@@ -218,16 +218,6 @@ impl Task {
     }
 
     // Getter and Setter for groups
-    pub fn get_groups(&self) -> Vec<Group> {
-        let mut groups: Vec<Group> = Vec::new();
-        for group_str in self.groups.clone() {
-            if let Some(group) = Group::get_from_name(&group_str) {
-                groups.push(group);
-            }
-        }
-        groups
-    }
-
     pub fn add_group(&mut self, group: &String) {
         self.groups.push(group.clone());
         self.save_to_file();
@@ -508,10 +498,6 @@ impl Task {
         log_info!("max_ram: {}", self.get_max_ram());
         log_info!("start_port: {}", self.get_start_port());
         log_info!("min_service_count: {}", self.get_min_service_count());
-        log_info!(
-            "groups: {:?}",
-            self.get_groups().iter().map(|g| g.get_name())
-        );
         log_info!("installer: {:?}", self.get_installer());
         log_info!("templates: ");
         for template in self.get_templates() {

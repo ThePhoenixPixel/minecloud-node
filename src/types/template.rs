@@ -47,8 +47,8 @@ impl Template {
     }
 
     //priority
-    pub fn get_priority(&self) -> &u32 {
-        &self.priority
+    pub fn get_priority(&self) -> u32 {
+        self.priority
     }
 
     pub fn set_priority(&mut self, priority: &u32) {
