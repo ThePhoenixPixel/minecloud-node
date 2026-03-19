@@ -295,7 +295,7 @@ fn setup_set(mut task: Task, attribute: &str, args: &Vec<&str>) -> Result<(), Er
             log_info!("min_service_count wurde geändert");
         }
         "installer" => {
-            task.set_installer(&Installer::from(new_wert));
+            task.set_installer(Installer::from(*new_wert));
             log_info!("Installer erfolgreich gesetzt");
         }
         _ => {

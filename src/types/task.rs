@@ -330,9 +330,8 @@ impl Task {
         &self.installer
     }
 
-    pub fn set_installer(&mut self, installer: &Installer) {
-        self.installer = installer.clone();
-        self.save_to_file();
+    pub fn set_installer(&mut self, installer: Installer) {
+        self.installer = installer;
     }
 
     // Template
