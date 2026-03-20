@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::config::cloud_config::CloudConfig;
 use crate::types::ServerType;
@@ -13,6 +14,8 @@ use crate::{log_error, log_info, log_warning};
 pub struct SoftwareConfig {
     software_type: HashMap<String, SoftwareType>,
 }
+
+pub struct SoftwareConfigRef(Arc<RwLock<SoftwareConfig>>);
 
 impl SoftwareConfig {
     pub fn new(cloud_config: Arc<CloudConfig>) -> SoftwareConfig {
@@ -422,3 +425,17 @@ fn default_software_name() -> SoftwareName {
         typ: "default".to_string(),
     }
 }
+
+
+impl SoftwareConfigRef {
+    pub fn new(cloud_config: Arc<CloudConfig>) -> SoftwareConfigRef {
+        SoftwareConfigRef(Arc::new(RwLock::new(SoftwareConfig::new(cloud_config))))
+    }
+}
+
+impl Clone for SoftwareConfigRef {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
