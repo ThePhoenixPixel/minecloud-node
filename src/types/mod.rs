@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_aux::prelude::deserialize_struct_case_insensitive;
 use std::cmp::PartialEq;
 use std::fmt;
 use uuid::Uuid;
@@ -8,7 +9,7 @@ pub use node::*;
 pub use player::*;
 pub use process::*;
 pub use service::*;
-pub use software::*;
+pub use software_link::*;
 pub use task::*;
 pub use template::*;
 pub use service_config::*;
@@ -23,7 +24,7 @@ mod template;
 mod player;
 mod process;
 mod service;
-mod software;
+mod software_link;
 mod service_config;
 
 pub type EntityId = Uuid;
@@ -67,24 +68,28 @@ impl From<String> for CloudUuid {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
-pub enum ServerType {
+#[serde()]
+pub enum SoftwareType {
     #[default]
+    #[serde(deserialize_with = "deserialize_struct_case_insensitive")]
     Proxy,
+
+    #[serde(deserialize_with = "deserialize_struct_case_insensitive")]
     BackendServer,
 }
 
-impl ServerType {
+impl SoftwareType {
     pub fn to_string(&self) -> String {
         match self {
-            ServerType::Proxy => String::from("Proxy"),
-            ServerType::BackendServer => String::from("BackendServer"),
+            SoftwareType::Proxy => String::from("Proxy"),
+            SoftwareType::BackendServer => String::from("BackendServer"),
         }
     }
     pub fn is_proxy(&self) -> bool {
-        *self == ServerType::Proxy
+        *self == SoftwareType::Proxy
     }
     pub fn is_backend_server(&self) -> bool {
-        *self == ServerType::BackendServer
+        *self == SoftwareType::BackendServer
     }
 }
 
