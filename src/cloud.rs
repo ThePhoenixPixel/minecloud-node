@@ -1,4 +1,3 @@
-use bx::network::url::Url;
 use colored::{ColoredString, Colorize};
 use database_manager::DatabaseManager;
 use std::error::Error;
@@ -16,7 +15,7 @@ use crate::node::scheduler::Scheduler;
 use crate::terminal::cmd::Cmd;
 use crate::utils::error::*;
 use crate::utils::log::logger::Logger;
-use crate::{log_error, log_info, log_warning};
+use crate::log_info;
 
 #[cfg(feature = "rest-api")]
 use crate::api::external::restapi_main::ApiMain;
@@ -33,9 +32,9 @@ pub struct Cloud {
 }
 
 impl Cloud {
-    pub async fn new(cloud_config: CloudConfig) -> CloudResult<Self> {
+    pub async fn new(cloud_config: CloudConfig, software_config: SoftwareConfig) -> CloudResult<Self> {
         let config = Arc::new(cloud_config);
-        let software_config = SoftwareConfigRef::new(config.clone());
+        let software_config = SoftwareConfigRef::new(software_config);
         let mut db = DatabaseManager::new(config.get_db_config())?;
         db.connect().await?;
         let db = Arc::new(db);
@@ -97,16 +96,11 @@ impl Cloud {
         // check folder
         Cloud::check_folder(&cloud_config).expect("Checking Folder failed");
 
-        // check software config file
-        SoftwareConfig::check(&url).await;
-
-        // check the software files
-        Cloud::check_software(&cloud_config)
-            .await
-            .expect("Checking Software failed");
+        // check software
+        let software_config = SoftwareConfig::check(&cloud_config, &url).await.expect("Checking Software failed");
 
         let cloud = Arc::new(RwLock::new(
-            Cloud::new(cloud_config).await.expect("Cant Create Cloud"),
+            Cloud::new(cloud_config, software_config).await.expect("Cant Create Cloud"),
         ));
 
         // Internal API
@@ -128,7 +122,7 @@ impl Cloud {
 
         {
             let cloud_clone = cloud.read().await;
-            let scheduler = cloud_clone.scheduler.clone();
+            let _scheduler = cloud_clone.scheduler.clone();
 
             tokio::spawn(async move {
                 //scheduler.run().await;
@@ -316,6 +310,9 @@ impl Cloud {
         // create service static folder
         fs::create_dir_all(config_path.get_service_folder().get_static_folder_path())?;
 
+        // create software folder
+        fs::create_dir_all(config_path.get_system_folder().get_software_config_path())?;
+
         // create system_plugins_folder
         fs::create_dir_all(
             config_path
@@ -340,119 +337,4 @@ impl Cloud {
         Ok(())
     }
 
-    // check software && system plugins
-    pub async fn check_software(cloud_config: &CloudConfig) -> Result<(), Box<dyn Error>> {
-        // Todo: refactoren 'check_software()'
-        let software_types = SoftwareConfig::get().get_software_types();
-        let cloud_config_system = cloud_config.get_cloud_path().get_system_folder();
-
-        // iter to software types
-        for (software_type_name, software_type) in software_types {
-            // create var paths
-            let software_path = cloud_config_system
-                .get_software_files_folder_path()
-                .join(&software_type_name);
-            let system_plugins_path = cloud_config_system
-                .get_system_plugins_folder_path()
-                .join(&software_type_name);
-            let software_lib_path = cloud_config_system
-                .get_software_lib_folder_path()
-                .join(&software_type_name);
-
-            // create the software types folder
-            fs::create_dir_all(&software_path)?;
-            fs::create_dir_all(&system_plugins_path)?;
-            fs::create_dir_all(&software_lib_path)?;
-
-            // iter to software names
-            for software in software_type.get_software_names() {
-                let software_file_url = software.get_software_file().get_url();
-                let system_plugins_path = match Url::extract_extension_from_url(
-                    &software.get_system_plugin().get_download(),
-                ) {
-                    Some(ext) => system_plugins_path.join(format!(
-                        "MineCloud-{}.{}",
-                        software.get_name(),
-                        ext
-                    )),
-                    None => system_plugins_path.join(software.get_name()),
-                };
-
-                let software_path = match Url::extract_extension_from_url(&software_file_url) {
-                    Some(ext) => software_path.join(format!("{}.{}", software.get_name(), ext)),
-                    None => software_path.join(software.get_name()),
-                };
-
-                // download software when software file does not exist
-                if !software_path.exists() {
-                    log_info!("Download Software {}", software.get_name());
-                    match Url::download_file(&*software_file_url, &software_path).await {
-                        Ok(_) => {
-                            log_info!(
-                                "Successfully download the Software from url {}",
-                                software_file_url
-                            );
-                        }
-                        Err(e) => {
-                            log_error!("{}", e.to_string());
-                            return Err(e);
-                        }
-                    }
-                }
-
-                // download system plugin when plugin file does not exist
-                if !software.get_system_plugin().is_local() && !system_plugins_path.exists() {
-                    log_info!(
-                        "Download Software System Plugin {} Plugin",
-                        software.get_name()
-                    );
-                    match Url::download_file(
-                        software.get_system_plugin().get_download().as_str(),
-                        &system_plugins_path,
-                    )
-                    .await
-                    {
-                        Ok(_) => {
-                            log_info!(
-                                "Successfully download the Software System Plugin from url {}",
-                                software.get_system_plugin().get_download()
-                            );
-                        }
-                        Err(e) => {
-                            log_error!("{}", e.to_string());
-                            return Err(e);
-                        }
-                    }
-                }
-                let software_lib_list = software.get_software_lib();
-
-                if software_lib_list.is_empty() {
-                    continue;
-                }
-
-                for (url_str, software_lib_path) in software_lib_list {
-                    if !software_lib_path.exists() || software.get_software_file().is_auto_update()
-                    {
-                        let mut path = software_lib_path.clone();
-                        path.pop();
-                        fs::create_dir_all(&path)?;
-
-                        match Url::download_file(&url_str, &software_lib_path).await {
-                            Ok(_) => log_info!(
-                                "Successfuly donwload software lib from {} to {:?}",
-                                url_str,
-                                software_lib_path
-                            ),
-                            Err(e) => log_warning!(
-                                "Software Lib cant download {} \n {}",
-                                url_str,
-                                e.to_string()
-                            ),
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
 }

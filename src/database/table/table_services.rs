@@ -39,7 +39,7 @@ impl TableServices {
             created_at: DBDatetime::get_now(),
             uuid: DBTools::uuid_to_varchar(&service.get_id()),
             name: DBText::from(service.get_name()),
-            typ: DBText::from(service.get_software_name().get_server_type().to_string()),
+            typ: DBText::from(service.get_software_name().get_typ().to_string()),
             node: DBText::from(service.get_parent_node()),
             task: DBText::from(service.get_task().get_name()),
             status: DBText::from(service.get_status().to_string()),

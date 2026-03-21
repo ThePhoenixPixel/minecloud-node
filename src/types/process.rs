@@ -17,7 +17,7 @@ use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tokio::time::{Instant, sleep, timeout as wait};
 
-use crate::config::{CloudConfig, SoftwareName};
+use crate::config::{CloudConfig, Software};
 use crate::types::service::Service;
 use crate::types::task::Task;
 use crate::types::{EntityId, ServiceConfig, ServiceStatus};
@@ -323,7 +323,7 @@ impl ServiceProcess {
             #[deprecated]
             pub fn get_stopped_at_to_string(&self) -> Option<String>;
             #[deprecated]
-            pub fn get_software_name(&self) -> SoftwareName;
+            pub fn get_software_name(&self) -> Software;
             #[deprecated]
             pub fn is_proxy(&self) -> bool;
             #[deprecated]

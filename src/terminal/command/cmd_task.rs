@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 use crate::cloud::Cloud;
 use crate::config::SoftwareConfig;
 use crate::terminal::command_manager::CommandManager;
-use crate::types::{Installer, Software, Task, Template};
+use crate::types::{Installer, SoftwareLink, SoftwareType, Task, Template};
 use crate::{log_info, log_warning};
 
 pub struct CmdTask;
@@ -245,14 +245,18 @@ fn setup_set(mut task: Task, attribute: &str, args: &Vec<&str>) -> Result<(), Er
                     ));
                 }
             };
-
-            let software_name = SoftwareConfig::get()
-                .get_software_type(new_wert)
+            todo!("Fix software")
+            /*let software_name = SoftwareConfig::get()
+                .get_typ(new_wert)
                 .get_software_name(software_name);
-            let software = Software::new(&software_name);
+            let software = SoftwareLink::new(&software_name);
+
+
 
             task.set_software(software);
             log_info!("Software erfolgreich gesetzt");
+
+             */
         }
         "max_ram" => {
             let max_ram: u32 = match new_wert.parse() {
@@ -418,7 +422,7 @@ fn create(args: Vec<&str>) -> Result<(), Error> {
         }
     };
 
-    match Task::create(&input_task_name, &input_software_type, &input_software_name) {
+    match Task::create(&input_task_name, SoftwareLink::new_from_row(SoftwareType::Backend, String::from("Test"), String::from("Test"))) {
         Ok(task) => {
             log_info!("Task | {} | erfolgreich erstellt", task.get_name());
             Ok(())

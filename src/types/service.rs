@@ -3,7 +3,7 @@ use chrono::{NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::config::{CloudConfig, SoftwareName};
+use crate::config::{CloudConfig, Software};
 use crate::types::task::Task;
 use crate::types::{EntityId, ServiceConfig, ServiceStatus};
 
@@ -142,13 +142,13 @@ impl Service {
 
     #[deprecated]
     pub fn is_proxy(&self) -> bool {
-        self.get_software_name().get_server_type().is_proxy()
+        self.get_software_name().get_typ().is_proxy()
     }
 
     #[deprecated]
     pub fn is_backend_server(&self) -> bool {
         self.get_software_name()
-            .get_server_type()
+            .get_typ()
             .is_backend_server()
     }
 
@@ -182,7 +182,8 @@ impl Service {
     }
 
     #[deprecated]
-    pub fn get_software_name(&self) -> SoftwareName {
-        self.get_task().get_software().get_software_name()
+    pub fn get_software_name(&self) -> Software {
+        //self.get_task().get_software().get_software_name()
+        todo!("get software")
     }
 }

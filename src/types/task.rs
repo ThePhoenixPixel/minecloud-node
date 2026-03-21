@@ -12,7 +12,7 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::config::{CloudConfig, SoftwareConfig};
 use crate::types::installer::Installer;
-use crate::types::software::Software;
+use crate::types::software_link::SoftwareLink;
 use crate::types::template::Template;
 use crate::{log_error, log_info};
 
@@ -23,7 +23,7 @@ pub struct Task {
     groups: Vec<String>,
     delete_on_stop: bool,
     static_service: bool,
-    software: Software,
+    software: SoftwareLink,
     start_port: u32,
     max_ram: u32,
     nodes: Vec<String>,
@@ -51,20 +51,18 @@ pub struct TaskRef(Arc<RwLock<Task>>);
 impl Task {
     pub fn create(
         name: &String,
-        software_type: &String,
-        software_name: &String,
+        software_link: SoftwareLink,
     ) -> Result<Task, &'static str> {
         // check if Task exists
         if Task::is_exist(name.clone()) {
             return Err("Task Esistierts bereits");
         }
 
-        // check if Software exists
-        if !SoftwareConfig::is_exists(software_type, software_name) {
-            return Err("Software NOT Found");
-        }
+        let software = match SoftwareConfig::find_software(&software_link) {
+            Some(s) => s,
+            None => return Err("Sofwtare not found"),
+        };
 
-        let software = SoftwareConfig::get_software(software_type, software_name);
         let template = Template::new(&name, "default", 1, false);
         let task = Task {
             name: name.to_string(),
@@ -72,7 +70,7 @@ impl Task {
             delete_on_stop: true,
             static_service: false,
             nodes: Vec::new(),
-            software: Software::new(&software),
+            software: software_link,
             max_ram: software.get_max_ram(),
             start_port: 40000,
             min_service_count: 0,
@@ -188,11 +186,11 @@ impl Task {
     }
 
     // Getter and Setter for software
-    pub fn get_software(&self) -> Software {
+    pub fn get_software(&self) -> SoftwareLink {
         self.software.clone()
     }
 
-    pub fn set_software(&mut self, software: Software) {
+    pub fn set_software(&mut self, software: SoftwareLink) {
         self.software = software;
         self.save_to_file();
     }
@@ -495,7 +493,7 @@ impl Task {
         log_info!("software: ");
         log_info!(
             "     software_type: {}",
-            self.get_software().get_software_type()
+            self.get_software().get_software_type().to_string()
         );
         log_info!("     name: {}", self.get_software().get_name());
         log_info!("max_ram: {}", self.get_max_ram());

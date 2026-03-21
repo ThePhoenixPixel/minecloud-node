@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
-use crate::types::{Installer, Software, Task, Template};
+use crate::types::{Installer, SoftwareLink, Task, Template};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ServiceConfig {
-    software: Software,
+    software: SoftwareLink,
     max_ram: u32,
     max_players: u32,
     start_port: u32,
@@ -12,7 +12,7 @@ pub struct ServiceConfig {
 }
 
 impl ServiceConfig {
-    pub fn get_software(&self) -> &Software {
+    pub fn get_software(&self) -> &SoftwareLink {
         &self.software
     }
 

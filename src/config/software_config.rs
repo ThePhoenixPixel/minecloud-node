@@ -4,203 +4,297 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use strum::IntoEnumIterator;
 use tokio::sync::RwLock;
 
 use crate::config::cloud_config::CloudConfig;
-use crate::types::ServerType;
-use crate::{log_error, log_info, log_warning};
+use crate::types::{SoftwareLink, SoftwareType};
+use crate::{error, log_error, log_info, log_warning};
+use crate::utils::error::*;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Debug)]
 pub struct SoftwareConfig {
-    software_type: HashMap<String, SoftwareType>,
+    software: HashMap<SoftwareLink, Software>,
 }
 
-pub struct SoftwareConfigRef(Arc<RwLock<SoftwareConfig>>);
-
 impl SoftwareConfig {
-    pub fn new(cloud_config: Arc<CloudConfig>) -> SoftwareConfig {
-        let file_content = fs::read_to_string(
-            CloudConfig::get()
-                .get_cloud_path()
-                .get_system_folder()
-                .get_software_config_path(),
-        )
-        .unwrap_or_else(|e| {
-            log_warning!("Please specify the correct path to the software file configuration");
-            log_error!("{}", &e.to_string());
-            get_default_software_config()
-        });
 
-        let mut config: SoftwareConfig = match serde_json::from_str(&file_content) {
-            Ok(config) => config,
-            Err(e) => {
-                log_error!(1, "Error deserializing the software file configuration");
-                log_error!(1, "{}", &e.to_string());
-                panic!("The GameCloud has a fatal Error");
-            }
-        };
-
-        for (type_name, software_type) in config.software_type.iter_mut() {
-            software_type.set_type_for_software_names(type_name);
-        }
-
-        config
-    }
-
-    pub fn get() -> SoftwareConfig {
-        let file_content = fs::read_to_string(
-            CloudConfig::get()
-                .get_cloud_path()
-                .get_system_folder()
-                .get_software_config_path(),
-        )
-        .unwrap_or_else(|e| {
-            log_warning!("Please specify the correct path to the software file configuration");
-            log_error!("{}", &e.to_string());
-            get_default_software_config()
-        });
-
-        let mut config: SoftwareConfig = match serde_json::from_str(&file_content) {
-            Ok(config) => config,
-            Err(e) => {
-                log_error!(1, "Error deserializing the software file configuration");
-                log_error!(1, "{}", &e.to_string());
-                panic!("The GameCloud has a fatal Error");
-            }
-        };
-
-        for (type_name, software_type) in config.software_type.iter_mut() {
-            software_type.set_type_for_software_names(type_name);
-        }
-
-        config
-    }
-
-    pub fn get_software_type(&self, software_type: &str) -> SoftwareType {
-        self.software_type
-            .get(&software_type.to_lowercase())
-            .cloned()
-            .unwrap_or_else(default_software_type)
-    }
-
-    pub fn get_software_types(&self) -> HashMap<String, SoftwareType> {
-        self.software_type.clone()
-    }
-
-    pub fn remove_software_type(&mut self, name: &str) {
-        self.software_type.remove(name);
-    }
-
-    pub async fn check(url: &String) {
-        if !CloudConfig::get()
+    /// load the Software from a CloudConfig and return a SoftwareConfig Obj.
+    pub fn load(system_config: &CloudConfig) -> SoftwareConfig {
+        let software_path = system_config
             .get_cloud_path()
             .get_system_folder()
-            .get_software_config_path()
-            .exists()
-        {
-            SoftwareConfig::install(url).await;
-        }
-    }
+            .get_software_config_path();
 
-    pub async fn install(start_url: &String) {
-        let url = format!("{}/config/software.json", start_url);
-        let mut folder_path = CloudConfig::get()
-            .get_cloud_path()
-            .get_system_folder()
-            .get_software_config_path()
-            .join("software.json");
+        let mut software = HashMap::new();
 
-        folder_path.pop();
-        match Url::download_file(url.as_str(), &folder_path).await {
-            Ok(_) => log_info!("Successfully download the Software Config from {}", url),
-            Err(e) => {
-                log_error!("{}", e);
-                panic!("Game Cloud has an fatal Error");
-            }
-        }
-    }
+        for software_type in SoftwareType::iter() {
+            let type_path = software_path.join(software_type.to_string());
 
-    pub fn get_software(software_type: &str, software_name: &str) -> SoftwareName {
-        let software_config = SoftwareConfig::get();
-        let software_type = software_config.get_software_type(software_type);
-        software_type.get_software_name(software_name)
-    }
-
-    pub fn is_exists(typ: &str, name: &str) -> bool {
-        let software_types = SoftwareConfig::get().get_software_types();
-
-        for (software_typ, software_type) in software_types {
-            if !(software_typ == typ.to_string()) {
+            if !type_path.is_dir() {
                 continue;
             }
-            for software_name in software_type.get_software_names() {
-                if software_name.get_name() == name.to_string() {
-                    return true;
+
+            let name_entries = match fs::read_dir(&type_path) {
+                Ok(e) => e,
+                Err(e) => {
+                    log_warning!("Cannot read dir {}: {}", type_path.display(), e);
+                    continue;
+                }
+            };
+
+            for name_entry in name_entries.flatten() {
+                let name_path = name_entry.path();
+                if !name_path.is_dir() {
+                    continue;
+                }
+
+                let version_entries = match fs::read_dir(&name_path) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        log_warning!("Cannot read dir {}: {}", name_path.display(), e);
+                        continue;
+                    }
+                };
+
+                for version_entry in version_entries.flatten() {
+                    let version_path = version_entry.path().join("software.json");
+                    if version_path.extension().and_then(|e| e.to_str()) != Some("json") {
+                        continue;
+                    }
+
+                    Self::load_file(&version_path, &mut software);
                 }
             }
         }
-        false
+
+        SoftwareConfig {
+            software
+        }
+    }
+
+    fn load_file(
+        path: &PathBuf,
+        map: &mut HashMap<SoftwareLink, Software>,
+    ) {
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(e) => {
+                log_warning!(2, "Failed to read {}: {}", path.display(), e); return;
+            }
+        };
+
+        match serde_json::from_str::<Software>(&content) {
+            Ok(s) => {
+                let link = SoftwareLink::new(s.get_typ().clone(), &s);
+                map.insert(link, s);
+            }
+            Err(e) => log_warning!(2, "Failed to parse {}: {}", path.display(), e),
+        }
+    }
+
+    #[deprecated]
+    pub fn get() -> SoftwareConfig {
+        Self::load(&CloudConfig::get())
+    }
+
+    #[deprecated]
+    pub fn find_software(link: &SoftwareLink) -> Option<Software> {
+        Self::load(&CloudConfig::get()).software.get(link).cloned()
+    }
+
+    /// return all Software
+    pub fn get_all(&self) -> &HashMap<SoftwareLink, Software> {
+        &self.software
+    }
+
+    // Orchestrator — ruft alles in der richtigen Reihenfolge auf
+    pub async fn check(system_config: &CloudConfig, url: &String) -> CloudResult<SoftwareConfig> {
+        let software_path = CloudConfig::get()
+            .get_cloud_path()
+            .get_system_folder()
+            .get_software_config_path();
+
+        let needs_install = !software_path.exists() || SoftwareType::iter().any(|software_type| {
+            !software_path.join(software_type.to_string()).exists()
+        });
+
+        if needs_install {
+            SoftwareConfig::install_configs(url).await?;
+        }
+
+        let software_config = SoftwareConfig::load(system_config);
+
+        for (link, software) in &software_config.software {
+            SoftwareConfig::install_jar(link, software).await?;
+            SoftwareConfig::install_plugin(link, software).await?;
+            SoftwareConfig::install_libs(link, software).await?;
+        }
+
+        Ok(software_config)
+    }
+
+    // Lädt die .json Config-Dateien vom Server
+    pub async fn install_configs(start_url: &String) -> CloudResult<()> {
+        let base_dir = CloudConfig::get()
+            .get_cloud_path()
+            .get_system_folder()
+            .get_software_config_path();
+
+        for software_type in SoftwareType::iter() {
+            let type_path = base_dir.join(software_type.to_string());
+            if let Err(e) = fs::create_dir_all(&type_path) {
+                return Err(error!(CantCreateSoftwareConfigPath, e));
+            }
+        }
+
+        let index_url = format!("{}config/software/index.json", start_url);
+        let index_content = match reqwest::get(&index_url).await {
+            Ok(res) => match res.text().await {
+                Ok(text) => text,
+                Err(e) => return Err(error!(CantFetchSoftwareIndex, e)),
+            },
+            Err(e) => return Err(error!(CantFetchSoftwareIndex, e)),
+        };
+
+        let files: Vec<String> = match serde_json::from_str(&index_content) {
+            Ok(f) => f,
+            Err(e) => return Err(error!(CantParseSoftwareIndex, e)),
+        };
+
+        for file in &files {
+            let url = format!("{}config/software/{}", start_url, file);
+            let path = base_dir.join(file);
+
+            if let Some(parent) = path.parent() {
+                if let Err(e) = fs::create_dir_all(parent) {
+                    return Err(error!(CantCreateSoftwareConfigPath, e));
+                }
+            }
+
+            match Url::download_file(url.as_str(), &path).await {
+                Ok(_) => log_info!("Downloaded software config: {}", file),
+                Err(e) => return Err(error!(CantDownloadSoftwareConfig, e)),
+            }
+        }
+
+        log_info!("Successfully installed {} software configs", files.len());
+        Ok(())
+    }
+
+    // Lädt die Software-JAR (paper.jar, velocity.jar, ...)
+    pub async fn install_jar(link: &SoftwareLink, software: &Software) -> CloudResult<()> {
+        let version_path = Self::get_version_path(link);
+        fs::create_dir_all(&version_path).map_err(|e| error!(CantCreateSoftwareConfigPath, e))?;
+
+        let software_file_url = software.get_software_file().get_url();
+        let jar_path = match Url::extract_extension_from_url(&software_file_url) {
+            Some(ext) => version_path.join(format!("{}.{}", link.get_name(), ext)),
+            None => version_path.join(&link.get_name()),
+        };
+
+        if !jar_path.exists() {
+            log_info!("Downloading jar {}-{}", link.get_name(), link.get_version());
+            match Url::download_file(&software_file_url, &jar_path).await {
+                Ok(_) => log_info!("Downloaded jar {}-{}", link.get_name(), link.get_version()),
+                Err(e) => {
+                    log_error!("Failed to download jar {}-{}: {}", link.get_name(), link.get_version(), e);
+                    return Err(error!(CantDownloadSoftwareConfig, e));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    // Lädt das System-Plugin (MineCloud-paper.jar, ...)
+    pub async fn install_plugin(link: &SoftwareLink, software: &Software) -> CloudResult<()> {
+        let plugin = software.get_system_plugin();
+        if plugin.is_local() { return Ok(()); }
+
+        let plugins_path = Self::get_version_path(link).join("plugin");
+        fs::create_dir_all(&plugins_path).map_err(|e| error!(CantCreateSoftwareConfigPath, e))?;
+
+        let plugin_path = match Url::extract_extension_from_url(&plugin.get_download()) {
+            Some(ext) => plugins_path.join(format!("MineCloud-{}.{}", link.get_name(), ext)),
+            None => plugins_path.join(&link.get_name()),
+        };
+
+        if !plugin_path.exists() {
+            log_info!("Downloading plugin for {}-{}", link.get_name(), link.get_version());
+            match Url::download_file(plugin.get_download().as_str(), &plugin_path).await {
+                Ok(_) => log_info!("Downloaded plugin for {}-{}", link.get_name(), link.get_version()),
+                Err(e) => {
+                    log_error!("Failed to download plugin for {}-{}: {}", link.get_name(), link.get_version(), e);
+                    return Err(error!(CantDownloadSoftwareConfig, e));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    // Lädt die Software-Libs (eula.txt, velocity.toml, ...)
+    pub async fn install_libs(link: &SoftwareLink, software: &Software) -> CloudResult<()> {
+        let lib_path = Self::get_version_path(link).join("lib");
+        fs::create_dir_all(&lib_path).map_err(|e| error!(CantCreateSoftwareConfigPath, e))?;
+
+        for (url_str, lib_file) in software.get_software_lib() {
+            let full_path = lib_path.join(&lib_file);
+
+            if !full_path.exists() || software.get_software_file().is_auto_update() {
+                match Url::download_file(&url_str, &full_path).await {
+                    Ok(_) => log_info!("Downloaded lib {} to {:?}", url_str, full_path),
+                    Err(e) => log_warning!("Failed to download lib {}: {}", url_str, e),
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    // Hilfsfunktion — Basispfad für eine Version
+    fn get_version_path(link: &SoftwareLink) -> PathBuf {
+        CloudConfig::get()
+            .get_cloud_path()
+            .get_system_folder()
+            .get_software_config_path()
+            .join(link.get_software_type().to_string())
+            .join(link.get_name())
+            .join(link.get_version())
     }
 }
 
 // -----------------------------------------------------------
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct SoftwareType {
-    software_name: Vec<SoftwareName>,
-}
+// SoftwareName — entspricht direkt einer .json Datei
+// -----------------------------------------------------------
 
-impl SoftwareType {
-    pub fn get_software_name(&self, name: &str) -> SoftwareName {
-        self.software_name
-            .iter()
-            .find(|software| software.get_name() == name.to_lowercase())
-            .cloned()
-            .unwrap_or_else(default_software_name)
-    }
-
-    pub fn get_software_names(&self) -> Vec<SoftwareName> {
-        self.software_name.clone()
-    }
-
-    pub fn remove_software_name(&mut self, software_name: &SoftwareName) {
-        self.software_name
-            .insert(self.software_name.len() + 1, software_name.clone());
-    }
-    pub fn get_type_name(&self) -> String {
-        for (name, software_type) in SoftwareConfig::get().get_software_types() {
-            if software_type.clone() == self.clone() {
-                return name;
-            }
-        }
-        String::new()
-    }
-    pub fn set_type_for_software_names(&mut self, type_name: &str) {
-        for software_name in &mut self.software_name {
-            software_name.set_type(type_name);
-        }
-    }
-}
-
-//-------------------------------------------------------------
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
-pub struct SoftwareName {
+pub struct Software {
     name: String,
+    typ: SoftwareType,
+    version: String,
+
     software_file: SoftwareFile,
     environment: Environment,
     max_ram: u32,
     ip_path: String,
     port_path: String,
-    server_type: ServerType,
     system_plugin: SystemPlugin,
     software_lib: HashMap<String, String>,
-
-    #[serde(skip)]
-    typ: String,
 }
 
-impl SoftwareName {
-    pub fn get_name(&self) -> String {
-        self.name.to_lowercase()
+impl Software {
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn get_typ(&self) -> &SoftwareType {
+        &self.typ
+    }
+
+    pub fn get_version(&self) -> &str {
+        &self.version
     }
 
     pub fn get_software_file(&self) -> SoftwareFile {
@@ -210,19 +304,17 @@ impl SoftwareName {
     pub fn get_environment(&self) -> Environment {
         self.environment.clone()
     }
+
     pub fn get_max_ram(&self) -> u32 {
-        self.max_ram.clone()
+        self.max_ram
     }
+
     pub fn get_ip_path(&self) -> String {
         self.ip_path.clone()
     }
 
     pub fn get_port_path(&self) -> String {
         self.port_path.clone()
-    }
-
-    pub fn get_server_type(&self) -> ServerType {
-        self.server_type.clone()
     }
 
     pub fn get_system_plugin(&self) -> SystemPlugin {
@@ -234,57 +326,34 @@ impl SoftwareName {
             .get_cloud_path()
             .get_system_folder()
             .get_software_files_folder_path();
-        let software_path =
-            match Url::extract_extension_from_url(&self.get_software_file().get_url()) {
-                Some(ext) => software_files_path.join(format!("{}.{}", self.get_name(), ext)),
-                None => software_files_path.join(self.get_name()),
-            };
 
-        software_path
+        match Url::extract_extension_from_url(&self.get_software_file().get_url()) {
+            Some(ext) => software_files_path.join(format!("{}.{}", self.get_name(), ext)),
+            None => software_files_path.join(self.get_name()),
+        }
     }
-    pub fn get_software_lib_str(&self) -> HashMap<String, String> {
-        self.software_lib.clone()
-    }
+
     pub fn get_software_lib(&self) -> HashMap<String, PathBuf> {
-        let mut map = HashMap::new();
         let software_lib_path = CloudConfig::get()
             .get_cloud_path()
             .get_system_folder()
             .get_software_lib_folder_path();
-        let software_type = match self.get_software_type() {
-            Some(typ) => typ,
-            None => return HashMap::new(),
-        };
 
-        for (url_str, path_str) in self.get_software_lib_str() {
-            let path = software_lib_path
-                .join(software_type.get_type_name())
-                .join(self.get_name())
-                .join(path_str);
-            map.insert(url_str, path);
-        }
-
-        map
-    }
-    pub fn get_software_type(&self) -> Option<SoftwareType> {
-        let software_types = SoftwareConfig::get().get_software_types();
-        for (_name, software_type) in software_types {
-            for software_name in software_type.get_software_names() {
-                if self.get_name() == software_name.get_name() {
-                    return Some(software_type.clone());
-                }
-            }
-        }
-        None
-    }
-
-    pub fn get_typ(&self) -> String {
-        self.typ.clone()
-    }
-    pub fn set_type(&mut self, typ: &str) {
-        self.typ = String::from(typ)
+        self.software_lib
+            .iter()
+            .map(|(url_str, path_str)| {
+                let path = software_lib_path
+                    .join(self.get_name())
+                    .join(path_str);
+                (url_str.clone(), path)
+            })
+            .collect()
     }
 }
+
+// -----------------------------------------------------------
+// Hilfstrukturen (unverändert)
+// -----------------------------------------------------------
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
 pub struct Environment {
@@ -300,6 +369,7 @@ impl Environment {
         self.process_args.clone()
     }
 }
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
 pub struct SoftwareFile {
     url: String,
@@ -333,103 +403,28 @@ impl SystemPlugin {
     pub fn get_download(&self) -> String {
         self.download.clone()
     }
-    pub fn get_file_name(&self) -> String {
-        todo!();
-    }
     pub fn get_path(&self) -> String {
         self.path.clone()
     }
 }
 
-fn get_default_software_config() -> String {
-    let json_str = r#"
-{
-  "software_type": {
-    "server": {
-      "software_name": [
-        {
-          "name": "paper",
-          "download": "https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/389/downloads/paper-1.20.4-389.jar",
-          "command": "java",
-          "max_ram": 1024,
-          "ip_path": "server.properties",
-          "port_path": "server.properties",
-          "system_plugin": {
-            "local": false,
-            "download": "http://download.codergames.de/minecloud/version/0.1/config/system_plugins/MineCloud-Paper.jar",
-            "path": "plugins/"
-          },
-          "software_lib": [
-            "http://download.codergames.de/minecloud/version/0.1/config/software_lib/paper/server.propeties",
-            "test2"
-          ]
-        }
-      ]
-    },
-    "proxy": {
-      "software_name": [
-        {
-          "name": "velocity",
-          "download": "https://api.papermc.io/v2/projects/velocity/versions/3.3.0-SNAPSHOT/builds/323/downloads/velocity-3.3.0-SNAPSHOT-323.jar",
-          "command": "java",
-          "max_ram": 512,
-          "ip_path": "velocity.toml",
-          "port_path": "velocity.toml",
-          "system_plugin": {
-            "local": false,
-            "download": "http://download.codergames.de/minecloud/version/0.1/config/system_plugins/MineCloud-Velocity.jar",
-            "path": "plugins/"
-          },
-          "software_lib": [
-            "http://download.codergames.de/minecloud/version/0.1/config/software_lib/velocity/velocity.toml",
-            "test2"
-          ]
-        }
-      ]
-    }
-  }
-}
-    "#;
-    json_str.to_string()
-}
-fn default_software_type() -> SoftwareType {
-    // Erzeugt eine Standardkonfiguration für `SoftwareType`
-    SoftwareType {
-        software_name: vec![default_software_name()],
-    }
-}
-
-fn default_software_name() -> SoftwareName {
-    // Erzeugt eine Standardkonfiguration für `SoftwareName`
-    SoftwareName {
-        name: "paper_default".to_string(),
-        software_file: SoftwareFile {
-            url: "https://example.com/default_download".to_string(),
-            file_name: "default_file.jar".to_string(),
-            auto_update: false,
-        },
-        environment: Environment {
-            command: "java".to_string(),
-            process_args: vec!["-Xmx%max_ram%M".to_string()],
-        },
-        max_ram: 1024,
-        ip_path: "server.properties".to_string(),
-        port_path: "server.properties".to_string(),
-        server_type: ServerType::BackendServer,
-        system_plugin: SystemPlugin {
-            local: true,
-            download: "https://example.com/default_plugin".to_string(),
-            path: "plugins/".to_string(),
-        },
-        software_lib: HashMap::new(),
-        typ: "default".to_string(),
-    }
-}
-
+pub struct SoftwareConfigRef(Arc<RwLock<SoftwareConfig>>);
 
 impl SoftwareConfigRef {
-    pub fn new(cloud_config: Arc<CloudConfig>) -> SoftwareConfigRef {
-        SoftwareConfigRef(Arc::new(RwLock::new(SoftwareConfig::new(cloud_config))))
+    pub fn new(software_config: SoftwareConfig) -> SoftwareConfigRef {
+        SoftwareConfigRef {
+            0: Arc::new(RwLock::new(software_config))
+        }
+    }
+
+    pub async fn find_software(&self, link: &SoftwareLink) -> Option<Software> {
+        let config = self.0.read().await;
+        config.software.get(link).cloned()
+    }
+
+    pub async fn get_all(&self) -> HashMap<SoftwareLink, Software> {
+        let config = self.0.read().await;
+        config.get_all().clone()
     }
 }
 
@@ -438,4 +433,3 @@ impl Clone for SoftwareConfigRef {
         Self(self.0.clone())
     }
 }
-

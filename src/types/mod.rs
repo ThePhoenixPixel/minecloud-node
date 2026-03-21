@@ -1,7 +1,9 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_aux::prelude::deserialize_struct_case_insensitive;
 use std::cmp::PartialEq;
 use std::fmt;
+use std::path::Path;
+use strum_macros::EnumIter;
 use uuid::Uuid;
 
 pub use installer::*;
@@ -67,29 +69,51 @@ impl From<String> for CloudUuid {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
-#[serde()]
+#[derive(Serialize, Clone, Debug, Default, EnumIter)]
+#[derive(Eq, Hash, PartialEq)]
+#[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum SoftwareType {
     #[default]
     #[serde(deserialize_with = "deserialize_struct_case_insensitive")]
     Proxy,
 
     #[serde(deserialize_with = "deserialize_struct_case_insensitive")]
-    BackendServer,
+    Backend,
 }
 
 impl SoftwareType {
     pub fn to_string(&self) -> String {
         match self {
-            SoftwareType::Proxy => String::from("Proxy"),
-            SoftwareType::BackendServer => String::from("BackendServer"),
+            SoftwareType::Proxy => String::from("proxy"),
+            SoftwareType::Backend => String::from("backend"),
         }
     }
     pub fn is_proxy(&self) -> bool {
         *self == SoftwareType::Proxy
     }
     pub fn is_backend_server(&self) -> bool {
-        *self == SoftwareType::BackendServer
+        *self == SoftwareType::Backend
+    }
+}
+
+impl<'de> Deserialize<'de> for SoftwareType {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?.to_lowercase();
+        match s.as_str() {
+            "proxy" => Ok(SoftwareType::Proxy),
+            "backend" => Ok(SoftwareType::Backend),
+            _ => Err(serde::de::Error::unknown_variant(&s, &["proxy", "backend"])),
+        }
+    }
+}
+
+impl AsRef<Path> for SoftwareType {
+    fn as_ref(&self) -> &Path {
+        Path::new(match self {
+            SoftwareType::Backend => "backend",
+            SoftwareType::Proxy => "proxy",
+        })
     }
 }
 

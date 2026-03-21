@@ -154,7 +154,7 @@ impl CloudConfig {
         println!("  System Folder:");
         println!(
             "    Software Config: {}",
-            system_folder.get_software_config()
+            system_folder.get_software_config_folder()
         );
         println!("    Default Task: {}", system_folder.get_default_task());
         println!(
@@ -258,8 +258,8 @@ impl CloudConfigService {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CloudConfigSystem {
-    software_config: String,
     default_task: String,
+    software_config_folder: String,
     system_plugins_folder: String,
     software_files_folder: String,
     software_lib_folder: String,
@@ -267,27 +267,27 @@ pub struct CloudConfigSystem {
 
 impl CloudConfigSystem {
     pub fn new(
-        software_config: &String,
         default_task: &String,
         system_plugins_folder: &String,
         software_files_folder: &String,
         software_lib_folder: &String,
+        software_config_folder: &String,
     ) -> CloudConfigSystem {
         CloudConfigSystem {
-            software_config: software_config.clone(),
             default_task: default_task.clone(),
             system_plugins_folder: system_plugins_folder.clone(),
             software_files_folder: software_files_folder.clone(),
             software_lib_folder: software_lib_folder.clone(),
+            software_config_folder: software_config_folder.clone(),
         }
     }
 
-    pub fn get_software_config(&self) -> String {
-        format!("{}software.json", self.software_config)
+    pub fn get_software_config_folder(&self) -> &str {
+        &self.software_config_folder
     }
 
     pub fn get_software_config_path(&self) -> PathBuf {
-        Utils::get_path(&self.software_config).join("software.json")
+        Utils::get_path(&self.software_config_folder)
     }
 
     pub fn get_default_task(&self) -> String {
@@ -318,7 +318,6 @@ impl CloudConfigSystem {
         Utils::get_path(&self.get_software_lib_folder())
     }
 }
-
 fn get_default_file() -> String {
     let json_str = r#"
     {

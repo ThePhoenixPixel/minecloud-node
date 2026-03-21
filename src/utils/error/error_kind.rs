@@ -10,11 +10,16 @@ pub enum CloudErrorKind {
 
     /// 11.xxx Directory
     PathServe,
+    CantCreateSoftwareConfigPath,
+    CantReadSoftwareConfigDir,
 
     /// 12.xxx network
     NextFreePortNotFound,
 
     /// 2x.xxx CloudSystem
+    CantFetchSoftwareIndex,
+    CantParseSoftwareIndex,
+    CantDownloadSoftwareConfig,
 
     /// 21.xxx Task
     TaskNotFound,
