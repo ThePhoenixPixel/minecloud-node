@@ -14,19 +14,11 @@ pub struct SoftwareLink {
 
 impl SoftwareLink {
 
-    pub fn new_from_row(typ: SoftwareType, name: String, version: String) -> SoftwareLink {
+    pub fn new(typ: SoftwareType, name: String, version: String) -> SoftwareLink {
         SoftwareLink {
             typ,
             name,
             version,
-        }
-    }
-
-    pub fn new(software: &Software) -> SoftwareLink {
-        SoftwareLink {
-            typ: software.get_typ().clone(),
-            name: software.get_name().to_string(),
-            version: software.get_version().to_string(),
         }
     }
 
