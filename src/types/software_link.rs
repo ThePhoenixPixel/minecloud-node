@@ -22,9 +22,9 @@ impl SoftwareLink {
         }
     }
 
-    pub fn new(typ: SoftwareType, software: &Software) -> SoftwareLink {
+    pub fn new(software: &Software) -> SoftwareLink {
         SoftwareLink {
-            typ,
+            typ: software.get_typ().clone(),
             name: software.get_name().to_string(),
             version: software.get_version().to_string(),
         }
