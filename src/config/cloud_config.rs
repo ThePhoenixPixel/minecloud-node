@@ -9,7 +9,7 @@ use crate::cloud::Cloud;
 use crate::utils::utils::Utils;
 use crate::{log_error, log_info};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CloudConfig {
     name: String,
     prefix: String,
@@ -168,7 +168,7 @@ impl CloudConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CloudConfigPath {
     task_folder: String,
     template_folder: String,
@@ -225,7 +225,7 @@ impl CloudConfigPath {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CloudConfigService {
     temp_folder: String,
     static_folder: String,
@@ -256,7 +256,7 @@ impl CloudConfigService {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CloudConfigSystem {
     default_task: String,
     software_config_folder: String,

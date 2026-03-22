@@ -14,13 +14,14 @@ use crate::utils::error::*;
 
 #[derive(Debug)]
 pub struct SoftwareConfig {
+    system_config: Arc<CloudConfig>,
     software: HashMap<SoftwareLink, Software>,
 }
 
 impl SoftwareConfig {
 
     /// load the Software from a CloudConfig and return a SoftwareConfig Obj.
-    pub fn load(system_config: &CloudConfig) -> SoftwareConfig {
+    pub fn load(system_config: Arc<CloudConfig>) -> SoftwareConfig {
         let software_path = system_config
             .get_cloud_path()
             .get_system_folder()
@@ -69,6 +70,7 @@ impl SoftwareConfig {
         }
 
         SoftwareConfig {
+            system_config,
             software
         }
     }
@@ -95,12 +97,12 @@ impl SoftwareConfig {
 
     #[deprecated]
     pub fn get() -> SoftwareConfig {
-        Self::load(&CloudConfig::get())
+        Self::load(Arc::new(CloudConfig::get()))
     }
 
     #[deprecated]
     pub fn find_software(link: &SoftwareLink) -> Option<Software> {
-        Self::load(&CloudConfig::get()).software.get(link).cloned()
+        Self::load(Arc::new(CloudConfig::get())).software.get(link).cloned()
     }
 
     /// return all Software
@@ -109,7 +111,7 @@ impl SoftwareConfig {
     }
 
     // Orchestrator — ruft alles in der richtigen Reihenfolge auf
-    pub async fn check(system_config: &CloudConfig, url: &String) -> CloudResult<SoftwareConfig> {
+    pub async fn check_and_get(system_config: Arc<CloudConfig>, url: &String) -> CloudResult<SoftwareConfig> {
         let software_path = CloudConfig::get()
             .get_cloud_path()
             .get_system_folder()

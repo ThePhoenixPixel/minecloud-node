@@ -32,9 +32,9 @@ pub struct Cloud {
 }
 
 impl Cloud {
-    pub async fn new(cloud_config: CloudConfig, software_config: SoftwareConfig) -> CloudResult<Self> {
+    pub async fn new(cloud_config: CloudConfig, url: String) -> CloudResult<Self> {
         let config = Arc::new(cloud_config);
-        let software_config = SoftwareConfigRef::new(software_config);
+        let software_config = SoftwareConfigRef::new(SoftwareConfig::check_and_get(config.clone(), &url).await.expect("Checking Software failed"));
         let mut db = DatabaseManager::new(config.get_db_config())?;
         db.connect().await?;
         let db = Arc::new(db);
@@ -96,11 +96,8 @@ impl Cloud {
         // check folder
         Cloud::check_folder(&cloud_config).expect("Checking Folder failed");
 
-        // check software
-        let software_config = SoftwareConfig::check(&cloud_config, &url).await.expect("Checking Software failed");
-
         let cloud = Arc::new(RwLock::new(
-            Cloud::new(cloud_config, software_config).await.expect("Cant Create Cloud"),
+            Cloud::new(cloud_config, url).await.expect("Cant Create Cloud"),
         ));
 
         // Internal API
