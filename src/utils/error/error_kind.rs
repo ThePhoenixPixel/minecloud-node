@@ -7,11 +7,14 @@ pub enum CloudErrorKind {
     CantReadFileToString,
     CantParseToValue,
     DeserializationError,
+    CantCreateDownloadClient,
+    DownloadFailed,
 
     /// 11.xxx Directory
     PathServe,
     CantCreateSoftwareConfigPath,
     CantReadSoftwareConfigDir,
+    CantWriteFile,
 
     /// 12.xxx network
     NextFreePortNotFound,

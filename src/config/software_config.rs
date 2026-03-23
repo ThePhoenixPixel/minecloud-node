@@ -9,8 +9,9 @@ use tokio::sync::RwLock;
 
 use crate::config::cloud_config::CloudConfig;
 use crate::types::{SoftwareLink, SoftwareType};
-use crate::{error, log_error, log_info, log_warning};
+use crate::{error, log_info, log_warning};
 use crate::utils::error::*;
+use crate::utils::utils::{Web, WebDownloadResult};
 
 #[derive(Debug)]
 pub struct SoftwareConfig {
@@ -137,7 +138,6 @@ impl SoftwareConfig {
         Ok(software_config)
     }
 
-    // Lädt die .json Config-Dateien vom Server
     pub async fn install_configs(system_config: &Arc<CloudConfig>, start_url: &String) -> CloudResult<()> {
         let base_dir = system_config
             .get_cloud_path()
@@ -176,13 +176,13 @@ impl SoftwareConfig {
                 .map_err(|e| error!(CantCreateSoftwareConfigPath, e))?;
 
 
-            match Url::download_file(url.as_str(), &path).await {
-                Ok(_) => log_info!("Downloaded software config: {}", file),
-                Err(e) => return Err(error!(CantDownloadSoftwareConfig, e)),
+            match Web::download_file(url.as_str(), &path, false).await {
+                WebDownloadResult::Downloaded       => log_info!(5, "Successfully downloaded software config: {}", file),
+                WebDownloadResult::Err(e) => log_warning!(3, "Cant download Software Config: {} Error: {}", file, e),
+                WebDownloadResult::Skipped          => (),
             }
         }
 
-        log_info!("Successfully installed {} software configs", files.len());
         Ok(())
     }
 
@@ -197,15 +197,10 @@ impl SoftwareConfig {
             None => server_path.join(software.get_name()),
         };
 
-        if !jar_path.exists() {
-            log_info!("Downloading jar {}-{}", software.get_name(), software.get_version());
-            match Url::download_file(&software_file_url, &jar_path).await {
-                Ok(_) => log_info!("Downloaded jar {}-{}", software.get_name(), software.get_version()),
-                Err(e) => {
-                    log_error!("Failed to download jar {}-{}: {}", software.get_name(), software.get_version(), e);
-                    return Err(error!(CantDownloadSoftwareConfig, e));
-                }
-            }
+        match Web::download_file(&software_file_url, &jar_path, true).await {
+            WebDownloadResult::Downloaded => log_info!(5, "Downloaded {}-{}", software.get_name(), software.get_version()),
+            WebDownloadResult::Err(e) => log_warning!("Failed to download {}-{}: {}", software.get_name(), software.get_version(), e),
+            WebDownloadResult::Skipped => (),
         }
 
         Ok(())
@@ -224,15 +219,10 @@ impl SoftwareConfig {
             None => plugins_path.join(software.get_name()),
         };
 
-        if !plugin_path.exists() {
-            log_info!("Downloading plugin for {}-{}", software.get_name(), software.get_version());
-            match Url::download_file(plugin.get_download().as_str(), &plugin_path).await {
-                Ok(_) => log_info!("Downloaded plugin for {}-{}", software.get_name(), software.get_version()),
-                Err(e) => {
-                    log_error!("Failed to download plugin for {}-{}: {}", software.get_name(), software.get_version(), e);
-                    return Err(error!(CantDownloadSoftwareConfig, e));
-                }
-            }
+        match Web::download_file(plugin.get_download().as_str(), &plugin_path, true).await {
+            WebDownloadResult::Downloaded => log_info!(5, "Downloaded plugin for {}-{}", software.get_name(), software.get_version()),
+            WebDownloadResult::Err(e) => log_warning!("Failed to download plugin for {}-{}: {}", software.get_name(), software.get_version(), e),
+            WebDownloadResult::Skipped => (),
         }
 
         Ok(())
@@ -246,11 +236,10 @@ impl SoftwareConfig {
         for (url_str, lib_file) in software.get_software_lib() {
             let full_path = lib_path.join(lib_file);
 
-            if !full_path.exists() || software.get_software_file().is_auto_update() {
-                match Url::download_file(url_str, &full_path).await {
-                    Ok(_) => log_info!("Downloaded lib {} to {:?}", url_str, full_path),
-                    Err(e) => log_warning!("Failed to download lib {}: {}", url_str, e),
-                }
+            match Web::download_file(url_str, &full_path, false).await {
+                WebDownloadResult::Downloaded => log_info!(5, "Downloaded lib {} to {:?}", url_str, full_path),
+                WebDownloadResult::Err(e) => log_warning!("Failed to download lib {}: {}", url_str, e),
+                WebDownloadResult::Skipped => (),
             }
         }
 
