@@ -211,15 +211,12 @@ impl SoftwareConfig {
         let plugin = software.get_system_plugin();
         if plugin.is_local() { return Ok(()); }
 
-        let plugins_path = self.get_software_plugin_path(&software.create_link());
-        fs::create_dir_all(&plugins_path).map_err(|e| error!(CantCreateSoftwareConfigPath, e))?;
+        let mut plugin_path = self.get_software_plugin_path(&software.create_link());
+        fs::create_dir_all(&plugin_path).map_err(|e| error!(CantCreateSoftwareConfigPath, e))?;
 
-        let plugin_path = match Url::extract_extension_from_url(&plugin.get_download()) {
-            Some(ext) => plugins_path.join(format!("MineCloud-{}.{}", software.get_name(), ext)),
-            None => plugins_path.join(software.get_name()),
-        };
+        plugin_path.push(plugin.get_file_name());
 
-        match Web::download_file(plugin.get_download().as_str(), &plugin_path, true).await {
+        match Web::download_file(plugin.get_download(), &plugin_path, true).await {
             WebDownloadResult::Downloaded => log_info!(5, "Downloaded plugin for {}-{}", software.get_name(), software.get_version()),
             WebDownloadResult::Err(e) => log_warning!("Failed to download plugin for {}-{}: {}", software.get_name(), software.get_version(), e),
             WebDownloadResult::Skipped => (),
@@ -409,6 +406,7 @@ impl SoftwareFile {
 pub struct SystemPlugin {
     local: bool,
     download: String,
+    file_name: String,
     path: String,
 }
 
@@ -416,12 +414,19 @@ impl SystemPlugin {
     pub fn is_local(&self) -> bool {
         self.local
     }
-    pub fn get_download(&self) -> String {
-        self.download.clone()
+
+    pub fn get_download(&self) -> &str {
+        &self.download
     }
-    pub fn get_path(&self) -> String {
-        self.path.clone()
+
+    pub fn get_file_name(&self) -> &str {
+        &self.file_name
     }
+
+    pub fn get_path(&self) -> &str {
+        &self.path
+    }
+
 }
 
 pub struct SoftwareConfigRef(Arc<RwLock<SoftwareConfig>>);
