@@ -2,9 +2,11 @@ use bx::network::address::Address;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
-
+use reqwest::Client;
 use crate::cloud::Cloud;
 use crate::log_error;
 
@@ -89,3 +91,39 @@ impl Utils {
         port
     }
 }
+
+pub struct Web;
+
+impl Web {
+    /// download a file from a Url
+    ///
+    /// example: url        = 'http://domain.com/test.txt'
+    ///          file_path  = 'folder/file.test'
+    pub async fn download_file(url: &str, file_path: &PathBuf, overwrite: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if !overwrite && file_path.exists() {
+            return Ok(());
+        }
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(30))
+            .no_brotli()
+            .build()?;
+
+        let response = client.get(url).send().await?;
+
+        if !response.status().is_success() {
+            return Err(format!(
+                "Server returned error: {} for URL: {}",
+                response.status(),
+                url
+            ).into());
+        }
+
+        let mut file = File::create(&file_path)?;
+
+        file.write_all(&response.bytes().await?)?;
+
+        Ok(())
+    }
+}
+
