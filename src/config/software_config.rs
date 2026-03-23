@@ -449,6 +449,11 @@ impl SoftwareConfigRef {
         config.software.get(link).cloned()
     }
 
+    pub async fn get_software(&self, link: &SoftwareLink) -> CloudResult<Software> {
+        let config = self.0.read().await;
+        config.software.get(link).cloned().ok_or(error!(CantFindSoftware))
+    }
+
     pub async fn get_all(&self) -> HashMap<SoftwareLink, Software> {
         let config = self.0.read().await;
         config.get_all().clone()

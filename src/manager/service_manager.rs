@@ -9,6 +9,7 @@ use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::io::AsyncReadExt;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use uuid::Uuid;
 
@@ -31,7 +32,7 @@ pub struct ServiceManager {
     db: Arc<DatabaseManager>,
     config: Arc<CloudConfig>,
     task_manager: TaskManagerRef,
-    _software_config: SoftwareConfigRef,
+    software_config: SoftwareConfigRef,
 }
 
 pub struct ServiceManagerRef(Arc<RwLock<ServiceManager>>);
@@ -98,13 +99,9 @@ impl ServiceManager {
 
     async fn prepare_to_start(&self, service: &ServiceProcessRef) -> CloudResult<()> {
         self.task_manager.read().await.prepared_to_service(service).await?;
-        {
-            let s = service.read().await;
-            s.install_software()?;
-            s.install_system_plugin()?;
-            s.install_software_lib(&self.config)?;
-        }
-
+        self.install_software_file(service).await?;
+        self.install_system_plugin(service).await?;
+        self.install_software_lib(service).await?;
         self.set_server_listener(service).await?;
         self.set_plugin_listener(service).await;
 
@@ -233,6 +230,34 @@ impl ServiceManager {
     pub fn get_from_id(&self, id: &EntityId) -> CloudResult<ServiceProcessRef> {
         self.find_from_id(id).ok_or(error!(CantFindServiceFromUUID))
     }
+
+    pub async fn install_software_file(&self, service: &ServiceProcessRef) -> CloudResult<()> {
+        let service_guard = service.read().await;
+        let config = service_guard.get_config();
+        let software_link = config.get_software();
+
+        let software_path = {
+            let sc = self.software_config.read().await;
+            sc.get_software_server_path(software_link)
+        };
+
+        if !software_path.exists() {
+            return Err(error!(CantFindSoftwareFile));
+        }
+
+        let file_name = {
+            let sc = self.software_config.get_software(software_link).await?;
+            sc.get_software_file().get_file_name().clone()
+        };
+
+        let target_path = service_guard.get_path().join(file_name);
+
+        fs::copy(&software_path, &target_path)
+            .map_err(|e| error!(CantCopySoftware, e))?;
+
+        Ok(())
+    }
+
 
     pub fn find_from_id(&self, id: &EntityId) -> Option<ServiceProcessRef> {
         for (id_ref, sp_ref) in &self.services {
@@ -475,7 +500,7 @@ impl ServiceManagerRef {
             db,
             config: cloud_config,
             task_manager,
-            _software_config,
+            software_config: _software_config,
         };
 
         Ok(ServiceManagerRef(Arc::new(RwLock::new(sm))))

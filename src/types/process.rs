@@ -242,17 +242,6 @@ impl ServiceProcess {
     }
 
     #[deprecated]
-    pub fn install_software(&self) -> Result<(), CloudError> {
-        let target_path = self
-            .get_path()
-            .join(&self.get_task().get_software().get_server_file_name());
-        let software_path = self.get_task().get_software().get_software_file_path();
-
-        fs::copy(&software_path, &target_path).map_err(|e| error!(CantCopySoftware, e))?;
-        Ok(())
-    }
-
-    #[deprecated]
     pub fn install_system_plugin(&self) -> Result<(), CloudError> {
         let software = self.get_software_name();
         let system_plugin_path = self.get_task().get_software().get_system_plugin_path();

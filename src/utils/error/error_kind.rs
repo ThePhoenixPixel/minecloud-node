@@ -9,7 +9,8 @@ pub enum CloudErrorKind {
     DeserializationError,
     CantCreateDownloadClient,
     DownloadFailed,
-
+    CantFindSoftware,
+    
     /// 11.xxx Directory
     PathServe,
     CantCreateSoftwareConfigPath,
@@ -39,6 +40,7 @@ pub enum CloudErrorKind {
     CantCopyTemplateToNewServiceFolder,
     CantCreateSystemPluginPath,
     CantFindSystemPlugin,
+    CantFindSoftwareFile,
     CantCopySystemPlugin,
 
     CantFindIPConfigFilePath,
