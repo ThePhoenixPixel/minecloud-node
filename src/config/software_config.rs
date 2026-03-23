@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use strum::IntoEnumIterator;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::config::cloud_config::CloudConfig;
 use crate::types::{SoftwareLink, SoftwareType};
@@ -434,6 +434,14 @@ pub struct SoftwareConfigRef(Arc<RwLock<SoftwareConfig>>);
 impl SoftwareConfigRef {
     pub fn new(software_config: SoftwareConfig) -> SoftwareConfigRef {
         SoftwareConfigRef(Arc::new(RwLock::new(software_config)))
+    }
+
+    pub async fn read(&self) -> RwLockReadGuard<'_, SoftwareConfig> {
+        self.0.read().await
+    }
+
+    pub async fn write(&self) -> RwLockWriteGuard<'_, SoftwareConfig> {
+        self.0.write().await
     }
 
     pub async fn find_software(&self, link: &SoftwareLink) -> Option<Software> {
