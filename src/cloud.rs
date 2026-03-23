@@ -310,26 +310,6 @@ impl Cloud {
         // create software folder
         fs::create_dir_all(config_path.get_system_folder().get_software_config_path())?;
 
-        // create system_plugins_folder
-        fs::create_dir_all(
-            config_path
-                .get_system_folder()
-                .get_system_plugins_folder_path(),
-        )?;
-
-        // create software_files_folder
-        fs::create_dir_all(
-            config_path
-                .get_system_folder()
-                .get_software_files_folder_path(),
-        )?;
-
-        // create software_lib_folder
-        fs::create_dir_all(
-            config_path
-                .get_system_folder()
-                .get_software_lib_folder_path(),
-        )?;
         log_info!(2, "All Folders are safe :=)");
         Ok(())
     }
