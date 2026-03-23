@@ -7,8 +7,10 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 use reqwest::Client;
+
 use crate::cloud::Cloud;
-use crate::log_error;
+use crate::{error, log_error};
+use crate::utils::error::*;
 
 pub struct Utils;
 
@@ -94,36 +96,52 @@ impl Utils {
 
 pub struct Web;
 
+pub enum WebDownloadResult {
+    Downloaded,
+    Skipped,
+    Err(CloudError)
+}
+
 impl Web {
     /// download a file from a Url
     ///
     /// example: url        = 'http://domain.com/test.txt'
     ///          file_path  = 'folder/file.test'
-    pub async fn download_file(url: &str, file_path: &PathBuf, overwrite: bool) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn download_file(url: &str, file_path: &PathBuf, overwrite: bool) -> WebDownloadResult {
         if !overwrite && file_path.exists() {
-            return Ok(());
+            return WebDownloadResult::Skipped;
         }
 
-        let client = Client::builder()
+        let client = match Client::builder()
             .timeout(Duration::from_secs(30))
             .no_brotli()
-            .build()?;
+            .build()
+        {
+            Ok(client) => client,
+            Err(e) => return WebDownloadResult::Err(error!(CantCreateDownloadClient, e)),
+        };
 
-        let response = client.get(url).send().await?;
+        let response = match client.get(url).send().await {
+            Ok(res) => res,
+            Err(e) => return WebDownloadResult::Err(error!(DownloadFailed, e)),
+        };
 
         if !response.status().is_success() {
-            return Err(format!(
-                "Server returned error: {} for URL: {}",
-                response.status(),
-                url
-            ).into());
+            return WebDownloadResult::Err(error!(DownloadFailed, format!("Status: {}", response.status())));
         }
 
-        let mut file = File::create(&file_path)?;
+        let bytes = match response.bytes().await {
+            Ok(bytes) => bytes,
+            Err(e) => return WebDownloadResult::Err(error!(DownloadFailed, e)),
+        };
 
-        file.write_all(&response.bytes().await?)?;
+        if let Err(e) = File::create(file_path)
+            .and_then(|mut file| file.write_all(&bytes))
+        {
+            return WebDownloadResult::Err(error!(CantWriteFile, e));
+        }
 
-        Ok(())
+        WebDownloadResult::Downloaded
     }
 }
 
