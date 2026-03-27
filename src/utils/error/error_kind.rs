@@ -28,7 +28,10 @@ pub enum CloudErrorKind {
     /// 21.xxx Task
     TaskNotFound,
     TaskAlreadyExists,
-    
+    CantSerializeTask,
+    CantCreateTaskFile,
+    CantWriteTaskFile,
+
     /// 22.xxx Template
     TemplateNotFound,
     GroupTemplateNotFound,

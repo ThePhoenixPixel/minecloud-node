@@ -9,7 +9,7 @@ use crate::log_error;
 use crate::terminal::command::cmd_help::CmdHelp;
 use crate::terminal::command::cmd_me::CmdMe;
 use crate::terminal::command::cmd_service::CmdService;
-use crate::terminal::command::cmd_task::CmdTask;
+//use crate::terminal::command::cmd_task::CmdTask;
 use crate::terminal::command::cmd_template::CmdTemplate;
 use crate::terminal::command_manager::CommandManager;
 
@@ -72,10 +72,20 @@ impl Cmd {
     ) -> Result<(), Error> {
         match command {
             "help" => CmdHelp::execute(cloud, args).await,
-            "task" => CmdTask::execute(cloud, args).await,
+            "task" => todo!(),//CmdTask::execute(cloud, args).await,
             "service" => CmdService::execute(cloud, args).await,
             "template" => CmdTemplate::execute(cloud, args).await,
             "me" => CmdMe::execute(cloud, args).await,
+            "reload" => {
+                let scheduler = {
+                    let cloud_guard = cloud.read().await;
+                    cloud_guard.get_scheduler().clone()
+                };
+
+                scheduler.check_service().await;
+
+                Ok(())
+            },
             "" => Ok(()),
             _ => Err(Error::new(
                 ErrorKind::Other,

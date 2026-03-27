@@ -18,7 +18,7 @@ pub mod terminal {
         pub mod cmd_help;
         pub mod cmd_me;
         pub mod cmd_service;
-        pub mod cmd_task;
+        //pub mod cmd_task;
         pub mod cmd_template;
     }
 }

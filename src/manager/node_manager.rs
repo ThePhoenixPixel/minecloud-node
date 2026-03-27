@@ -62,7 +62,7 @@ impl NodeManager {
         }
     }
     pub async fn is_responsible_for_task(&self, task: &Task) -> bool {
-        task.is_startup_local(&self.cloud_config)
+        task.is_responsible_node(&self.cloud_config.get_name())
     }
 
     pub async fn get_all_services_from_task(&self, task_name: &str) -> Vec<Service> {
