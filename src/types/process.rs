@@ -1,6 +1,5 @@
 use bx::network::address::Address;
 use bx::network::url::{Url, UrlSchema};
-use bx::path::Directory;
 use chrono::NaiveDateTime;
 use delegate::delegate;
 use serde_json::json;
@@ -17,7 +16,7 @@ use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tokio::time::{Instant, sleep, timeout as wait};
 
-use crate::config::{CloudConfig, Software};
+use crate::config::Software;
 use crate::types::service::Service;
 use crate::types::task::Task;
 use crate::types::{EntityId, ServiceConfig, ServiceStatus};
@@ -239,46 +238,6 @@ impl ServiceProcess {
         if fs::remove_dir_all(self.get_path()).is_err() {
             log_warning!("Service | {} | folder can't delete", self.get_name());
         }
-    }
-
-    #[deprecated]
-    pub fn install_system_plugin(&self) -> Result<(), CloudError> {
-        let software = self.get_software_name();
-        let system_plugin_path = self.get_task().get_software().get_system_plugin_path();
-        let mut target_path = self
-            .get_path()
-            .join(&software.get_system_plugin().get_path());
-
-        if !target_path.exists() {
-            fs::create_dir_all(&target_path).map_err(|e| error!(CantCreateSystemPluginPath, e))?;
-        }
-
-        target_path.push(self.get_task().get_software().get_system_plugin_name());
-
-        if !system_plugin_path.exists() {
-            return Err(error!(CantFindSystemPlugin));
-        }
-
-        match fs::copy(system_plugin_path, target_path) {
-            Ok(_) => {
-                log_info!("Successfully install the System Plugin");
-                Ok(())
-            }
-            Err(e) => Err(error!(CantCopySystemPlugin, e)),
-        }
-    }
-
-    #[deprecated]
-    pub fn install_software_lib(&self, config: &CloudConfig) -> Result<(), CloudError> {
-        let software_lib_path = config
-            .get_cloud_path()
-            .get_system_folder()
-            .get_software_lib_folder_path()
-            .join(self.get_task().get_software().get_software_type())
-            .join(self.get_task().get_software().get_name());
-
-        Directory::copy_folder_contents(&software_lib_path, &self.get_path())
-            .map_err(|e| error!(Internal, e))
     }
 
     delegate! {

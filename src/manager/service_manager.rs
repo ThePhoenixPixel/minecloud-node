@@ -233,8 +233,7 @@ impl ServiceManager {
 
     pub async fn install_software_file(&self, service: &ServiceProcessRef) -> CloudResult<()> {
         let service_guard = service.read().await;
-        let config = service_guard.get_config();
-        let software_link = config.get_software();
+        let software_link = service_guard.get_config().get_software();
 
         let software_path = {
             let sc = self.software_config.read().await;
@@ -258,7 +257,38 @@ impl ServiceManager {
         Ok(())
     }
 
+    pub async fn install_system_plugin(&self, service: &ServiceProcessRef) -> CloudResult<()> {
+        let service_guard = service.read().await;
+        let software_link = service_guard.get_config().get_software();
 
+        let sc = self.software_config.read().await;
+        let system_plugin_path = sc.get_software_plugin_path(software_link);
+
+        if !system_plugin_path.exists() {
+            return Err(error!(CantFindSystemPlugin));
+        }
+
+        let software = sc.get_software(software_link)?;
+        let plugin = software.get_system_plugin();
+        let target_path = service_guard.get_path().join(plugin.get_path());
+
+        fs::create_dir_all(&target_path).map_err(|e| error!(CantCreateSystemPluginPath, e))?;
+
+        match fs::copy(&system_plugin_path, target_path.join(plugin.get_file_name())) {
+            Ok(_) => { log_info!("Successfully installed System Plugin"); Ok(()) }
+            Err(e) => Err(error!(CantCopySystemPlugin, e)),
+        }
+    }
+
+    pub async fn install_software_lib(&self, service: &ServiceProcessRef) -> CloudResult<()> {
+        let service_guard = service.read().await;
+        let sc = self.software_config.read().await;
+        let lib_path = sc.get_software_lib_path(service_guard.get_config().get_software());
+        
+        Utils::copy_folder_contents(&lib_path, service_guard.get_path(), false)
+            .map_err(|e| error!(CantCopySoftwareLib, e))
+    }
+    
     pub fn find_from_id(&self, id: &EntityId) -> Option<ServiceProcessRef> {
         for (id_ref, sp_ref) in &self.services {
             if id_ref == id {

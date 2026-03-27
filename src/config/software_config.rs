@@ -278,6 +278,10 @@ impl SoftwareConfig {
         self.get_software_folder_path(link).join("lib")
     }
 
+    pub fn get_software(&self, link: &SoftwareLink) -> CloudResult<&Software> {
+        self.software.get(link).ok_or(error!(CantFindSoftware))
+    }
+
     /*
     pub fn get_software_lib_path(&self, software: &Software) -> HashMap<String, PathBuf> {
         let software_lib_path = self.system_config
@@ -444,14 +448,9 @@ impl SoftwareConfigRef {
         self.0.write().await
     }
 
-    pub async fn find_software(&self, link: &SoftwareLink) -> Option<Software> {
-        let config = self.0.read().await;
-        config.software.get(link).cloned()
-    }
-
     pub async fn get_software(&self, link: &SoftwareLink) -> CloudResult<Software> {
         let config = self.0.read().await;
-        config.software.get(link).cloned().ok_or(error!(CantFindSoftware))
+        config.get_software(link).cloned()
     }
 
     pub async fn get_all(&self) -> HashMap<SoftwareLink, Software> {
