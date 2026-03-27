@@ -118,24 +118,31 @@ impl ServiceManager {
             (sp.get_id().clone(), sp.get_task_name().to_string())
         };
 
-        {
-            let mut sp = service_process_ref.write().await;
-            sp.shutdown(shutdown_msg).await;
-        }
-
         match self.task_manager.get_task_ref_from_name(&task_name).await {
             Ok(task_ref) => {
-                let should_delete = task_ref.read().await.is_delete();
-
+                let mut sp = service_process_ref.write().await;
+                
+                let (should_delete, timeout) = {
+                    let tr = task_ref.read().await;
+                    (
+                        tr.is_delete(),
+                        tr.get_time_shutdown_before_kill()
+                    )
+                    
+                };
+                
+                sp.shutdown(shutdown_msg, timeout).await;
+                
                 // Cleanup
                 if should_delete {
-                    service_process_ref.read().await.delete_files();
+                    sp.delete_files();
                     if let Err(e) = TableServices::delete(self.get_db(), &id).await {
                         log_warning!("Error by deleting Service {}  in Database: {:?}", id, e);
                     }
 
                     self.services.remove(&id);
                 } else {
+                    drop(sp);
                     self.update_status(service_process_ref, ServiceStatus::Stopped).await;
                 }
             }
@@ -146,7 +153,13 @@ impl ServiceManager {
                     id,
                     task_name
                 );
-                service_process_ref.read().await.delete_files();
+                let mut sp = service_process_ref.write().await;
+                
+                match sp.kill().await {
+                    Ok(_) => log_info!("Service kill"),
+                    Err(e) => log_warning!("Service cant killing \n Erro: {}", e),
+                }
+                sp.delete_files();
                 if let Err(e) = TableServices::delete(self.get_db(), &id).await {
                     log_warning!("Error by deleting Service {} in Database: {:?}", id, e);
                 }

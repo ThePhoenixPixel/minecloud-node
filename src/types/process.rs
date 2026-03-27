@@ -75,11 +75,11 @@ impl ServiceProcess {
         Ok(())
     }
 
-    pub async fn shutdown(&mut self, msg: &str) {
+    pub async fn shutdown(&mut self, msg: &str, timeout: Duration) {
         self.shutdown_initiated_by_cloud = true;
 
         // 1. Stop send
-        if let Err(e) = self.send_stop(msg).await {
+        if let Err(e) = self.send_stop(msg, timeout.clone()).await {
             log_error!(
                 "Stop command nicht senden an {} \n Error: {}",
                 self.service.get_name(),
@@ -87,7 +87,6 @@ impl ServiceProcess {
             );
         }
 
-        let timeout = self.service.get_task().get_time_shutdown_before_kill();
         // 2. wait or kill
         let should_kill = self.wait_for_exit_or_kill(timeout).await.unwrap_or(true);
 
@@ -100,7 +99,7 @@ impl ServiceProcess {
         }
     }
 
-    async fn kill(&mut self) -> io::Result<()> {
+    pub async fn kill(&mut self) -> io::Result<()> {
         if let Some(mut child) = self.process.take() {
             child.kill().await?;
             child.wait().await?;
@@ -108,10 +107,9 @@ impl ServiceProcess {
         Ok(())
     }
 
-    async fn send_stop(&mut self, msg: &str) -> CloudResult<()> {
+    async fn send_stop(&mut self, msg: &str, timeout: Duration) -> CloudResult<()> {
         let body = json!({ "msg": msg });
         let url = self.get_service_url().join("shutdown");
-        let timeout = self.service.get_task().get_time_shutdown_before_kill();
         let fut = tokio::spawn(async move { url.post(&body, timeout).await });
 
         match wait(timeout, fut).await {
@@ -189,6 +187,7 @@ impl ServiceProcess {
             .join("service_config.json")
     }
 
+    #[deprecated]
     pub fn get_path_with_server_file(&self) -> PathBuf {
         self.get_path()
             .join(self.get_task().get_software().get_server_file_name())
@@ -253,6 +252,7 @@ impl ServiceProcess {
             pub fn get_server_listener(&self) -> &Address;
             pub fn get_plugin_listener(&self) -> &Address;
             pub fn get_cloud_listener(&self) -> &Address;
+            #[deprecated]
             pub fn get_task(&self) -> &Task;
             pub fn is_start(&self) -> bool;
             pub fn is_stop(&self) -> bool;
