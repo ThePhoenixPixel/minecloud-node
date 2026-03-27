@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use database_manager::DatabaseManager;
 use std::fs;
+use std::fs::File;
 use std::path::PathBuf;
 use std::sync::Arc;
 use bx::path::Directory;
@@ -9,7 +10,7 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::{error, log_info, log_warning};
 use crate::manager::GroupManagerRef;
-use crate::types::{Installer, ServiceProcessRef, Task, TaskRef, Template};
+use crate::types::{Installer, ServiceProcessRef, SoftwareLink, Task, TaskRef, Template};
 use crate::utils::error::*;
 
 
@@ -25,6 +26,30 @@ pub struct TaskManagerRef(Arc<RwLock<TaskManager>>);
 
 
 impl TaskManager {
+
+    pub async fn create_task(&mut self, name: String, software_link: SoftwareLink) -> CloudResult<TaskRef> {
+        if self.is_task_exists(&name) {
+            return Err(error!(TaskAlreadyExists))
+        }
+
+        let software = self.software_config.get_software(&software_link).await?;
+        let task = Task::new(name.to_string(), &software);
+        self.save_task_to_file(task_ref);
+        let task_ref = TaskRef::new(task);
+        self.tasks.insert(name, task_ref.clone());
+
+        Ok(task_ref)
+    }
+
+    pub fn is_task_exists(&self, name: &str) -> bool {
+        for (n, _) in &self.tasks {
+            if n == name {
+                return true
+            }
+        }
+        false
+    }
+
     pub fn get_all_tasks(&self) -> Vec<TaskRef> {
         let mut tasks: Vec<TaskRef> = Vec::new();
         for task in &self.tasks {
@@ -126,6 +151,39 @@ impl TaskManager {
 
         Ok(())
     }
+
+
+    pub fn save_task_to_file(&self, task_ref: TaskRef) {
+        let serialized_task =
+            serde_json::to_string_pretty(&self).expect("Error beim Serialisieren der Task");
+        let task_path = CloudConfig::get()
+            .get_cloud_path()
+            .get_task_folder_path()
+            .join(format!("{}.json", self.get_name()));
+
+        if !task_path.exists() {
+            Template::create_by_task(&self);
+        }
+
+        let mut file = File::create(&task_path).expect("Error beim Erstellen der Task-Datei");
+        file.write_all(serialized_task.as_bytes())
+            .expect("Error beim Schreiben in die Task-Datei");
+    }
+
+    pub fn delete(&mut self, name: &str) {
+        let task_path = self.get_task_path(name);
+        self.tasks.remove(name);
+
+        match fs::remove_file(task_path) {
+            Ok(_) => log_info!(6, "Task successfully removed"),
+            Err(e) => log_warning!("Task cant deleted \n Error: {}", e),
+        }
+    }
+
+    fn get_task_path(&self, name: &str) -> PathBuf {
+        self.config.get_cloud_path().get_task_folder_path().join(format!("{}.json", name))
+    }
+
 }
 
 impl TaskManagerRef {

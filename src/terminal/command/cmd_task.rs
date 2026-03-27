@@ -422,7 +422,7 @@ fn create(args: Vec<&str>) -> Result<(), Error> {
         }
     };
 
-    match Task::create(&input_task_name, SoftwareLink::new(SoftwareType::Backend, String::from("Test"), String::from("Test"))) {
+    match Task::new(&input_task_name, SoftwareLink::new(SoftwareType::Backend, String::from("Test"), String::from("Test"))) {
         Ok(task) => {
             log_info!("Task | {} | erfolgreich erstellt", task.get_name());
             Ok(())

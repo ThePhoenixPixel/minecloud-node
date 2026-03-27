@@ -10,7 +10,7 @@ use std::time::Duration;
 use std::{fs, io};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use crate::config::{CloudConfig, SoftwareConfig};
+use crate::config::{CloudConfig, Software};
 use crate::types::installer::Installer;
 use crate::types::software_link::SoftwareLink;
 use crate::types::template::Template;
@@ -49,20 +49,7 @@ pub struct TaskRef(Arc<RwLock<Task>>);
 
 
 impl Task {
-    pub fn create(
-        name: &String,
-        software_link: SoftwareLink,
-    ) -> Result<Task, &'static str> {
-        // check if Task exists
-        if Task::is_exist(name.clone()) {
-            return Err("Task Esistierts bereits");
-        }
-
-        let software = match SoftwareConfig::find_software(&software_link) {
-            Some(s) => s,
-            None => return Err("Sofwtare not found"),
-        };
-
+    pub fn new(name: String, software: &Software) -> Task {
         let template = Template::new(&name, "default", 1, false);
         let task = Task {
             name: name.to_string(),
@@ -70,7 +57,7 @@ impl Task {
             delete_on_stop: true,
             static_service: false,
             nodes: Vec::new(),
-            software: software_link,
+            software: software.create_link(),
             max_ram: software.get_max_ram(),
             start_port: 40000,
             min_service_count: 0,
@@ -87,10 +74,7 @@ impl Task {
             templates: vec![template.clone()],
             percent_of_players_for_a_new_service_by_instance: 0,
         };
-
-        template.create();
-        task.save_to_file();
-        Ok(task)
+        task
     }
 
     pub fn update(&mut self, new_task: Task) {
@@ -357,14 +341,6 @@ impl Task {
         self.save_to_file();
     }
 
-    pub fn is_exist(name: String) -> bool {
-        if Task::get_task(&name).is_some() {
-            true
-        } else {
-            false
-        }
-    }
-
     // get task object from name
     #[deprecated]
     pub fn get_task(name: &str) -> Option<Task> {
@@ -407,32 +383,6 @@ impl Task {
     pub fn is_startup_local(&self, config: &Arc<CloudConfig>) -> bool {
         let nodes = self.get_nodes();
         nodes.is_empty() || nodes.iter().any(|n| *n == config.get_name())
-    }
-
-    #[deprecated]
-    pub fn save_to_file(&self) {
-        let serialized_task =
-            serde_json::to_string_pretty(&self).expect("Error beim Serialisieren der Task");
-        let task_path = CloudConfig::get()
-            .get_cloud_path()
-            .get_task_folder_path()
-            .join(format!("{}.json", self.get_name()));
-
-        if !task_path.exists() {
-            Template::create_by_task(&self);
-        }
-
-        let mut file = File::create(&task_path).expect("Error beim Erstellen der Task-Datei");
-        file.write_all(serialized_task.as_bytes())
-            .expect("Error beim Schreiben in die Task-Datei");
-    }
-
-    #[deprecated]
-    pub fn delete_as_file(&self) {
-        let mut task_path = CloudConfig::get().get_cloud_path().get_task_folder_path();
-        task_path.push(format!("{}.json", &self.name));
-
-        fs::remove_file(task_path).expect("Error bei  removen der task datei");
     }
 
     pub fn get_templates_sorted_by_priority(&self) -> Vec<Template> {
