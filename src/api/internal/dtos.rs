@@ -28,8 +28,8 @@ impl ServiceInfoResponse {
         ServiceInfoResponse {
             name: service.get_name().to_string(),
             address: service.get_server_listener().clone(),
-            default_connect: service.get_task().default_connect(),
-            join_permission: service.get_task().get_join_permission().to_string(),
+            default_connect: service.default_connect(),
+            join_permission: service.get_join_permission().to_string(),
         }
     }
 

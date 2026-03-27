@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::api::internal::PlayerActionRequest;
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
-use crate::manager::ServiceManagerRef;
+use crate::manager::{ServiceManagerRef, TaskManagerRef};
 use crate::types::{Player, PlayerAction, PlayerSession, ServiceProcessRef};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
@@ -13,16 +13,19 @@ use crate::{error, log_info};
 pub struct PlayerManager {
     db_manager: Arc<DatabaseManager>,
     service_manager: ServiceManagerRef,
+    task_manager: TaskManagerRef,
 }
 
 impl PlayerManager {
     pub fn new(
         db_manager: Arc<DatabaseManager>,
         service_manager: ServiceManagerRef,
+        task_manager: TaskManagerRef,
     ) -> PlayerManager {
         PlayerManager {
             db_manager,
             service_manager,
+            task_manager,
         }
     }
 
@@ -32,13 +35,13 @@ impl PlayerManager {
             sm.get_from_id(&req.get_service_uuid())?
         };
 
-        let mut player = self
-            .get_or_create_player(&Player::from(req.get_player_req()))
-            .await?;
-        let (mut current_players, task) = {
+        let mut player = self.get_or_create_player(&Player::from(req.get_player_req())).await?;
+
+        let (mut current_players, task_ref) = {
             let s = service_ref.read().await;
             let service = s.get_service();
-            (service.get_current_players(), service.get_task().clone())
+            let task_ref = self.task_manager.get_task_ref_from_name(service.get_task_name()).await?;
+            (service.get_current_players(), task_ref)
         };
 
         match req.get_action() {
@@ -56,10 +59,12 @@ impl PlayerManager {
             }
         }
 
-        let start_timer = (current_players == 0)
-            || (task.get_percent_of_players_to_check_should_auto_stop_the_service()
-                > (task.get_max_players() * 100) / current_players);
+        let (percent, max_p) = {
+            let t = task_ref.read().await;
+            (t.get_percent_of_players_to_check_should_auto_stop_the_service(), t.get_max_players())
+        };
 
+        let start_timer = (current_players == 0) || (percent > (max_p * 100) / current_players);
         {
             let mut s = service_ref.write().await;
             s.set_current_player(current_players);

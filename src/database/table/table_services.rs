@@ -39,18 +39,18 @@ impl TableServices {
             created_at: DBDatetime::get_now(),
             uuid: DBTools::uuid_to_varchar(&service.get_id()),
             name: DBText::from(service.get_name()),
-            typ: DBText::from(service.get_software_name().get_typ().to_string()),
+            typ: DBText::from(service.get_config().get_software().get_software_type().to_string()),
             node: DBText::from(service.get_parent_node()),
-            task: DBText::from(service.get_task().get_name()),
+            task: DBText::from(service.get_task_name()),
             status: DBText::from(service.get_status().to_string()),
             server_listener: DBText::from(service.get_server_listener().to_string()),
             plugin_listener: DBText::from(service.get_plugin_listener().to_string()),
             started_at: service
-                .get_started_at_to_string()
-                .map(|s| DBDatetime::from(s)),
+                .get_started_at()
+                .map(|s| DBDatetime::from(s.to_string())),
             stopped_at: service
-                .get_stopped_at_to_string()
-                .map(|s| DBDatetime::from(s)),
+                .get_stopped_at()
+                .map(|s| DBDatetime::from(s.to_string())),
         }
     }
 

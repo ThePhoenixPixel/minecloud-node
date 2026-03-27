@@ -5,7 +5,7 @@ use crate::config::CloudConfig;
 use crate::{error, log_warning};
 use crate::manager::{ServiceManagerRef, TaskManagerRef};
 use crate::types::{EntityId, Service, ServiceProcessRef, ServiceStatus, Task};
-use crate::utils::error::{CantFindTaskFromName, CloudResult};
+use crate::utils::error::*;
 
 pub struct NodeManager {
     service_manager: ServiceManagerRef,
@@ -111,7 +111,7 @@ impl NodeManager {
             .service_manager
             .read()
             .await
-            .filter_services(|s| s.is_start() && s.is_backend_server())
+            .filter_services(|s| s.is_running() && s.is_backend_server())
             .await;
         let mut result = Vec::new();
         for s in services {
