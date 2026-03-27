@@ -9,7 +9,6 @@ use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::AsyncReadExt;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use uuid::Uuid;
 
@@ -321,42 +320,6 @@ impl ServiceManager {
             let sp = arc.read().await;
 
             if filter(&sp) {
-                result.push(arc.clone());
-            }
-        }
-
-        result
-    }
-
-    #[deprecated]
-    pub async fn get_all_from_task_name(&self, task_name: &str) -> Vec<ServiceProcessRef> {
-        self.filter_services(|sp| sp.get_task_name() == task_name)
-            .await
-    }
-
-    #[deprecated]
-    pub async fn get_online_all_from_task(&self, task_name: &str) -> Vec<ServiceProcessRef> {
-        let mut result = Vec::new();
-
-        for arc in self.services.values() {
-            let sp = arc.read().await;
-
-            if sp.get_task_name() == task_name && sp.is_start() {
-                result.push(arc.clone());
-            }
-        }
-
-        result
-    }
-
-    #[deprecated]
-    pub async fn get_online_backend_server(&self) -> Vec<ServiceProcessRef> {
-        let mut result = Vec::new();
-
-        for arc in self.services.values() {
-            let sp = arc.read().await;
-
-            if sp.is_start() && sp.is_backend_server() {
                 result.push(arc.clone());
             }
         }

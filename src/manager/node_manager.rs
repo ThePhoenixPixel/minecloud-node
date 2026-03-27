@@ -111,7 +111,7 @@ impl NodeManager {
             .service_manager
             .read()
             .await
-            .get_online_backend_server()
+            .filter_services(|s| s.is_start() && s.is_backend_server())
             .await;
         let mut result = Vec::new();
         for s in services {
