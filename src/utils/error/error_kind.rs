@@ -42,6 +42,7 @@ pub enum CloudErrorKind {
     CantFindSystemPlugin,
     CantFindSoftwareFile,
     CantCopySystemPlugin,
+    CantCopySoftwareLib,
 
     CantFindIPConfigFilePath,
     CantWriteIP,
