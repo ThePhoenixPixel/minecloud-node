@@ -2,6 +2,8 @@ use bx::network::address::Address;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::collections::HashMap;
+use std::error::Error;
+use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -91,6 +93,25 @@ impl Utils {
             port += 1;
         }
         port
+    }
+
+    pub fn copy_folder_contents(from: &PathBuf, to: &PathBuf, overwrite: bool) -> Result<(), Box<dyn Error>> {
+        for entry in fs::read_dir(from)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+            let target_path = to.join(entry_path.file_name().ok_or("Invalid file name")?);
+
+            if entry_path.is_dir() {
+                fs::create_dir_all(&target_path)?;
+                Self::copy_folder_contents(&entry_path, &target_path, overwrite)?;
+            } else {
+                if !overwrite && target_path.exists() {
+                    continue;
+                }
+                fs::copy(&entry_path, &target_path)?;
+            }
+        }
+        Ok(())
     }
 }
 
