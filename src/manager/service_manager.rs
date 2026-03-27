@@ -121,18 +121,18 @@ impl ServiceManager {
         match self.task_manager.get_task_ref_from_name(&task_name).await {
             Ok(task_ref) => {
                 let mut sp = service_process_ref.write().await;
-                
+
                 let (should_delete, timeout) = {
                     let tr = task_ref.read().await;
                     (
                         tr.is_delete(),
                         tr.get_time_shutdown_before_kill()
                     )
-                    
+
                 };
-                
+
                 sp.shutdown(shutdown_msg, timeout).await;
-                
+
                 // Cleanup
                 if should_delete {
                     sp.delete_files();
@@ -154,7 +154,7 @@ impl ServiceManager {
                     task_name
                 );
                 let mut sp = service_process_ref.write().await;
-                
+
                 match sp.kill().await {
                     Ok(_) => log_info!("Service kill"),
                     Err(e) => log_warning!("Service cant killing \n Erro: {}", e),
@@ -174,11 +174,11 @@ impl ServiceManager {
             return Ok(());
         }
 
-        for proxy in self.get_online_proxies().await {
+        for proxy in self.filter_services(|s| s.is_proxy() && s.is_start()).await {
             let s = proxy.read().await;
             let url = s.get_service_url().join("add_server");
             let body = match Utils::convert_to_json(&RegisterServerData {
-                register_server: ServiceInfoResponse::new(&service),
+                register_server: ServiceInfoResponse::new(service),
             }) {
                 Some(b) => b,
                 None => {
@@ -215,7 +215,7 @@ impl ServiceManager {
             return Ok(());
         }
 
-        for proxy in self.get_online_proxies().await {
+        for proxy in self.filter_services(|s| s.is_proxy() && s.is_start()).await {
             let s = proxy.read().await;
             let url = s
                 .get_service_url()
@@ -297,11 +297,11 @@ impl ServiceManager {
         let service_guard = service.read().await;
         let sc = self.software_config.read().await;
         let lib_path = sc.get_software_lib_path(service_guard.get_config().get_software());
-        
+
         Utils::copy_folder_contents(&lib_path, service_guard.get_path(), false)
             .map_err(|e| error!(CantCopySoftwareLib, e))
     }
-    
+
     pub fn find_from_id(&self, id: &EntityId) -> Option<ServiceProcessRef> {
         for (id_ref, sp_ref) in &self.services {
             if id_ref == id {
@@ -342,34 +342,6 @@ impl ServiceManager {
             let sp = arc.read().await;
 
             if sp.get_task_name() == task_name && sp.is_start() {
-                result.push(arc.clone());
-            }
-        }
-
-        result
-    }
-
-    #[deprecated]
-    pub async fn get_online_all(&self) -> Vec<ServiceProcessRef> {
-        let mut result = Vec::new();
-
-        for arc in self.services.values() {
-            if arc.read().await.is_start() {
-                result.push(arc.clone());
-            }
-        }
-
-        result
-    }
-
-    #[deprecated]
-    pub async fn get_online_proxies(&self) -> Vec<ServiceProcessRef> {
-        let mut result = Vec::new();
-
-        for arc in self.services.values() {
-            let sp = arc.read().await;
-
-            if sp.is_start() && sp.is_proxy() {
                 result.push(arc.clone());
             }
         }
