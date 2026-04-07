@@ -26,6 +26,8 @@ pub struct TablePlayers {
 
     #[nullable]
     last_login: Option<DBDatetime>, // format -> YYYY-MM-DD HH:MM:SS
+
+
 }
 
 impl TablePlayers {

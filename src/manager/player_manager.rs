@@ -51,7 +51,7 @@ impl PlayerManager {
                 let session_id = player.get_session().clone().map(|s| s.get_id());
 
                 self.add_event(&player, &service_ref, &req.get_action(), session_id).await?;
-        beim leaver eine zeit setezn der nächste der delteing würde gucjt nacj zeit ja dann delte wenn nicht zeit setzene ...
+       // todo: beim leaver eine zeit setezn der nächste der delteing würde gucjt nacj zeit ja dann delte wenn nicht zeit setzene ...
                 self.on_player_leave(&mut player, &service_ref).await?;
 
             }
