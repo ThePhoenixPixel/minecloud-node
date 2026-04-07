@@ -10,7 +10,7 @@ use crate::utils::error::*;
 pub struct NodeManager {
     service_manager: ServiceManagerRef,
     task_manager: TaskManagerRef,
-    cluster: Box<dyn ClusterClient>,
+    _cluster: Box<dyn ClusterClient>,
     cloud_config: Arc<CloudConfig>,
 }
 
@@ -23,7 +23,7 @@ impl NodeManager {
         Ok(NodeManager {
             service_manager,
             task_manager,
-            cluster: Box::new(RestClusterClient::new(cloud_config.clone())),
+            _cluster: Box::new(RestClusterClient::new(cloud_config.clone())),
             cloud_config,
         })
     }

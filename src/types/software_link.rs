@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::config::{CloudConfig, Software};
+use crate::config::CloudConfig;
 use crate::types::SoftwareType;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

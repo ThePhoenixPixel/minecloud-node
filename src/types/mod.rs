@@ -1,5 +1,4 @@
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_aux::prelude::deserialize_struct_case_insensitive;
 use std::cmp::PartialEq;
 use std::fmt;
 use std::path::Path;

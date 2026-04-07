@@ -1,6 +1,6 @@
 use database_manager::types::{DBDatetime, DBText, DBUInt, DBVarChar, DbResult};
 use database_manager::{DatabaseController, Table, TableDerive};
-
+use uuid::Uuid;
 use crate::database::DBTools;
 use crate::types::{Player, ServiceProcessRef};
 
@@ -23,13 +23,26 @@ pub struct TablePlayerEvents {
 
 impl TablePlayerEvents {
     pub async fn new(player: &Player, service: &ServiceProcessRef, event_type: String) -> Self {
+        Self::new_with_session(player, service, event_type, None).await
+    }
+
+    pub async fn new_with_session(
+        player: &Player,
+        service: &ServiceProcessRef,
+        event_type: String,
+        session_id_override: Option<u64>,
+    ) -> Self {
+        let session_id = session_id_override
+            .map(|id| DBUInt::from(id))
+            .or_else(|| player.get_session().clone().map(|s| DBUInt::from(s.get_id())));
+
         TablePlayerEvents {
             id: Default::default(),
             created_at: DBDatetime::get_now(),
-            session_id: player.get_session().clone().map(|s| DBUInt::from(s.get_id())),
             player_id: DBUInt::from(player.get_id()),
             service_uuid: DBTools::uuid_to_varchar(&service.get_id().await),
             event_type: DBText::from(event_type),
+            session_id,
         }
     }
 

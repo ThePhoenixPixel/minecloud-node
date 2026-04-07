@@ -7,7 +7,6 @@ use tokio::time::Instant;
 
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::manager::{NodeManager, TaskManagerRef};
-use crate::utils::error::CloudResult;
 use crate::{log_error, log_info};
 
 pub struct Scheduler {

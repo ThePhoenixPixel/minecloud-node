@@ -22,7 +22,7 @@ use crate::api::external::restapi_main::ApiMain;
 
 pub struct Cloud {
     config: Arc<CloudConfig>,
-    software_config: SoftwareConfigRef,
+    _software_config: SoftwareConfigRef,
     db: Arc<DatabaseManager>,
     scheduler: Arc<Scheduler>,
     task_manager: TaskManagerRef,
@@ -53,7 +53,7 @@ impl Cloud {
 
         Ok(Self {
             config,
-            software_config,
+            _software_config: software_config,
             db,
             scheduler,
             node_manager: nm,
