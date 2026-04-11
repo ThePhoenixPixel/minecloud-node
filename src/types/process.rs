@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
+use actix_ws::Session;
 use tokio::io;
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -28,6 +29,7 @@ pub struct ServiceProcess {
     path: PathBuf,
     shutdown_initiated_by_cloud: bool,
     process: Option<Child>,
+    session: Option<Session>,
     stdin: Option<ChildStdin>,
 }
 
@@ -98,22 +100,38 @@ impl ServiceProcess {
         Ok(())
     }
 
-    async fn send_stop(&mut self, msg: &str, timeout: Duration) -> CloudResult<()> {
-        let body = json!({ "msg": msg });
-        let url = self.get_service_url().join("shutdown");
-        let fut = tokio::spawn(async move { url.post(&body, timeout).await });
+    pub fn attach_session(&mut self, session: Session) {
+        self.session = Some(session);
+    }
 
-        match wait(timeout, fut).await {
-            Ok(Ok(Ok(_))) => {
-                log_info!(6, "Stop command sent to [{}]", self.service.get_name());
-                Ok(())
-            }
-            Ok(Ok(Err(e))) => Err(error!(CantSendShutdownRequest, e)),
-            Ok(Err(e)) => Err(error!(CantSendShutdownRequest, e)),
-            Err(_) => {
-                log_warning!(5, "Shutdown timeout for [{}]", self.service.get_name());
-                Err(error!(CantSendShutdownRequest, "Shutdown Timeout"))
-            }
+    pub fn detach_session(&mut self) {
+        self.session = None;
+    }
+
+    pub async fn send(&mut self, msg: serde_json::Value) -> bool {
+        if let Some(session) = &mut self.session {
+            let text = serde_json::to_string(&msg).unwrap();
+            return session.text(text).await.is_ok();
+        }
+        false
+    }
+
+    pub fn has_session(&self) -> bool {
+        self.session.is_some()
+    }
+
+    async fn send_stop(&mut self, msg: &str, timeout: Duration) -> CloudResult<()> {
+        let body = json!({
+        "type": "shutdown",
+        "data": { "msg": msg }
+    });
+
+        if self.send(body).await {
+            log_info!(6, "Stop command sent to [{}]", self.service.get_name());
+            Ok(())
+        } else {
+            log_warning!(5, "Shutdown failed for [{}]: no session", self.service.get_name());
+            Err(error!(CantSendShutdownRequest, "No active WS session"))
         }
     }
 
@@ -121,10 +139,7 @@ impl ServiceProcess {
         let deadline = Instant::now() + timeout;
         loop {
             if let Some(child) = self.process.as_mut() {
-                match child.try_wait()? {
-                    Some(_) => return Ok(false),
-                    None => {}
-                }
+                if let Some(_) = child.try_wait()? { return Ok(false) }
             } else {
                 return Ok(false);
             }
@@ -220,6 +235,7 @@ impl ServiceProcessRef {
             path,
             shutdown_initiated_by_cloud: false,
             process: None,
+            session: None,
             stdin: None,
         })))
     }

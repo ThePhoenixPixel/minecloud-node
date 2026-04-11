@@ -147,18 +147,17 @@ impl ServiceManager {
         if service.is_proxy() { return Ok(()); }
 
         for proxy in self.filter_services(|s| s.is_running() && s.is_proxy()).await {
-            let s = proxy.read().await;
-            let url = s.get_service_url().join("add_server");
-            let body = match Utils::convert_to_json(&RegisterServerData {
-                register_server: ServiceInfoResponse::new(service),
-            }) {
-                Some(b) => b,
-                None => { log_warning!(2, "Service [{}] can't serialize", service.get_name()); continue; }
-            };
+            let mut sp = proxy.write().await;
 
-            match url.post(&body, Duration::from_secs(3)).await {
-                Ok(_) => log_info!(4, "Connected [{}] to Proxy [{}]", service.get_name(), s.get_name()),
-                Err(e) => log_warning!(2, "Can't register [{}] to Proxy [{}]: {}", service.get_name(), s.get_name(), e),
+            let msg = json!({
+            "type": "add_server",
+            "data": ServiceInfoResponse::new(service)
+        });
+
+            if sp.send(msg).await {
+                log_info!(4, "Connected [{}] to Proxy [{}]", service.get_name(), sp.get_name());
+            } else {
+                log_warning!(2, "Can't register [{}] to Proxy [{}]: no session", service.get_name(), sp.get_name());
             }
         }
         Ok(())
@@ -168,12 +167,17 @@ impl ServiceManager {
         if service.is_proxy() { return Ok(()); }
 
         for proxy in self.filter_services(|s| s.is_proxy() && s.is_start()).await {
-            let s = proxy.read().await;
-            let url = s.get_service_url().join(format!("remove_server?name={}", service.get_name()).as_str());
+            let mut sp = proxy.write().await;
 
-            match url.post(&json!({}), Duration::from_secs(3)).await {
-                Ok(_) => log_info!(4, "Disconnected [{}] from Proxy [{}]", service.get_name(), s.get_name()),
-                Err(e) => log_warning!(2, "Can't unregister [{}] from Proxy [{}]: {}", service.get_name(), s.get_name(), e),
+            let msg = json!({
+            "type": "remove_server",
+            "data": { "name": service.get_name() }
+        });
+
+            if sp.send(msg).await {
+                log_info!(4, "Disconnected [{}] from Proxy [{}]", service.get_name(), sp.get_name());
+            } else {
+                log_warning!(2, "Can't unregister [{}] from Proxy [{}]: no session", service.get_name(), sp.get_name());
             }
         }
         Ok(())

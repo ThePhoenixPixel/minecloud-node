@@ -184,6 +184,10 @@ impl NodeManager {
         Ok(())
     }
 
+    pub fn get_service_manager(&self) -> ServiceManagerRef {
+        self.service_manager.clone()
+    }
+
     /// find the best Node in Cluster to Start the new Service from Task
     async fn find_best_node(&self, _task: &Task) -> String {
         String::from("Node-1")

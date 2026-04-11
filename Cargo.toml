@@ -13,7 +13,8 @@ delegate            = "0.13.5"
 colored             = "3.1.1"
 rand                = "0.10.0-rc.8"
 actix-web           = "4.12.1"
-actix-cors          = "0.7.1"
+#actix-cors          = "0.7.1"
+actix-ws            = "0.4.0"
 sysinfo             = "0.38.0"
 chrono              = { version = "0.4.43", features = ["serde"] }
 uuid                = { version = "1.20.0", features = ["v4", "serde"] }
@@ -24,6 +25,7 @@ strum               = "0.28.0"
 strum_macros        = "0.28.0"
 database_manager    = { git = "https://github.com/ThePhoenixPixel/database_manager.git", branch = "master" }
 reqwest             = {  version = "0.13.2", features = ["json"] }
+futures-util = "0.3.32"
 
 [features]
 default             = ["mysql"]
