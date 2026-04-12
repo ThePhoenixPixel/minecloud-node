@@ -1,8 +1,6 @@
 use bx::network::address::Address;
 use bx::path::Directory;
 use database_manager::DatabaseManager;
-use serde::Serialize;
-use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::read_to_string;
@@ -18,12 +16,7 @@ use crate::manager::TaskManagerRef;
 use crate::types::{EntityId, Service, ServiceProcess, ServiceProcessRef, ServiceStatus, TaskRef};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
-use crate::{error, log_error, log_info, log_warning};
-
-#[derive(Serialize)]
-struct RegisterServerData {
-    register_server: ServiceInfoResponse,
-}
+use crate::{error, log_info, log_warning};
 
 pub struct ServiceManager {
     services: HashMap<EntityId, ServiceProcessRef>,

@@ -9,7 +9,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 use reqwest::Client;
-use serde_json::Value;
+
 use crate::cloud::Cloud;
 use crate::{error, log_error};
 use crate::utils::error::*;

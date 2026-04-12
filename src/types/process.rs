@@ -79,7 +79,7 @@ impl ServiceProcess {
     pub async fn shutdown(&mut self, msg: &str, timeout: Duration) {
         self.shutdown_initiated_by_cloud = true;
 
-        if let Err(e) = self.send_stop(msg, timeout).await {
+        if let Err(e) = self.send_stop(msg).await {
             log_error!("Stop command failed for {}: {}", self.service.get_name(), e);
         }
 
@@ -120,7 +120,7 @@ impl ServiceProcess {
         self.session.is_some()
     }
 
-    async fn send_stop(&mut self, msg: &str, timeout: Duration) -> CloudResult<()> {
+    async fn send_stop(&mut self, msg: &str) -> CloudResult<()> {
         let data = json!({"msg": msg });
         let body = OutgoingMessage::ok(MessageType::shutdown, Some(data));
 

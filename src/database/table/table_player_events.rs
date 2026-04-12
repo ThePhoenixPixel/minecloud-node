@@ -1,6 +1,6 @@
 use database_manager::types::{DBDatetime, DBText, DBUInt, DBVarChar, DbResult};
 use database_manager::{DatabaseController, Table, TableDerive};
-use uuid::Uuid;
+
 use crate::database::DBTools;
 use crate::types::{Player, ServiceProcessRef};
 
