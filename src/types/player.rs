@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use crate::api::internal::PlayerActionRequest;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
 pub struct Player {
@@ -97,9 +98,9 @@ impl PlayerRequest {
     }
 }
 
-impl From<PlayerRequest> for Player {
-    fn from(value: PlayerRequest) -> Self {
-        Player::new(0, value.get_name().clone(), value.get_uuid(), None)
+impl From<&PlayerActionRequest> for Player {
+    fn from(value: &PlayerActionRequest) -> Self {
+        Player::new(0, value.get_player_name().to_string(), value.get_player_uuid(), None)
     }
 }
 

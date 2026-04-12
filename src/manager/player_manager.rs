@@ -30,7 +30,8 @@ impl PlayerManager {
             sm.get_from_id(&req.get_service_uuid())?
         };
 
-        let mut player = self.get_or_create_player(&Player::from(req.get_player_req())).await?;
+        let p = Player::from(&req);
+        let mut player = self.get_or_create_player(&p).await?;
 
         let (mut current_players, task_ref) = {
             let s = service_ref.read().await;

@@ -8,18 +8,17 @@ use std::fs;
 use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use uuid::Uuid;
 
-use crate::api::internal::ServiceInfoResponse;
+use crate::api::internal::{MessageType, OutgoingMessage, ServiceInfoResponse};
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
 use crate::manager::TaskManagerRef;
 use crate::types::{EntityId, Service, ServiceProcess, ServiceProcessRef, ServiceStatus, TaskRef};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
-use crate::{error, log_info, log_warning};
+use crate::{error, log_error, log_info, log_warning};
 
 #[derive(Serialize)]
 struct RegisterServerData {
@@ -146,15 +145,13 @@ impl ServiceManager {
     pub async fn register_on_proxy(&self, service: &Service) -> CloudResult<()> {
         if service.is_proxy() { return Ok(()); }
 
+        let service_info_value = serde_json::to_value(ServiceInfoResponse::new(service)).map_err(|e| error!(CantSerializeServiceInfo, e))?;
+        let msg = OutgoingMessage::ok(MessageType::add_server, Some(service_info_value));
+
         for proxy in self.filter_services(|s| s.is_running() && s.is_proxy()).await {
             let mut sp = proxy.write().await;
 
-            let msg = json!({
-            "type": "add_server",
-            "data": ServiceInfoResponse::new(service)
-        });
-
-            if sp.send(msg).await {
+            if sp.send(&msg).await {
                 log_info!(4, "Connected [{}] to Proxy [{}]", service.get_name(), sp.get_name());
             } else {
                 log_warning!(2, "Can't register [{}] to Proxy [{}]: no session", service.get_name(), sp.get_name());
@@ -166,15 +163,13 @@ impl ServiceManager {
     pub async fn unregister_from_proxy(&self, service: &Service) -> CloudResult<()> {
         if service.is_proxy() { return Ok(()); }
 
+        let service_info_value = serde_json::to_value(ServiceInfoResponse::new(service)).map_err(|e| error!(CantSerializeServiceInfo, e))?;
+        let msg = OutgoingMessage::ok(MessageType::remove_server, Some(service_info_value));
+
         for proxy in self.filter_services(|s| s.is_proxy() && s.is_start()).await {
             let mut sp = proxy.write().await;
 
-            let msg = json!({
-            "type": "remove_server",
-            "data": { "name": service.get_name() }
-        });
-
-            if sp.send(msg).await {
+            if sp.send(&msg).await {
                 log_info!(4, "Disconnected [{}] from Proxy [{}]", service.get_name(), sp.get_name());
             } else {
                 log_warning!(2, "Can't unregister [{}] from Proxy [{}]: no session", service.get_name(), sp.get_name());

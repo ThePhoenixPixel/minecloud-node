@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use actix_ws::{Message, Session};
 use serde::{Deserialize, Serialize};
@@ -7,60 +8,11 @@ use futures_util::StreamExt;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::api::internal::{APIInternalHandler, PlayerActionRequest, ServiceIdRequest};
+use crate::api::internal::{APIInternalHandler, IncomingMessage, MessageType, OutgoingMessage, PlayerActionRequest, ServiceIdRequest};
 use crate::cloud::Cloud;
 use crate::utils::error::{CantBindAddress, CloudResult, IntoCloudError};
 use crate::{error, log_error, log_info};
 use crate::types::{ServiceProcessRef};
-
-#[derive(Debug, Deserialize)]
-pub struct IncomingMessage {
-    /// z.B. "get_backend_services" | "service_online" | "service_shutdown" | "player_action"
-    #[serde(rename = "type")]
-    msg_type: String,
-
-    service_id: Uuid,
-
-    /// Body
-    #[serde(default)]
-    data: Value,
-}
-
-#[derive(Debug, Serialize)]
-pub struct OutgoingMessage {
-    #[serde(rename = "type")]
-    msg_type: String,
-
-    success: bool,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<Value>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
-}
-
-impl OutgoingMessage {
-    fn ok(msg_type: impl Into<String>, data: Option<Value>) -> String {
-        serde_json::to_string(&Self {
-            msg_type: msg_type.into(),
-            success: true,
-            data,
-            error: None,
-        })
-            .unwrap()
-    }
-
-    fn err(msg_type: impl Into<String>, e: impl ToString) -> String {
-        serde_json::to_string(&Self {
-            msg_type: msg_type.into(),
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        })
-            .unwrap()
-    }
-}
 
 // ── WebSocket-Handler ────────────────────────────────────────────────────────
 
@@ -69,7 +21,7 @@ async fn ws_handler(
     body: web::Payload,
     cloud: web::Data<Arc<RwLock<Cloud>>>,
 ) -> actix_web::Result<HttpResponse> {
-    let (response, session, mut stream) = actix_ws::handle(&req, body)?;
+    let (response, session, stream) = actix_ws::handle(&req, body)?;
     let cloud = cloud.get_ref().clone();
 
     actix_web::rt::spawn(async move {
@@ -92,30 +44,30 @@ async fn handle_connection(
                 let incoming: IncomingMessage = match serde_json::from_str(&text) {
                     Ok(m) => m,
                     Err(e) => {
-                        let _ = session.text(OutgoingMessage::err("error", e)).await;
+                        let _ = session.text(OutgoingMessage::err(MessageType::error, e)).await;
                         continue;
                     }
                 };
 
                 let service_process_ref = {
                     let sm = cloud.read().await.get_node_manager().get_service_manager();
-                    sm.read().await.find_from_id(&incoming.service_id)
+                    sm.read().await.find_from_id(&incoming.get_service_id())
                 };
 
                 bound_service = service_process_ref.clone();
 
-                if incoming.msg_type == "auth" {
+                if incoming.get_msg_typ() == MessageType::auth {
 
 
                     match service_process_ref {
                         Some(spr) => {
                             spr.write().await.attach_session(session.clone());
 
-                            log_info!(3, "[WS] Plugin '{}' auth", incoming.service_id);
-                            let _ = session.text(OutgoingMessage::ok("auth", Some(json!({ "status": "ok" })))).await;
+                            log_info!(3, "[WS] Plugin '{}' auth", incoming.get_service_id());
+                            let _ = session.text(OutgoingMessage::ok(MessageType::auth, Some(json!({ "status": "ok" })))).await;
                         }
                         None => {
-                            let _ = session.text(OutgoingMessage::err("auth", format!("Unknown service: '{}'", incoming.service_id))).await;
+                            let _ = session.text(OutgoingMessage::err(MessageType::auth, format!("Unknown service: '{}'", incoming.get_service_id()))).await;
                             let _ = session.close(None).await;
                             return;
                         }
@@ -125,7 +77,7 @@ async fn handle_connection(
 
                 if bound_service.is_none() {
                     let _ = session.text(OutgoingMessage::err(
-                        "error",
+                        MessageType::error,
                         "Not identified yet. Send 'identify' first.",
                     )).await;
                     continue;
@@ -161,44 +113,41 @@ async fn handle_connection(
 }
 
 async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) -> String {
-    let service_id = msg.service_id.to_string();
-
-    match msg.msg_type.as_str() {
+    match msg.get_msg_typ() {
         // GET /api/internal/services/backend
-        "get_online_backend_services" => {
+        MessageType::get_online_backend_services => {
             let data = APIInternalHandler::get_online_backend_services(cloud).await;
-            OutgoingMessage::ok("get_online_backend_server", data)
+            OutgoingMessage::ok(MessageType::get_online_backend_services, data)
         }
 
         // POST /api/internal/service/online
-        "service_online" => {
-            let data: ServiceIdRequest  = serde_json::from_value(msg.data.clone()).unwrap();
+        MessageType::service_online => {
+            let data: ServiceIdRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
             match APIInternalHandler::service_set_online(cloud, data).await {
-                Ok(_) => OutgoingMessage::ok("service_online", None),
-                Err(e)   => OutgoingMessage::err("service_online", e),
+                Ok(_) => OutgoingMessage::ok(MessageType::service_online, None),
+                Err(e)   => OutgoingMessage::err(MessageType::service_online, e),
             }
         }
 
         // POST /api/internal/service/shutdown
-        "service_shutdown" => {
-            let data: ServiceIdRequest  = serde_json::from_value(msg.data.clone()).unwrap();
+        MessageType::service_shutdown => {
+            let data: ServiceIdRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
             match APIInternalHandler::service_notify_shutdown(cloud, data).await {
-                Ok(_) => OutgoingMessage::ok("service_shutdown", None),
-                Err(e)   => OutgoingMessage::err("service_shutdown", e),
+                Ok(_) => OutgoingMessage::ok(MessageType::service_shutdown, None),
+                Err(e)   => OutgoingMessage::err(MessageType::service_shutdown, e),
             }
         }
 
         // POST /api/internal/player/action
-        "player_action" => {
-            let data: PlayerActionRequest  = serde_json::from_value(msg.data.clone()).unwrap();
+        MessageType::player_action => {
+            let data: PlayerActionRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
             match APIInternalHandler::player_action(cloud, data).await {
-                Ok(_) => OutgoingMessage::ok("player_action", None),
-                Err(e)   => OutgoingMessage::err("player_action", e),
+                Ok(_) => OutgoingMessage::ok(MessageType::player_action, None),
+                Err(e)   => OutgoingMessage::err(MessageType::player_action, e),
             }
         }
-
-        unknown => {
-            OutgoingMessage::err("error", format!("Unknown message type: '{unknown}'"))
+        _ => {
+            OutgoingMessage::err(MessageType::error, format!("Unknown message type"))
         }
     }
 }

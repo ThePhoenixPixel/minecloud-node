@@ -62,6 +62,7 @@ pub enum CloudErrorKind {
     CantStartServer,
     CantSendShutdownRequest,
     CantConvertServerFilePathToString,
+    CantSerializeServiceInfo,
 
     ///6x.xxx
     DatabaseError,

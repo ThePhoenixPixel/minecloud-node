@@ -15,7 +15,7 @@ use actix_ws::Session;
 use tokio::io;
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use tokio::time::{Instant, sleep, timeout as wait};
+use tokio::time::{Instant, sleep};
 
 use crate::config::Software;
 use crate::types::service::Service;
@@ -23,6 +23,7 @@ use crate::types::{EntityId, ServiceConfig, ServiceStatus};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
+use crate::api::internal::{MessageType, OutgoingMessage};
 
 pub struct ServiceProcess {
     service: Service,
@@ -108,10 +109,9 @@ impl ServiceProcess {
         self.session = None;
     }
 
-    pub async fn send(&mut self, msg: serde_json::Value) -> bool {
+    pub async fn send(&mut self, body: impl Into<String>) -> bool {
         if let Some(session) = &mut self.session {
-            let text = serde_json::to_string(&msg).unwrap();
-            return session.text(text).await.is_ok();
+            return session.text(body.into()).await.is_ok();
         }
         false
     }
@@ -121,10 +121,8 @@ impl ServiceProcess {
     }
 
     async fn send_stop(&mut self, msg: &str, timeout: Duration) -> CloudResult<()> {
-        let body = json!({
-        "type": "shutdown",
-        "data": { "msg": msg }
-    });
+        let data = json!({"msg": msg });
+        let body = OutgoingMessage::ok(MessageType::shutdown, Some(data));
 
         if self.send(body).await {
             log_info!(6, "Stop command sent to [{}]", self.service.get_name());
