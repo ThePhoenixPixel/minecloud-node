@@ -1,20 +1,15 @@
-use std::cmp::PartialEq;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use actix_ws::{Message, Session};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::sync::Arc;
 use futures_util::StreamExt;
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
 use crate::api::internal::{APIInternalHandler, IncomingMessage, MessageType, OutgoingMessage, PlayerActionRequest, ServiceIdRequest};
 use crate::cloud::Cloud;
 use crate::utils::error::{CantBindAddress, CloudResult, IntoCloudError};
 use crate::{error, log_error, log_info};
 use crate::types::{ServiceProcessRef};
-
-// ── WebSocket-Handler ────────────────────────────────────────────────────────
 
 async fn ws_handler(
     req: HttpRequest,
@@ -57,13 +52,11 @@ async fn handle_connection(
                 bound_service = service_process_ref.clone();
 
                 if incoming.get_msg_typ() == MessageType::auth {
-
-
                     match service_process_ref {
                         Some(spr) => {
                             spr.write().await.attach_session(session.clone());
 
-                            log_info!(3, "[WS] Plugin '{}' auth", incoming.get_service_id());
+                            log_info!(4, "[API] Server '{}' auth", incoming.get_service_id());
                             let _ = session.text(OutgoingMessage::ok(MessageType::auth, Some(json!({ "status": "ok" })))).await;
                         }
                         None => {
@@ -95,7 +88,7 @@ async fn handle_connection(
             Message::Close(reason) => {
                 if let Some(svc) = &bound_service {
                     svc.write().await.detach_session();
-                    log_info!(3, "[WS] Plugin '{}' disconnected", svc.get_name().await);
+                    log_info!(4, "[API] Server '{}' disconnected", svc.get_name().await);
                 }
                 let _ = session.close(reason).await;
                 return;
@@ -105,31 +98,27 @@ async fn handle_connection(
         }
     }
 
-    // Cleanup falls Stream unerwartet endet
     if let Some(svc) = &bound_service {
         svc.write().await.detach_session();
-        log_info!(3, "[WS] Plugin '{}' lost connection", svc.get_name().await);
+        log_info!(3, "[API] Server '{}' lost connection", svc.get_name().await);
     }
 }
 
 async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) -> String {
     match msg.get_msg_typ() {
-        // GET /api/internal/services/backend
         MessageType::get_online_backend_services => {
             let data = APIInternalHandler::get_online_backend_services(cloud).await;
             OutgoingMessage::ok(MessageType::get_online_backend_services, data)
         }
 
-        // POST /api/internal/service/online
         MessageType::service_online => {
             let data: ServiceIdRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
-            match APIInternalHandler::service_set_online(cloud, data).await {
+            match APIInternalHandler::service_notify_started(cloud, data).await {
                 Ok(_) => OutgoingMessage::ok(MessageType::service_online, None),
                 Err(e)   => OutgoingMessage::err(MessageType::service_online, e),
             }
         }
 
-        // POST /api/internal/service/shutdown
         MessageType::service_shutdown => {
             let data: ServiceIdRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
             match APIInternalHandler::service_notify_shutdown(cloud, data).await {
@@ -138,7 +127,6 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
             }
         }
 
-        // POST /api/internal/player/action
         MessageType::player_action => {
             let data: PlayerActionRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
             match APIInternalHandler::player_action(cloud, data).await {
@@ -147,7 +135,7 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
             }
         }
         _ => {
-            OutgoingMessage::err(MessageType::error, format!("Unknown message type"))
+            OutgoingMessage::err(MessageType::error, "Unknown message type".to_string())
         }
     }
 }
@@ -195,7 +183,7 @@ impl APIInternal {
 
         rx.recv().unwrap_or(Err(error!(CantBindAddress)))?;
 
-        log_info!(3, "[Internal WS] Server gestartet");
+        log_info!(3, "[Internal API] Endpoint started");
         Ok(())
     }
 }

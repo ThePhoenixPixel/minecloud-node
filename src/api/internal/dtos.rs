@@ -3,11 +3,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::types::{EntityId, PlayerAction, PlayerRequest, Service};
+use crate::types::{EntityId, PlayerAction, Service};
 
 #[derive(Debug, Deserialize)]
 pub struct IncomingMessage {
-    /// z.B. "get_backend_services" | "service_online" | "service_shutdown" | "player_action"
     #[serde(rename = "type")]
     msg_type: MessageType,
 
@@ -168,7 +167,7 @@ impl PlayerActionRequest {
     pub fn get_player_uuid(&self) -> Uuid {
         self.player_uuid
     }
-    
+
     pub fn get_service_uuid(&self) -> Uuid {
         self.service_uuid
     }
