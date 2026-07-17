@@ -2,7 +2,7 @@ use database_manager::DatabaseManager;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::api::internal::PlayerActionRequest;
+use crate::api::internal::{OutgoingMessage, PlayerActionRequest};
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
 use crate::manager::{ServiceManagerRef, TaskManagerRef};
 use crate::types::{Player, PlayerAction, PlayerSession, ServiceProcessRef};
@@ -24,7 +24,7 @@ impl PlayerManager {
         PlayerManager { db_manager, service_manager, task_manager }
     }
 
-    pub async fn handle_action(&self, req: PlayerActionRequest) -> CloudResult<()> {
+    pub async fn handle_action(&self, req: PlayerActionRequest) -> CloudResult<OutgoingMessage> {
         let service_ref = {
             let sm = self.service_manager.read().await;
             sm.get_from_id(&req.get_service_uuid())?
@@ -84,6 +84,10 @@ impl PlayerManager {
         service: &ServiceProcessRef,
     ) -> CloudResult<()> {
         let id = service.get_id().await;
+
+
+
+
         if service.is_proxy().await {
             self.create_session(player, &id).await?;
             self.update_last_login(player).await?;

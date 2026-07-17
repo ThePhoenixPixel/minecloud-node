@@ -39,7 +39,8 @@ async fn handle_connection(
                 let incoming: IncomingMessage = match serde_json::from_str(&text) {
                     Ok(m) => m,
                     Err(e) => {
-                        let _ = session.text(OutgoingMessage::err(MessageType::error, e)).await;
+                        let msg = OutgoingMessage::err(MessageType::error, e.to_string());
+                        let _ = session.text(msg).await;
                         continue;
                     }
                 };
@@ -51,16 +52,18 @@ async fn handle_connection(
 
                 bound_service = service_process_ref.clone();
 
-                if incoming.get_msg_typ() == MessageType::auth {
+                if incoming.get_msg_typ() == MessageType::Auth {
                     match service_process_ref {
                         Some(spr) => {
                             spr.write().await.attach_session(session.clone());
 
-                            log_info!(4, "[API] Server '{}' auth", incoming.get_service_id());
-                            let _ = session.text(OutgoingMessage::ok(MessageType::auth, Some(json!({ "status": "ok" })))).await;
+                            log_info!(4, "[API] Server '{}' Auth", incoming.get_service_id());
+                            let msg = OutgoingMessage::ok(MessageType::Auth, json!({ "status": "ok" }));
+                            let _ = session.text(msg).await;
                         }
                         None => {
-                            let _ = session.text(OutgoingMessage::err(MessageType::auth, format!("Unknown service: '{}'", incoming.get_service_id()))).await;
+                            let msg = OutgoingMessage::err(MessageType::Auth, format!("Unknown service: '{}'", incoming.get_service_id()));
+                            let _ = session.text(msg).await;
                             let _ = session.close(None).await;
                             return;
                         }
@@ -69,10 +72,8 @@ async fn handle_connection(
                 }
 
                 if bound_service.is_none() {
-                    let _ = session.text(OutgoingMessage::err(
-                        MessageType::error,
-                        "Not identified yet. Send 'identify' first.",
-                    )).await;
+                    let msg = OutgoingMessage::err(MessageType::error, String::from("Not identified yet. Send 'identify' first."));
+                    let _ = session.text(msg).await;
                     continue;
                 }
 
@@ -108,7 +109,7 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
     match msg.get_msg_typ() {
         MessageType::get_online_backend_services => {
             let data = APIInternalHandler::get_online_backend_services(cloud).await;
-            OutgoingMessage::ok(MessageType::get_online_backend_services, data)
+            OutgoingMessage::ok_data_is_none(MessageType::get_online_backend_services, data)
         }
 
         MessageType::service_online => {
@@ -129,10 +130,7 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
 
         MessageType::player_action => {
             let data: PlayerActionRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
-            match APIInternalHandler::player_action(cloud, data).await {
-                Ok(_) => OutgoingMessage::ok(MessageType::player_action, None),
-                Err(e)   => OutgoingMessage::err(MessageType::player_action, e),
-            }
+            APIInternalHandler::player_action(cloud, data).await.to_string()
         }
         _ => {
             OutgoingMessage::err(MessageType::error, "Unknown message type".to_string())

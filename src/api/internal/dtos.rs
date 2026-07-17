@@ -2,8 +2,10 @@ use bx::network::address::Address;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
-
+use log::log;
+use crate::{error, log_error};
 use crate::types::{EntityId, PlayerAction, Service};
+use crate::utils::error::*;
 
 #[derive(Debug, Deserialize)]
 pub struct IncomingMessage {
@@ -45,31 +47,55 @@ pub struct OutgoingMessage {
 }
 
 impl OutgoingMessage {
-    pub fn ok(msg_type: impl Into<MessageType>, data: Option<Value>) -> String
-    {
+    pub fn ok(msg_type: impl Into<MessageType>, data: Value) -> String {
+        serde_json::to_string(&Self {
+            msg_type: msg_type.into(),
+            success: true,
+            data: Some(data),
+            error: None,
+        }).unwrap_or_else(|e| {
+            log_error!("CantSerializeOutgoingMsg: {}", e);
+            String::from("CantSerializeOutgoingMsg Internal Server Error")
+        })
+    }
+
+    pub fn ok_data_is_none(msg_type: impl Into<MessageType>, data: Option<Value>) -> String {
         serde_json::to_string(&Self {
             msg_type: msg_type.into(),
             success: true,
             data,
             error: None,
+        }).unwrap_or_else(|e| {
+            log_error!("CantSerializeOutgoingMsg: {}", e);
+            String::from("CantSerializeOutgoingMsg Internal Server Error")
         })
-            .unwrap()
     }
 
-    pub fn err(msg_type: impl Into<MessageType>, e: impl ToString) -> String {
+    pub fn err(msg_type: impl Into<MessageType>, error: String) -> String {
         serde_json::to_string(&Self {
             msg_type: msg_type.into(),
             success: false,
             data: None,
-            error: Some(e.to_string()),
+            error: Some(error),
+        }).unwrap_or_else(|e| {
+            log_error!("CantSerializeOutgoingMsg: {}", e);
+            String::from("CantSerializeOutgoingMsg Internal Server Error")
         })
-            .unwrap()
+    }
+
+    pub fn to_string(self) -> String {
+        if self.success {
+            OutgoingMessage::ok(self.msg_type, self.data.ok_or(error!(CantSerializeOutgoingMsg)))
+        } else {
+            OutgoingMessage::err(self.msg_type, self.error.ok_or(error!(CantSerializeOutgoingMsg)))
+        }
     }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum MessageType {
-    auth,
+    #[serde(rename = "Auth")]
+    Auth,
     get_online_backend_services,
     service_online,
     service_shutdown,

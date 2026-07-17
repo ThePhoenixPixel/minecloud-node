@@ -2,8 +2,9 @@ use std::sync::Arc;
 use serde_json::Value;
 use tokio::sync::RwLock;
 
-use crate::api::internal::{PlayerActionRequest, ServiceIdRequest, ServiceInfoResponse};
+use crate::api::internal::{MessageType, OutgoingMessage, PlayerActionRequest, ServiceIdRequest, ServiceInfoResponse};
 use crate::cloud::Cloud;
+use crate::log_error;
 use crate::types::EntityId;
 use crate::utils::error::CloudResult;
 use crate::utils::utils::Utils;
@@ -68,14 +69,18 @@ impl APIInternalHandler {
     pub async fn player_action(
         cloud: Arc<RwLock<Cloud>>,
         request: PlayerActionRequest,
-    ) -> CloudResult<()> {
+    ) -> OutgoingMessage {
         let player_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_player_manager()
         };
 
-        player_manager.handle_action(request).await?;
-
-        Ok(())
+        match player_manager.handle_action(request).await {
+            Ok(msg) => msg,
+            Err(e) => {
+                log_error!("{}", e);
+                OutgoingMessage::err(MessageType::error, String::from(""))
+            }
+        }
     }
 }

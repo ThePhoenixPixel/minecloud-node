@@ -1766,6 +1766,7 @@ dependencies = [
  "database_manager",
  "delegate",
  "futures-util",
+ "log",
  "mysql",
  "once_cell",
  "rand 0.10.0",

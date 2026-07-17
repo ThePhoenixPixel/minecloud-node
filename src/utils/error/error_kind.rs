@@ -20,6 +20,10 @@ pub enum CloudErrorKind {
     /// 12.xxx network
     NextFreePortNotFound,
 
+    /// 13.xxx api internal
+    CantSerializeOutgoingMsg,
+
+
     /// 2x.xxx CloudSystem
     CantFetchSoftwareIndex,
     CantParseSoftwareIndex,

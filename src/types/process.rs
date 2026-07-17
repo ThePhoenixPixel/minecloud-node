@@ -122,7 +122,7 @@ impl ServiceProcess {
 
     async fn send_stop(&mut self, msg: &str) -> CloudResult<()> {
         let data = json!({"msg": msg });
-        let body = OutgoingMessage::ok(MessageType::shutdown, Some(data));
+        let body = OutgoingMessage::ok(MessageType::shutdown, data);
 
         if self.send(body).await {
             log_info!(6, "Stop command sent to [{}]", self.service.get_name());
