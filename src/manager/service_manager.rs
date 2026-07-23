@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use uuid::Uuid;
 
-use crate::api::internal::{MessageType, OutgoingMessage, ServiceInfoResponse};
+use crate::api::internal::{OutgoingMessage, OutgoingMessageType, ServiceInfoResponse};
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
 use crate::manager::TaskManagerRef;
@@ -139,7 +139,7 @@ impl ServiceManager {
         if service.is_proxy() { return Ok(()); }
 
         let service_info_value = serde_json::to_value(ServiceInfoResponse::new(service)).map_err(|e| error!(CantSerializeServiceInfo, e))?;
-        let msg = OutgoingMessage::ok(MessageType::add_server, service_info_value);
+        let msg = OutgoingMessage::ok(OutgoingMessageType::AddServer, service_info_value);
 
         for proxy in self.filter_services(|s| s.is_running() && s.is_proxy()).await {
             let mut sp = proxy.write().await;
@@ -157,7 +157,7 @@ impl ServiceManager {
         if service.is_proxy() { return Ok(()); }
 
         let service_info_value = serde_json::to_value(ServiceInfoResponse::new(service)).map_err(|e| error!(CantSerializeServiceInfo, e))?;
-        let msg = OutgoingMessage::ok(MessageType::remove_server, service_info_value);
+        let msg = OutgoingMessage::ok(OutgoingMessageType::RemoveServer, service_info_value);
 
         for proxy in self.filter_services(|s| s.is_proxy() && s.is_start()).await {
             let mut sp = proxy.write().await;

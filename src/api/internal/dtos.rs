@@ -56,12 +56,21 @@ impl OutgoingMessage {
         }
     }
 
-    pub fn err(msg_type: impl Into<OutgoingMessageType>, error: String) -> OutgoingMessage {
+    pub fn err(error: String) -> OutgoingMessage {
         OutgoingMessage {
-            msg_type: msg_type.into(),
+            msg_type: OutgoingMessageType::Error,
             success: true,
             data: None,
             error: Some(error),
+        }
+    }
+
+    pub fn null() -> OutgoingMessage {
+        OutgoingMessage {
+            msg_type: OutgoingMessageType::ResponseNull,
+            success: true,
+            data: None,
+            error: None,
         }
     }
 
@@ -102,6 +111,12 @@ impl PartialEq<IncomingMessageType> for &IncomingMessageType {
 pub enum OutgoingMessageType {
     #[serde(rename = "error")]
     Error,
+
+    #[serde(rename = "response")]
+    Response,
+
+    #[serde(rename = "response_null")]
+    ResponseNull,
 
     #[serde(rename = "shutdown")]
     Shutdown,

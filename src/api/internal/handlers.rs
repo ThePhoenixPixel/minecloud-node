@@ -1,12 +1,13 @@
 use std::sync::Arc;
-use serde_json::Value;
 use tokio::sync::RwLock;
 
-use crate::api::internal::{MessageType, OutgoingMessage, PlayerActionRequest, ServiceIdRequest, ServiceInfoResponse};
+use crate::api::internal::{
+    OutgoingMessage, OutgoingMessageType, PlayerActionRequest, ServiceIdRequest,
+    ServiceInfoResponse,
+};
 use crate::cloud::Cloud;
 use crate::log_error;
 use crate::types::EntityId;
-use crate::utils::error::CloudResult;
 use crate::utils::utils::Utils;
 
 pub struct APIInternalHandler;
@@ -16,40 +17,48 @@ impl APIInternalHandler {
     pub async fn service_notify_shutdown(
         cloud: Arc<RwLock<Cloud>>,
         request: ServiceIdRequest,
-    ) -> CloudResult<()> {
+    ) -> OutgoingMessage {
         let node_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_node_manager()
         };
 
-        node_manager
+        match node_manager
             .on_local_service_shutdown(EntityId::from(&request))
-            .await?;
-
-        Ok(())
+            .await
+        {
+            Ok(()) => OutgoingMessage::null(),
+            Err(e) => {
+                log_error!(3, "[service_notify_shutdown] Error: {}", e);
+                OutgoingMessage::err(e.to_string())
+            }
+        }
     }
 
     /// Called by the Minecraft Process (Minecraft Plugin) as soon as the service has been fully started
     pub async fn service_notify_started(
         cloud: Arc<RwLock<Cloud>>,
         request: ServiceIdRequest,
-    ) -> CloudResult<()> {
+    ) -> OutgoingMessage {
         let node_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_node_manager()
         };
 
-        node_manager
+        match node_manager
             .on_local_service_registered(EntityId::from(&request))
-            .await?;
-
-        Ok(())
+            .await
+        {
+            Ok(()) => OutgoingMessage::null(),
+            Err(e) => {
+                log_error!(3, "[service_notify_started] Error: {}", e);
+                OutgoingMessage::err(e.to_string())
+            }
+        }
     }
 
     /// Returns all backend servers currently available online
-    pub async fn get_online_backend_services(
-        cloud: Arc<RwLock<Cloud>>,
-    ) -> Option<Value> {
+    pub async fn get_online_backend_services(cloud: Arc<RwLock<Cloud>>) -> OutgoingMessage {
         let node_manager = {
             let cloud_guard = cloud.read().await;
             cloud_guard.get_node_manager()
@@ -62,7 +71,10 @@ impl APIInternalHandler {
             .map(|s| ServiceInfoResponse::from(&s))
             .collect();
 
-        Utils::convert_to_json(&response)
+        match Utils::convert_to_json(&response) {
+            Some(data) => OutgoingMessage::ok(OutgoingMessageType::Response, data),
+            None => OutgoingMessage::err("Cant Serialize Data".to_string()),
+        }
     }
 
     /// Called when a player performs an action (e.g., server change)
@@ -75,12 +87,12 @@ impl APIInternalHandler {
             cloud_guard.get_player_manager()
         };
 
-        match player_manager.handle_action(request).await {
-            Ok(msg) => msg,
-            Err(e) => {
+        player_manager
+            .handle_action(request)
+            .await
+            .unwrap_or_else(|e| {
                 log_error!("{}", e);
-                OutgoingMessage::err(MessageType::Error, String::from(""))
-            }
-        }
+                OutgoingMessage::err(e.to_string())
+            })
     }
 }

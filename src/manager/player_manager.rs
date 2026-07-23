@@ -21,7 +21,11 @@ impl PlayerManager {
         service_manager: ServiceManagerRef,
         task_manager: TaskManagerRef,
     ) -> PlayerManager {
-        PlayerManager { db_manager, service_manager, task_manager }
+        PlayerManager {
+            db_manager,
+            service_manager,
+            task_manager,
+        }
     }
 
     pub async fn handle_action(&self, req: PlayerActionRequest) -> CloudResult<OutgoingMessage> {
@@ -36,27 +40,66 @@ impl PlayerManager {
         let (mut current_players, task_ref) = {
             let s = service_ref.read().await;
             let service = s.get_service();
-            let task_ref = self.task_manager.get_task_ref_from_name(service.get_task_name()).await?;
+            let task_ref = self
+                .task_manager
+                .get_task_ref_from_name(service.get_task_name())
+                .await?;
             (service.get_current_players(), task_ref)
         };
 
-        match req.get_action() {
+        // Player Join
+        if req.get_action() == PlayerAction::Join {
+            let id = service_ref.get_id().await;
+            current_players += 1;
+            self.add_event(&player, &service_ref, &req.get_action(), None)
+                .await?;
+
+            // join on proxy
+            if service_ref.is_proxy().await {
+                self.create_session(&mut player, &id).await?;
+                self.update_last_login(&mut player).await?;
+            } else
+            // join on backend Server
+            {
+                self.update_session(&mut player, &id).await?;
+            }
+        } else if req.get_action() == PlayerAction::Leave {
+            current_players -= 1;
+
+            let session_id = player.get_session().clone().map(|s| s.get_id());
+            self.add_event(&player, &service_ref, &req.get_action(), session_id)
+                .await?;
+            // todo: beim leaver eine zeit setezn der nächste der delteing würde gucjt nacj zeit ja dann delte wenn nicht zeit setzene ...
+            /// leave proxy
+            if service_ref.is_proxy().await {
+                let player_id = player.get_id();
+                match self.delete_session(&mut player).await {
+                    Ok(_) => log_info!(7, "Session for Player |{}| deleted", player_id),
+                    Err(e) => log_warning!("Cant delete Session for Player |{}|: {}", player_id, e),
+                }
+            } else {
+                // leave backend Serve
+            }
+        }
+
+        /* match req.get_action() {
             PlayerAction::Join => {
                 current_players += 1;
                 self.on_player_join(&mut player, &service_ref).await?;
-                self.add_event(&player, &service_ref, &req.get_action(), None).await?;
+                self.add_event(&player, &service_ref, &req.get_action(), None)
+                    .await?;
             }
             PlayerAction::Leave => {
                 current_players -= 1;
 
                 let session_id = player.get_session().clone().map(|s| s.get_id());
 
-                self.add_event(&player, &service_ref, &req.get_action(), session_id).await?;
-       // todo: beim leaver eine zeit setezn der nächste der delteing würde gucjt nacj zeit ja dann delte wenn nicht zeit setzene ...
+                self.add_event(&player, &service_ref, &req.get_action(), session_id)
+                    .await?;
+                // todo: beim leaver eine zeit setezn der nächste der delteing würde gucjt nacj zeit ja dann delte wenn nicht zeit setzene ...
                 self.on_player_leave(&mut player, &service_ref).await?;
-
             }
-        }
+        }*/
 
         let (percent, max_p) = {
             let t = task_ref.read().await;
@@ -75,7 +118,7 @@ impl PlayerManager {
             }
         }
 
-        Ok(())
+        Ok(OutgoingMessage::null())
     }
 
     pub async fn on_player_join(
@@ -84,9 +127,6 @@ impl PlayerManager {
         service: &ServiceProcessRef,
     ) -> CloudResult<()> {
         let id = service.get_id().await;
-
-
-
 
         if service.is_proxy().await {
             self.create_session(player, &id).await?;
@@ -116,7 +156,12 @@ impl PlayerManager {
     async fn register_player(&self, player: &Player) -> CloudResult<Player> {
         let db_player = TablePlayers::new(&player.get_uuid(), &player.get_name())?;
         db_player.create(self.db_manager.as_ref()).await?;
-        log_info!(7, "[DB t_players] Register new Player: [{}] [{}]", player.get_name(), player.get_uuid_str());
+        log_info!(
+            7,
+            "[DB t_players] Register new Player: [{}] [{}]",
+            player.get_name(),
+            player.get_uuid_str()
+        );
         self.get_player_by_uuid(&player.get_uuid())
             .await?
             .ok_or_else(|| error!(CantRegisterPlayer))
@@ -134,18 +179,28 @@ impl PlayerManager {
 
     async fn update_last_seen(&self, player: &Player) -> CloudResult<()> {
         TablePlayers::update_last_seen(self.db_manager.as_ref(), player.get_id()).await?;
-        log_info!(8, "[DB t_players] Update 'last_seen' for Player: [{}]", player.get_name());
+        log_info!(
+            8,
+            "[DB t_players] Update 'last_seen' for Player: [{}]",
+            player.get_name()
+        );
         Ok(())
     }
 
     async fn update_last_login(&self, player: &Player) -> CloudResult<()> {
         TablePlayers::update_last_login(self.db_manager.as_ref(), player.get_id()).await?;
-        log_info!(8, "[DB t_players] Update 'last_login' for Player: [{}]", player.get_name());
+        log_info!(
+            8,
+            "[DB t_players] Update 'last_login' for Player: [{}]",
+            player.get_name()
+        );
         Ok(())
     }
 
     async fn get_player_by_uuid(&self, uuid: &Uuid) -> CloudResult<Option<Player>> {
-        Ok(TablePlayers::find_by_uuid(self.db_manager.as_ref(), uuid).await?.map(Player::from))
+        Ok(TablePlayers::find_by_uuid(self.db_manager.as_ref(), uuid)
+            .await?
+            .map(Player::from))
     }
 
     async fn create_session(&self, player: &mut Player, service_uuid: &Uuid) -> CloudResult<()> {
@@ -153,12 +208,17 @@ impl PlayerManager {
         let session = TablePlayerSessions::new(player.get_id(), service_uuid);
         session.create(self.db_manager.as_ref()).await?;
         self.set_session_for_player(player).await?;
-        log_info!(7, "[DB t_player_sessions] Create Player Session. Player: [{}]", player.get_name());
+        log_info!(
+            7,
+            "[DB t_player_sessions] Create Player Session. Player: [{}]",
+            player.get_name()
+        );
         Ok(())
     }
 
     async fn update_session(&self, player: &mut Player, service_uuid: &Uuid) -> CloudResult<()> {
-        TablePlayerSessions::update_by_player_id(self.get_db(), player.get_id(), service_uuid).await?;
+        TablePlayerSessions::update_by_player_id(self.get_db(), player.get_id(), service_uuid)
+            .await?;
         self.set_session_for_player(player).await?;
         Ok(())
     }
@@ -170,7 +230,9 @@ impl PlayerManager {
     }
 
     async fn set_session_for_player(&self, player: &mut Player) -> CloudResult<()> {
-        if let Some(s) = TablePlayerSessions::find_by_player_id(self.get_db(), player.get_id()).await? {
+        if let Some(s) =
+            TablePlayerSessions::find_by_player_id(self.get_db(), player.get_id()).await?
+        {
             player.set_session(PlayerSession::from(s));
         }
         Ok(())
@@ -190,7 +252,8 @@ impl PlayerManager {
             service,
             event_type.to_string(),
             session_id_override.or_else(|| player.get_session().clone().map(|s| s.get_id())),
-        ).await;
+        )
+        .await;
         event.create(self.get_db()).await?;
         Ok(())
     }

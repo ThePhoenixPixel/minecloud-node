@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::api::internal::PlayerActionRequest;
+use crate::api::internal::{IncomingMessageType, PlayerActionRequest};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
 pub struct Player {
@@ -27,6 +27,12 @@ pub enum PlayerAction {
     #[default]
     Join,
     Leave,
+}
+
+impl PartialEq<PlayerAction> for &PlayerAction {
+    fn eq(&self, other: &PlayerAction) -> bool {
+        **self == *other
+    }
 }
 
 impl Player {

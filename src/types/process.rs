@@ -23,7 +23,7 @@ use crate::types::{EntityId, ServiceConfig, ServiceStatus};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
-use crate::api::internal::{MessageType, OutgoingMessage, OutgoingMessageType};
+use crate::api::internal::{OutgoingMessage, OutgoingMessageType};
 
 pub struct ServiceProcess {
     service: Service,
@@ -109,7 +109,7 @@ impl ServiceProcess {
         self.session = None;
     }
 
-    pub async fn send(&mut self, msg: OutgoingMessage) -> bool {
+    pub async fn send(&mut self, msg: &OutgoingMessage) -> bool {
         if let Some(session) = &mut self.session {
             return session.text(msg.to_string()).await.is_ok();
         }
@@ -124,7 +124,7 @@ impl ServiceProcess {
         let data = json!({"msg": msg });
         let msg = OutgoingMessage::ok(OutgoingMessageType::Shutdown, data);
 
-        if self.send(msg.to_string()).await {
+        if self.send(&msg).await {
             log_info!(6, "Stop command sent to [{}]", self.service.get_name());
             Ok(())
         } else {
