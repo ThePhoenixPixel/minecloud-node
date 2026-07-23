@@ -8,7 +8,8 @@ use tokio::sync::RwLock;
 use crate::api::internal::{APIInternalHandler, IncomingMessage, MessageType, OutgoingMessage, PlayerActionRequest, ServiceIdRequest};
 use crate::cloud::Cloud;
 use crate::utils::error::{CantBindAddress, CloudResult, IntoCloudError};
-use crate::{error, log_error, log_info};
+use crate::{error, log_error, log_info, log_warning};
+use crate::utils::error::*;
 use crate::types::{ServiceProcessRef};
 
 async fn ws_handler(
@@ -39,7 +40,7 @@ async fn handle_connection(
                 let incoming: IncomingMessage = match serde_json::from_str(&text) {
                     Ok(m) => m,
                     Err(e) => {
-                        let msg = OutgoingMessage::err(MessageType::error, e.to_string());
+                        let msg = OutgoingMessage::err(MessageType::Error, e.to_string());
                         let _ = session.text(msg).await;
                         continue;
                     }
@@ -72,14 +73,18 @@ async fn handle_connection(
                 }
 
                 if bound_service.is_none() {
-                    let msg = OutgoingMessage::err(MessageType::error, String::from("Not identified yet. Send 'identify' first."));
+                    let msg = OutgoingMessage::err(MessageType::Error, String::from("Not identified yet. Send 'identify' first."));
                     let _ = session.text(msg).await;
                     continue;
                 }
 
                 // Normales Message-Routing
-                let reply = handle_text_message(incoming, cloud.clone()).await;
+                let outgoing_msg = match handle_text_message(incoming, cloud.clone()).await.to_string() {
+                    O
+                }
+
                 if session.text(reply).await.is_err() {
+                    log_warning!(6, "Cant send WS Answer");
                     break;
                 }
             }
@@ -105,7 +110,7 @@ async fn handle_connection(
     }
 }
 
-async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) -> String {
+async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) -> OutgoingMessage {
     match msg.get_msg_typ() {
         MessageType::get_online_backend_services => {
             let data = APIInternalHandler::get_online_backend_services(cloud).await;
@@ -133,7 +138,7 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
             APIInternalHandler::player_action(cloud, data).await.to_string()
         }
         _ => {
-            OutgoingMessage::err(MessageType::error, "Unknown message type".to_string())
+            OutgoingMessage::err(MessageType::Error, "Unknown message type".to_string())
         }
     }
 }
@@ -174,7 +179,7 @@ impl APIInternal {
                 };
 
                 if let Err(e) = server.run().await {
-                    log_error!("Internal WS Server error: {}", e);
+                    log_error!("Internal WS Server Error: {}", e);
                 }
             });
         });

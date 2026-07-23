@@ -79,7 +79,7 @@ impl APIInternalHandler {
             Ok(msg) => msg,
             Err(e) => {
                 log_error!("{}", e);
-                OutgoingMessage::err(MessageType::error, String::from(""))
+                OutgoingMessage::err(MessageType::Error, String::from(""))
             }
         }
     }

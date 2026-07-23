@@ -2,15 +2,14 @@ use bx::network::address::Address;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
-use log::log;
-use crate::{error, log_error};
+
+use crate::log_error;
 use crate::types::{EntityId, PlayerAction, Service};
-use crate::utils::error::*;
 
 #[derive(Debug, Deserialize)]
 pub struct IncomingMessage {
     #[serde(rename = "type")]
-    msg_type: MessageType,
+    msg_type: IncomingMessageType,
 
     service_id: Uuid,
 
@@ -19,7 +18,7 @@ pub struct IncomingMessage {
 }
 
 impl IncomingMessage {
-    pub fn get_msg_typ(&self) -> &MessageType {
+    pub fn get_msg_typ(&self) -> &IncomingMessageType {
         &self.msg_type
     }
 
@@ -35,8 +34,9 @@ impl IncomingMessage {
 #[derive(Debug, Serialize)]
 pub struct OutgoingMessage {
     #[serde(rename = "type")]
-    msg_type: MessageType,
+    msg_type: OutgoingMessageType,
 
+    // old
     success: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -47,69 +47,78 @@ pub struct OutgoingMessage {
 }
 
 impl OutgoingMessage {
-    pub fn ok(msg_type: impl Into<MessageType>, data: Value) -> String {
-        serde_json::to_string(&Self {
+    pub fn ok(msg_type: impl Into<OutgoingMessageType>, data: Value) -> OutgoingMessage {
+        OutgoingMessage {
             msg_type: msg_type.into(),
             success: true,
             data: Some(data),
             error: None,
-        }).unwrap_or_else(|e| {
-            log_error!("CantSerializeOutgoingMsg: {}", e);
-            String::from("CantSerializeOutgoingMsg Internal Server Error")
-        })
+        }
     }
 
-    pub fn ok_data_is_none(msg_type: impl Into<MessageType>, data: Option<Value>) -> String {
-        serde_json::to_string(&Self {
+    pub fn err(msg_type: impl Into<OutgoingMessageType>, error: String) -> OutgoingMessage {
+        OutgoingMessage {
             msg_type: msg_type.into(),
             success: true,
-            data,
-            error: None,
-        }).unwrap_or_else(|e| {
-            log_error!("CantSerializeOutgoingMsg: {}", e);
-            String::from("CantSerializeOutgoingMsg Internal Server Error")
-        })
-    }
-
-    pub fn err(msg_type: impl Into<MessageType>, error: String) -> String {
-        serde_json::to_string(&Self {
-            msg_type: msg_type.into(),
-            success: false,
             data: None,
             error: Some(error),
-        }).unwrap_or_else(|e| {
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_else(|e| {
             log_error!("CantSerializeOutgoingMsg: {}", e);
             String::from("CantSerializeOutgoingMsg Internal Server Error")
         })
-    }
-
-    pub fn to_string(self) -> String {
-        if self.success {
-            OutgoingMessage::ok(self.msg_type, self.data.ok_or(error!(CantSerializeOutgoingMsg)))
-        } else {
-            OutgoingMessage::err(self.msg_type, self.error.ok_or(error!(CantSerializeOutgoingMsg)))
-        }
     }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub enum MessageType {
+pub enum IncomingMessageType {
     #[serde(rename = "Auth")]
     Auth,
-    get_online_backend_services,
-    service_online,
-    service_shutdown,
-    shutdown,
-    player_action,
-    error,
 
-    add_server,
-    remove_server,
+    #[serde(rename = "get_online_backend_services")]
+    GetOnlineBackendServices,
+
+    #[serde(rename = "service_online")]
+    ServiceOnline,
+
+    #[serde(rename = "service_shutdown")]
+    Shutdown,
+
+    #[serde(rename = "player_action")]
+    PlayerAction,
+}
+
+impl PartialEq<IncomingMessageType> for &IncomingMessageType {
+    fn eq(&self, other: &IncomingMessageType) -> bool {
+        **self == *other
+    }
+}
+
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub enum OutgoingMessageType {
+    #[serde(rename = "error")]
+    Error,
+
+    #[serde(rename = "shutdown")]
+    Shutdown,
+
+    #[serde(rename = "add_server")]
+    AddServer,
+
+    #[serde(rename = "remove_server")]
+    RemoveServer,
+
+    #[serde(rename = "")]
+    ConnectPlayerToServer,
 
 }
 
-impl PartialEq<MessageType> for &MessageType {
-    fn eq(&self, other: &MessageType) -> bool {
+impl PartialEq<OutgoingMessageType> for &OutgoingMessageType {
+    fn eq(&self, other: &OutgoingMessageType) -> bool {
         **self == *other
     }
 }

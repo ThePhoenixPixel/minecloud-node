@@ -123,7 +123,7 @@ impl actix_web::ResponseError for CloudError {
         log_error!(1, "[API] {}", self.to_string());
 
         HttpResponse::build(self.status_code()).json(serde_json::json!({
-            "error": self.to_string()
+            "Error": self.to_string()
         }))
     }
 }

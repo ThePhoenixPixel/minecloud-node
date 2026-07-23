@@ -63,7 +63,7 @@ impl Logger {
             .create(true)
             .append(true)
             .open(&log_path)
-            .expect("Log system has an error and cannot create the log file");
+            .expect("Log system has an Error and cannot create the log file");
 
         if writeln!(file, "{}", msg).is_err() {
             eprintln!("Log System has an Error");

@@ -16,7 +16,7 @@ impl LogType {
         match self {
             LogType::Info => ColoredString::from("[info]").green(),
             LogType::Warning => ColoredString::from("[warning]").yellow(),
-            LogType::Error => ColoredString::from("[error]").red(),
+            LogType::Error => ColoredString::from("[Error]").red(),
         }
     }
 }

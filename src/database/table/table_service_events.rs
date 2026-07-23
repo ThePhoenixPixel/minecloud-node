@@ -39,7 +39,7 @@ impl TableServiceEvents {
         Ok(())
         /*db.check_table(TABLE_SERVICE_EVENTS, &Self::get_schema()?)
             .await
-            .map_err(|e| error!(CantCreateTable, e))?;
+            .map_err(|e| Error!(CantCreateTable, e))?;
         Ok(())*/
     }
 

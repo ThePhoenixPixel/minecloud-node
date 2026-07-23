@@ -23,7 +23,7 @@ use crate::types::{EntityId, ServiceConfig, ServiceStatus};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_error, log_info, log_warning};
-use crate::api::internal::{MessageType, OutgoingMessage};
+use crate::api::internal::{MessageType, OutgoingMessage, OutgoingMessageType};
 
 pub struct ServiceProcess {
     service: Service,
@@ -109,9 +109,9 @@ impl ServiceProcess {
         self.session = None;
     }
 
-    pub async fn send(&mut self, body: impl Into<String>) -> bool {
+    pub async fn send(&mut self, msg: OutgoingMessage) -> bool {
         if let Some(session) = &mut self.session {
-            return session.text(body.into()).await.is_ok();
+            return session.text(msg.to_string()).await.is_ok();
         }
         false
     }
@@ -122,9 +122,9 @@ impl ServiceProcess {
 
     async fn send_stop(&mut self, msg: &str) -> CloudResult<()> {
         let data = json!({"msg": msg });
-        let body = OutgoingMessage::ok(MessageType::shutdown, data);
+        let msg = OutgoingMessage::ok(OutgoingMessageType::Shutdown, data);
 
-        if self.send(body).await {
+        if self.send(msg.to_string()).await {
             log_info!(6, "Stop command sent to [{}]", self.service.get_name());
             Ok(())
         } else {

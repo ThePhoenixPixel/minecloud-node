@@ -22,6 +22,7 @@ pub enum CloudErrorKind {
 
     /// 13.xxx api internal
     CantSerializeOutgoingMsg,
+    CantSendWSAnswer,
 
 
     /// 2x.xxx CloudSystem

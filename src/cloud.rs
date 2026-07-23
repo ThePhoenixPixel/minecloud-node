@@ -166,7 +166,7 @@ impl Cloud {
             }
             Err(e) => {
                 eprintln!("Error getting exe path: {}", e);
-                panic!("Fatal error")
+                panic!("Fatal Error")
             }
         }
     }
