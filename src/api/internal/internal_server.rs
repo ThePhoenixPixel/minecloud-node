@@ -5,7 +5,7 @@ use std::sync::Arc;
 use futures_util::StreamExt;
 use tokio::sync::RwLock;
 
-use crate::api::internal::{APIInternalHandler, IncomingMessage, IncomingMessageType, OutgoingMessage, OutgoingMessageType, PlayerActionRequest, ServiceIdRequest};
+use crate::api::internal::{APIInternalHandler, IncomingMessage, IncomingMessageType, OutgoingMessage, OutgoingMessageType, PlayerActionResponse, ServiceIdRequest};
 use crate::cloud::Cloud;
 use crate::utils::error::{CantBindAddress, CloudResult, IntoCloudError};
 use crate::{error, log_error, log_info, log_warning};
@@ -121,7 +121,7 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
         }
 
         IncomingMessageType::PlayerAction => {
-            let data: PlayerActionRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
+            let data: PlayerActionResponse = serde_json::from_value(msg.get_data().clone()).unwrap();
             APIInternalHandler::player_action(cloud, data).await
         }
         _ => {

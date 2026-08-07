@@ -15,6 +15,7 @@ pub use task::*;
 pub use template::*;
 pub use service_config::*;
 pub use group::*;
+pub use join_strategy::*;
 
 mod group;
 mod installer;
@@ -27,6 +28,7 @@ mod process;
 mod service;
 mod software_link;
 mod service_config;
+mod join_strategy;
 
 pub type EntityId = Uuid;
 

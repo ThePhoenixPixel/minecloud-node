@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::api::internal::{
-    OutgoingMessage, OutgoingMessageType, PlayerActionRequest, ServiceIdRequest,
+    OutgoingMessage, OutgoingMessageType, PlayerActionResponse, ServiceIdRequest,
     ServiceInfoResponse,
 };
 use crate::cloud::Cloud;
@@ -80,7 +80,7 @@ impl APIInternalHandler {
     /// Called when a player performs an action (e.g., server change)
     pub async fn player_action(
         cloud: Arc<RwLock<Cloud>>,
-        request: PlayerActionRequest,
+        request: PlayerActionResponse,
     ) -> OutgoingMessage {
         let player_manager = {
             let cloud_guard = cloud.read().await;

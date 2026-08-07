@@ -2,7 +2,7 @@ use database_manager::DatabaseManager;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::api::internal::{OutgoingMessage, PlayerActionRequest};
+use crate::api::internal::{OutgoingMessage, PlayerActionResponse};
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
 use crate::manager::{ServiceManagerRef, TaskManagerRef};
 use crate::types::{Player, PlayerAction, PlayerSession, ServiceProcessRef};
@@ -28,7 +28,7 @@ impl PlayerManager {
         }
     }
 
-    pub async fn handle_action(&self, req: PlayerActionRequest) -> CloudResult<OutgoingMessage> {
+    pub async fn handle_action(&self, req: PlayerActionResponse) -> CloudResult<OutgoingMessage> {
         let service_ref = {
             let sm = self.service_manager.read().await;
             sm.get_from_id(&req.get_service_uuid())?
@@ -119,38 +119,6 @@ impl PlayerManager {
         }
 
         Ok(OutgoingMessage::null())
-    }
-
-    pub async fn on_player_join(
-        &self,
-        player: &mut Player,
-        service: &ServiceProcessRef,
-    ) -> CloudResult<()> {
-        let id = service.get_id().await;
-
-        if service.is_proxy().await {
-            self.create_session(player, &id).await?;
-            self.update_last_login(player).await?;
-        } else {
-            self.update_session(player, &id).await?;
-        }
-        self.update_last_seen(player).await?;
-        Ok(())
-    }
-
-    pub async fn on_player_leave(
-        &self,
-        player: &mut Player,
-        service: &ServiceProcessRef,
-    ) -> CloudResult<()> {
-        if service.is_proxy().await {
-            let player_id = player.get_id();
-            match self.delete_session(player).await {
-                Ok(_) => log_info!(7, "Session for Player |{}| deleted", player_id),
-                Err(e) => log_warning!("Cant delete Session for Player |{}|: {}", player_id, e),
-            }
-        }
-        Ok(())
     }
 
     async fn register_player(&self, player: &Player) -> CloudResult<Player> {

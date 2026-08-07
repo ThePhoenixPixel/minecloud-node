@@ -201,11 +201,43 @@ impl From<Service> for ServiceInfoResponse {
 pub struct PlayerActionRequest {
     action: PlayerAction,
     service_uuid: Uuid,
+    service_name: String,
     player_uuid: Uuid,
     player_name: String,
 }
 
 impl PlayerActionRequest {
+    pub fn get_action(&self) -> &PlayerAction {
+        &self.action
+    }
+
+    pub fn get_service_uuid(&self) -> Uuid {
+        self.service_uuid
+    }
+
+    pub fn get_service_name(&self) -> &str {
+        &self.service_name
+    }
+
+    pub fn get_player_name(&self) -> &str {
+        &self.player_name
+    }
+
+    pub fn get_player_uuid(&self) -> Uuid {
+        self.player_uuid
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PlayerActionResponse {
+    action: PlayerAction,
+    service_uuid: Uuid,
+    player_uuid: Uuid,
+    player_name: String,
+}
+
+impl PlayerActionResponse {
     pub fn get_action(&self) -> &PlayerAction {
         &self.action
     }

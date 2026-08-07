@@ -6,6 +6,7 @@ use std::fs;
 use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use rand::prelude::IndexedRandom;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use uuid::Uuid;
 
@@ -13,7 +14,7 @@ use crate::api::internal::{OutgoingMessage, OutgoingMessageType, ServiceInfoResp
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::database::table::TableServices;
 use crate::manager::TaskManagerRef;
-use crate::types::{EntityId, Service, ServiceProcess, ServiceProcessRef, ServiceStatus, TaskRef};
+use crate::types::{EntityId, JoinStrategy, Service, ServiceProcess, ServiceProcessRef, ServiceStatus, SoftwareType, TaskRef};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_info, log_warning};
@@ -320,7 +321,228 @@ impl ServiceManager {
         ports
     }
 
+    pub async fn find_next_default_connect_server(
+        &self,
+    ) -> Option<ServiceProcessRef> {
+
+        let services = self
+            .filter_services(|service| {
+                service.is_running()
+                    && service.get_service().default_connect()
+            })
+            .await;
+
+
+        if services.is_empty() {
+            return None;
+        }
+
+
+        let mut candidates = Vec::new();
+
+
+        for service in services {
+
+            let task_name = service.read().await.get_task_name().to_string();
+
+            let strategy = {
+                let task_manager = self.task_manager.read().await;
+
+                let task_ref = match task_manager.get_from_name(&task_name) {
+                    Ok(task) => task,
+                    Err(_) => continue,
+                };
+
+                task_ref
+                    .read()
+                    .await
+                    .get_join_strategy()
+                    .clone()
+            };
+
+
+            candidates.push(
+                (service, strategy)
+            );
+        }
+
+
+        if candidates.is_empty() {
+            return None;
+        }
+
+
+        // gleiche Strategie pro Task anwenden
+        let mut selected = Vec::new();
+
+
+        for (service, strategy) in candidates {
+
+            match strategy {
+
+                JoinStrategy::Fullest => {
+                    selected.push(service);
+                }
+
+                JoinStrategy::Emptiest => {
+                    selected.push(service);
+                }
+
+                JoinStrategy::Random => {
+                    selected.push(service);
+                }
+
+                JoinStrategy::RoundRobin => {
+                    selected.push(service);
+                }
+            }
+        }
+
+
+        // finale Auswahl
+        //
+        // mehrere Lobby-Typen einführen.
+
+        let mut best: Option<(ServiceProcessRef, u32)> = None;
+
+        for service in selected {
+            let players = {
+                let service = service.read().await;
+                service.get_service().get_current_players()
+            };
+
+            match &best {
+                Some((_, best_players)) if *best_players >= players => {}
+                _ => {
+                    best = Some((service, players));
+                }
+            }
+        }
+
+        best.map(|(service, _)| service)
+    }
+
+    pub async fn find_next_free_server_by_task(
+        &self,
+        task_ref: &TaskRef,
+    ) -> Option<ServiceProcessRef> {
+        let task = task_ref.read().await;
+
+        let task_name = task.get_name();
+        let max_players = task.get_max_players();
+        let full_percent = task.get_full_percent();
+        let strategy = task.get_join_strategy().clone();
+
+        drop(task);
+
+
+        let limit = max_players * full_percent / 100;
+
+
+        let services = self
+            .filter_services(|service| {
+
+                service.get_task_name() == task_name
+                    && service.is_running()
+                    && service.get_service().get_current_players() < limit
+
+            })
+            .await;
+
+
+        self.select_service(services, strategy).await
+    }
+
     fn get_db(&self) -> &DatabaseManager { self.db.as_ref() }
+
+    async fn select_service(
+        &self,
+        services: Vec<ServiceProcessRef>,
+        strategy: JoinStrategy,
+    ) -> Option<ServiceProcessRef> {
+
+        if services.is_empty() {
+            return None;
+        }
+
+
+        match strategy {
+
+            JoinStrategy::Fullest => {
+
+                let mut best: Option<(ServiceProcessRef, u32)> = None;
+
+                for service in services {
+
+                    let players = {
+                        let sp = service.read().await;
+                        sp.get_current_players()
+                    };
+
+
+                    match &best {
+                        Some((_, best_players)) if *best_players >= players => {}
+                        _ => {
+                            best = Some((service, players));
+                        }
+                    }
+                }
+
+
+                best.map(|(service, _)| service)
+            }
+
+
+            JoinStrategy::Emptiest => {
+
+                let mut best: Option<(ServiceProcessRef, u32)> = None;
+
+                for service in services {
+
+                    let players = {
+                        let sp = service.read().await;
+                        sp.get_current_players()
+                    };
+
+
+                    match &best {
+                        Some((_, best_players)) if *best_players <= players => {}
+                        _ => {
+                            best = Some((service, players));
+                        }
+                    }
+                }
+
+
+                best.map(|(service, _)| service)
+            }
+
+
+            JoinStrategy::Random => {
+
+                use rand::seq::IndexedRandom;
+
+                let mut rng = rand::rng();
+
+                services
+                    .choose(&mut rng)
+                    .cloned()
+            }
+
+
+            JoinStrategy::RoundRobin => {
+
+                // TODO:
+                // später mit Counter pro Task
+                //
+                // Aktuell:
+                // erster verfügbarer
+
+                services.into_iter().next()
+            }
+        }
+    }
+
 }
 
 fn get_all_from_file() -> Vec<ServiceProcessRef> {
