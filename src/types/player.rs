@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::api::internal::{IncomingMessageType, PlayerActionRequest};
+
+use crate::api::internal::PlayerActionResponse;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
 pub struct Player {
@@ -27,6 +28,7 @@ pub enum PlayerAction {
     #[default]
     Join,
     Leave,
+    SwitchServer,
 }
 
 impl PartialEq<PlayerAction> for &PlayerAction {
@@ -104,8 +106,8 @@ impl PlayerRequest {
     }
 }
 
-impl From<&PlayerActionRequest> for Player {
-    fn from(value: &PlayerActionRequest) -> Self {
+impl From<&PlayerActionResponse> for Player {
+    fn from(value: &PlayerActionResponse) -> Self {
         Player::new(0, value.get_player_name().to_string(), value.get_player_uuid(), None)
     }
 }
@@ -115,6 +117,7 @@ impl PlayerAction {
         match self {
             PlayerAction::Join => String::from("Join"),
             PlayerAction::Leave => String::from("Leave"),
+            PlayerAction::SwitchServer => String::from("SwitchServer"),
         }
     }
 }
