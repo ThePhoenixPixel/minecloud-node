@@ -166,27 +166,24 @@ impl Task {
             software: software_link,
             max_ram,
             start_port: 40000,
-            time_shutdown_before_kill: 5000,
-
+            time_shutdown_before_kill: 60,
             max_players: 20,
             default_connect: false,
             join_permission: String::new(),
-
-            join_strategy: JoinStrategy::RoundRobin,
+            join_strategy: JoinStrategy::Fullest,
             min_service_count: 0,
             max_service_count: -1,
             full_percent: 85,
             empty_percent: 5,
             min_available_services: 2,
             scale_cooldown_seconds: 30,
+            groups: Vec::new(),
+            installer: Installer::InstallAll,
+            templates: vec![template],
 
             percent_of_players_to_check_should_auto_stop_the_service: 0,
             min_non_full_service: 0,
             auto_stop_time_by_unused_service_in_seconds: 60,
-
-            groups: Vec::new(),
-            installer: Installer::InstallAll,
-            templates: vec![template],
             percent_of_players_for_a_new_service_by_instance: 0,
         }
     }
@@ -223,6 +220,14 @@ impl Task {
     pub fn add_group(&mut self, group: String) { self.groups.push(group); }
     pub fn remove_group(&mut self, group: &String) { self.groups.retain(|g| g != group); }
     pub fn clear_groups(&mut self) { self.groups.clear(); }
+
+    pub fn get_join_strategy(&self) -> &JoinStrategy {
+        &self.join_strategy
+    }
+
+    pub fn set_join_strategy(&mut self, join_strategy: JoinStrategy) {
+        self.join_strategy = join_strategy;
+    }
 
     pub fn get_min_service_count(&self) -> u64 { self.min_service_count }
     pub fn set_min_service_count(&mut self, value: u64) { self.min_service_count = value; }
