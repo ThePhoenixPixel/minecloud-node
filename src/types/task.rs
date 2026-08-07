@@ -6,31 +6,149 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::types::installer::Installer;
+use crate::types::join_strategy::JoinStrategy;
 use crate::types::software_link::SoftwareLink;
 use crate::types::template::Template;
 
+/// Represents the configuration and lifecycle rules of a service task.
+///
+/// A task controls how services are created, scaled, connected to and removed.
+/// It defines software, resources, player limits and automatic scaling behaviour.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Task {
+    /// The unique name of this task.
+    ///
+    /// Example: `"Lobby"`, `"Survival"`, `"Proxy"`
     name: String,
+
+    /// Character used to split generated service names.
+    ///
+    /// Example:
+    /// `Lobby-1`, `Lobby-2`
     split: char,
+
+    /// List of groups this task belongs to.
+    ///
+    /// Groups can be used to organize and filter tasks.
     groups: Vec<String>,
+
+    /// Defines whether the service should be deleted after stopping.
+    ///
+    /// If disabled, stopped services remain available.
     delete_on_stop: bool,
+
+    /// Defines whether this task creates static services.
+    ///
+    /// Static services are not automatically removed.
     static_service: bool,
+
+    /// Software configuration used by this task.
+    ///
+    /// Defines the server software type, name and version.
     software: SoftwareLink,
+
+    /// First port used when assigning ports to services.
     start_port: u32,
+
+    /// Maximum RAM allocation for each created service in MB.
     max_ram: u32,
+
+    /// List of allowed nodes where this task can run.
+    ///
+    /// An empty list allows all nodes.
     nodes: Vec<String>,
-    min_service_count: u64,
-    max_service_count: i32,
+
+    /// Delay before force killing a service during shutdown.
+    ///
+    /// Value is stored in seconds.
     time_shutdown_before_kill: u64,
+
+    /// Defines whether players can automatically connect to this task.
+    ///
+    /// Usually enabled for lobby or fallback services.
     default_connect: bool,
+
+    /// Permission required to join this task.
+    ///
+    /// Empty string means no permission is required.
     join_permission: String,
+
+    /// Maximum amount of players allowed on one service.
+    ///
+    /// Used for calculating full and empty percentages.
     max_players: u32,
+
+    /// Strategy used when selecting a service for a player connection.
+    ///
+    /// Examples:
+    /// - Fullest
+    /// - Emptiest
+    /// - RoundRobin
+    /// - Random
+    join_strategy: JoinStrategy,
+
+    /// Minimum number of services that should always exist.
+    ///
+    /// This limit is respected regardless of player count.
+    min_service_count: u64,
+
+    /// Maximum number of services that may exist.
+    ///
+    /// A value of `-1` means unlimited services.
+    max_service_count: i32,
+
+    /// Percentage at which a service is considered full.
+    ///
+    /// Example:
+    /// `85` means a service with 85% or more players is treated as full.
+    full_percent: u32,
+
+    /// Percentage at which a service is considered empty.
+    ///
+    /// Example:
+    /// `5` means a service with 5% or fewer players is considered unused.
+    empty_percent: u32,
+
+    /// Minimum number of available (not full) services.
+    ///
+    /// If fewer services are available, new services may be created.
+    min_available_services: u32,
+
+    /// Cooldown time between scaling operations.
+    ///
+    /// Prevents continuous service creation and removal.
+    scale_cooldown_seconds: u32,
+
+    /// Deprecated: Percentage used to detect unused services.
+    ///
+    /// Use `empty_percent` instead.
+    #[deprecated(note = "Use empty_percent instead")]
     percent_of_players_to_check_should_auto_stop_the_service: u32,
+
+    /// Deprecated: Minimum amount of non-full services.
+    ///
+    /// Use `min_available_services` instead.
+    #[deprecated(note = "Use min_available_services instead")]
     min_non_full_service: u32,
+
+    /// Deprecated: Time before unused services are stopped.
+    ///
+    /// Use the new unused service shutdown configuration instead.
+    #[deprecated(note = "Use unused service shutdown configuration instead")]
     auto_stop_time_by_unused_service_in_seconds: u32,
+
+    /// Deprecated: Percentage used to decide when a new service should start.
+    ///
+    /// Use `full_percent` instead.
+    #[deprecated(note = "Use full_percent instead")]
     percent_of_players_for_a_new_service_by_instance: u32,
+
+    /// Installer configuration used when preparing new services.
     installer: Installer,
+
+    /// Templates used when creating new services.
+    ///
+    /// Templates are copied according to their priority.
     templates: Vec<Template>,
 }
 
@@ -48,15 +166,24 @@ impl Task {
             software: software_link,
             max_ram,
             start_port: 40000,
-            min_service_count: 0,
-            max_service_count: -1,
             time_shutdown_before_kill: 5000,
+
+            max_players: 20,
             default_connect: false,
             join_permission: String::new(),
-            max_players: 20,
+
+            join_strategy: JoinStrategy::RoundRobin,
+            min_service_count: 0,
+            max_service_count: -1,
+            full_percent: 85,
+            empty_percent: 5,
+            min_available_services: 2,
+            scale_cooldown_seconds: 30,
+
             percent_of_players_to_check_should_auto_stop_the_service: 0,
             min_non_full_service: 0,
             auto_stop_time_by_unused_service_in_seconds: 60,
+
             groups: Vec::new(),
             installer: Installer::InstallAll,
             templates: vec![template],
@@ -121,26 +248,70 @@ impl Task {
     pub fn get_max_players(&self) -> u32 { self.max_players }
     pub fn set_max_players(&mut self, count: u32) { self.max_players = count; }
 
+    pub fn get_full_percent(&self) -> u32 {
+        self.full_percent
+    }
+
+    pub fn set_full_percent(&mut self, value: u32) {
+        self.full_percent = value.min(100);
+    }
+
+    pub fn get_empty_percent(&self) -> u32 {
+        self.empty_percent
+    }
+
+    pub fn set_empty_percent(&mut self, value: u32) {
+        self.empty_percent = value.min(100);
+    }
+
+    pub fn get_min_available_services(&self) -> u32 {
+        self.min_available_services
+    }
+
+    pub fn set_min_available_services(&mut self, value: u32) {
+        self.min_available_services = value;
+    }
+
+    pub fn get_scale_cooldown_seconds(&self) -> u32 {
+        self.scale_cooldown_seconds
+    }
+
+    pub fn set_scale_cooldown_seconds(&mut self, value: u32) {
+        self.scale_cooldown_seconds = value;
+    }
+
+    #[deprecated]
     pub fn get_percent_of_players_to_check_should_auto_stop_the_service(&self) -> u32 {
         self.percent_of_players_to_check_should_auto_stop_the_service
     }
+
+    #[deprecated]
     pub fn set_percent_of_players_to_check_should_auto_stop_the_service(&mut self, value: u32) {
         self.percent_of_players_to_check_should_auto_stop_the_service = value;
     }
 
+    #[deprecated]
     pub fn get_min_non_full_service(&self) -> u32 { self.min_non_full_service }
+
+    #[deprecated]
     pub fn set_min_non_full_service(&mut self, value: u32) { self.min_non_full_service = value; }
 
+    #[deprecated]
     pub fn get_auto_stop_time_by_unused_service_in_seconds(&self) -> u32 {
         self.auto_stop_time_by_unused_service_in_seconds
     }
+
+    #[deprecated]
     pub fn set_auto_stop_time_by_unused_service_in_seconds(&mut self, value: u32) {
         self.auto_stop_time_by_unused_service_in_seconds = value;
     }
 
+    #[deprecated]
     pub fn get_percent_of_players_for_a_new_service_by_instance(&self) -> u32 {
         self.percent_of_players_for_a_new_service_by_instance
     }
+
+    #[deprecated]
     pub fn set_percent_of_players_for_a_new_service_by_instance(&mut self, value: u32) {
         self.percent_of_players_for_a_new_service_by_instance = value;
     }
