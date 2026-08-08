@@ -158,9 +158,22 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
         }
 
         IncomingMessageType::PlayerAction => {
-            let data: PlayerActionMessage =
-                serde_json::from_value(msg.get_data().clone()).unwrap();
-            APIInternalHandler::player_action(cloud, data).await
+            match serde_json::from_value::<PlayerActionMessage>(
+                msg.get_data().clone()
+            ) {
+                Ok(data) => {
+                    APIInternalHandler::player_action(cloud, data).await
+                }
+
+                Err(e) => {
+                    log_error!(3, "[PlayerAction] Invalid request data: {}", e);
+
+                    OutgoingMessage::err(
+                        None,
+                        format!("Invalid PlayerAction data: {}", e),
+                    )
+                }
+            }
         }
         _ => OutgoingMessage::err(None, "Unknown message type".to_string()),
     };
