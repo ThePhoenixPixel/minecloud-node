@@ -16,7 +16,7 @@ impl APIInternalHandler {
     /// Called by the Minecraft Process (Minecraft Plugin) when a service is shutdown
     pub async fn service_notify_shutdown(
         cloud: Arc<RwLock<Cloud>>,
-        request: ServiceIdRequest,
+        service_id: EntityId,
     ) -> OutgoingMessage {
         let node_manager = {
             let cloud_guard = cloud.read().await;
@@ -24,13 +24,13 @@ impl APIInternalHandler {
         };
 
         match node_manager
-            .on_local_service_shutdown(EntityId::from(&request))
+            .on_local_service_shutdown(service_id)
             .await
         {
-            Ok(()) => OutgoingMessage::null(),
+            Ok(()) => OutgoingMessage::null(None),
             Err(e) => {
                 log_error!(3, "[service_notify_shutdown] Error: {}", e);
-                OutgoingMessage::err(e.to_string())
+                OutgoingMessage::err(None, e.to_string())
             }
         }
     }
@@ -49,10 +49,10 @@ impl APIInternalHandler {
             .on_local_service_registered(EntityId::from(&request))
             .await
         {
-            Ok(()) => OutgoingMessage::null(),
+            Ok(()) => OutgoingMessage::null(None),
             Err(e) => {
                 log_error!(3, "[service_notify_started] Error: {}", e);
-                OutgoingMessage::err(e.to_string())
+                OutgoingMessage::err(None, e.to_string())
             }
         }
     }
@@ -72,8 +72,8 @@ impl APIInternalHandler {
             .collect();
 
         match Utils::convert_to_json(&response) {
-            Some(data) => OutgoingMessage::ok(OutgoingMessageType::Response, data),
-            None => OutgoingMessage::err("Cant Serialize Data".to_string()),
+            Some(data) => OutgoingMessage::ok(None, OutgoingMessageType::Response, data),
+            None => OutgoingMessage::err(None, "Cant Serialize Data".to_string()),
         }
     }
 
@@ -92,7 +92,7 @@ impl APIInternalHandler {
             .await
             .unwrap_or_else(|e| {
                 log_error!("{}", e);
-                OutgoingMessage::err(e.to_string())
+                OutgoingMessage::err(None, e.to_string())
             })
     }
 }

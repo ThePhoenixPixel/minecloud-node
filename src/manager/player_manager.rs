@@ -1,13 +1,15 @@
 use database_manager::DatabaseManager;
 use std::sync::Arc;
+use tokio::fs::symlink_metadata;
 use uuid::Uuid;
 
-use crate::api::internal::{OutgoingMessage, PlayerActionResponse};
+use crate::api::internal::{OutgoingMessage, OutgoingMessageType, PlayerActionResponse, ServiceInfoResponse};
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
 use crate::manager::{ServiceManagerRef, TaskManagerRef};
 use crate::types::{Player, PlayerAction, PlayerSession, ServiceProcessRef};
 use crate::utils::error::*;
 use crate::{error, log_info, log_warning};
+use crate::utils::utils::Utils;
 
 pub struct PlayerManager {
     db_manager: Arc<DatabaseManager>,
@@ -29,6 +31,8 @@ impl PlayerManager {
     }
 
     pub async fn handle_action(&self, req: PlayerActionResponse) -> CloudResult<OutgoingMessage> {
+        let mut out_msg: OutgoingMessage = OutgoingMessage::null(None);
+
         let service_ref = {
             let sm = self.service_manager.read().await;
             sm.get_from_id(&req.get_service_uuid())?
@@ -56,6 +60,20 @@ impl PlayerManager {
 
             // join on proxy
             if service_ref.is_proxy().await {
+
+                let service_manager = self.service_manager.read().await;
+                match service_manager.find_next_default_connect_server().await {
+                    Some(s) => {
+                        match Utils::convert_to_json(&ServiceInfoResponse::new(s.read().await.get_service())) {
+                            Some(data) => out_msg = OutgoingMessage::ok(None, OutgoingMessageType::Response, data),
+                            None => out_msg = OutgoingMessage::err(None, "Cant parse the ServerInfo".to_string()),
+                        };
+                    }
+                    None => {
+                        out_msg = OutgoingMessage::err(None, "Cant find a Default Server".to_string())
+                    }
+                };
+
                 self.create_session(&mut player, &id).await?;
                 self.update_last_login(&mut player).await?;
             } else
@@ -117,8 +135,7 @@ impl PlayerManager {
                 s.start_idle_timer();
             }
         }
-
-        Ok(OutgoingMessage::null())
+        Ok(out_msg)
     }
 
     async fn register_player(&self, player: &Player) -> CloudResult<Player> {

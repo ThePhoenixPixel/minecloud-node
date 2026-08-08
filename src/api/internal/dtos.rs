@@ -8,6 +8,9 @@ use crate::types::{EntityId, PlayerAction, Service};
 
 #[derive(Debug, Deserialize)]
 pub struct IncomingMessage {
+    #[serde(rename = "request_id")]
+    request_id: Option<Uuid>,
+
     #[serde(rename = "type")]
     msg_type: IncomingMessageType,
 
@@ -22,6 +25,10 @@ impl IncomingMessage {
         &self.msg_type
     }
 
+    pub fn get_request_id(&self) -> Option<Uuid> {
+        self.request_id
+    }
+
     pub fn get_service_id(&self) -> Uuid {
         self.service_id
     }
@@ -33,6 +40,9 @@ impl IncomingMessage {
 
 #[derive(Debug, Serialize)]
 pub struct OutgoingMessage {
+    #[serde(rename = "request_id")]
+    request_id: Option<Uuid>,
+
     #[serde(rename = "type")]
     msg_type: OutgoingMessageType,
 
@@ -47,31 +57,47 @@ pub struct OutgoingMessage {
 }
 
 impl OutgoingMessage {
-    pub fn ok(msg_type: impl Into<OutgoingMessageType>, data: Value) -> OutgoingMessage {
+    pub fn ok(
+        request_id: Option<Uuid>,
+        msg_type: impl Into<OutgoingMessageType>,
+        data: Value,
+    ) -> OutgoingMessage {
         OutgoingMessage {
             msg_type: msg_type.into(),
+            request_id,
             success: true,
             data: Some(data),
             error: None,
         }
     }
 
-    pub fn err(error: String) -> OutgoingMessage {
+    pub fn err(
+        request_id: Option<Uuid>,
+        error: String,
+    ) -> OutgoingMessage {
         OutgoingMessage {
             msg_type: OutgoingMessageType::Error,
-            success: true,
+            request_id,
+            success: false,
             data: None,
             error: Some(error),
         }
     }
 
-    pub fn null() -> OutgoingMessage {
+    pub fn null(
+        request_id: Option<Uuid>,
+    ) -> OutgoingMessage {
         OutgoingMessage {
             msg_type: OutgoingMessageType::ResponseNull,
+            request_id,
             success: true,
             data: None,
             error: None,
         }
+    }
+
+    pub fn set_request_id(&mut self, request_id: Option<Uuid>) {
+        self.request_id = request_id;
     }
 
     pub fn to_string(&self) -> String {
@@ -87,16 +113,16 @@ pub enum IncomingMessageType {
     #[serde(rename = "Auth")]
     Auth,
 
-    #[serde(rename = "get_online_backend_services")]
+    #[serde(rename = "GetOnlineBackendServices")]
     GetOnlineBackendServices,
 
-    #[serde(rename = "service_online")]
+    #[serde(rename = "ServiceOnline")]
     ServiceOnline,
 
-    #[serde(rename = "service_shutdown")]
+    #[serde(rename = "Shutdown")]
     Shutdown,
 
-    #[serde(rename = "player_action")]
+    #[serde(rename = "PlayerAction")]
     PlayerAction,
 }
 
@@ -109,25 +135,25 @@ impl PartialEq<IncomingMessageType> for &IncomingMessageType {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum OutgoingMessageType {
-    #[serde(rename = "error")]
+    #[serde(rename = "Error")]
     Error,
 
-    #[serde(rename = "response")]
+    #[serde(rename = "Response")]
     Response,
 
-    #[serde(rename = "response_null")]
+    #[serde(rename = "ResponseNull")]
     ResponseNull,
 
-    #[serde(rename = "shutdown")]
+    #[serde(rename = "Shutdown")]
     Shutdown,
 
-    #[serde(rename = "add_server")]
+    #[serde(rename = "AddServer")]
     AddServer,
 
-    #[serde(rename = "remove_server")]
+    #[serde(rename = "RemoveServer")]
     RemoveServer,
 
-    #[serde(rename = "")]
+    #[serde(rename = "ConnectPlayerToServer")]
     ConnectPlayerToServer,
 
 }
@@ -150,20 +176,28 @@ impl From<&ServiceIdRequest> for EntityId {
     }
 }
 
+impl From<&Uuid> for ServiceIdRequest {
+    fn from(value: &Uuid) -> Self {
+        ServiceIdRequest {
+            id: value.clone()
+        }
+    }
+}
+
 #[derive(Serialize, Debug)]
 pub struct ServiceInfoResponse {
+    id: Uuid,
     name: String,
     address: Address,
-    default_connect: bool,
     join_permission: String,
 }
 
 impl ServiceInfoResponse {
     pub fn new(service: &Service) -> ServiceInfoResponse {
         ServiceInfoResponse {
+            id: service.get_id().clone(),
             name: service.get_name().to_string(),
             address: service.get_server_listener().clone(),
-            default_connect: service.default_connect(),
             join_permission: service.get_join_permission().to_string(),
         }
     }
@@ -174,10 +208,6 @@ impl ServiceInfoResponse {
 
     pub fn get_address(&self) -> Address {
         self.address.clone()
-    }
-
-    pub fn is_default_connect(&self) -> bool {
-        self.default_connect
     }
 
     pub fn get_join_permission(&self) -> String {

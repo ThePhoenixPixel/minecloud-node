@@ -16,7 +16,7 @@ use tokio::io;
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tokio::time::{Instant, sleep};
-
+use uuid::Uuid;
 use crate::config::Software;
 use crate::types::service::Service;
 use crate::types::{EntityId, ServiceConfig, ServiceStatus};
@@ -122,7 +122,7 @@ impl ServiceProcess {
 
     async fn send_stop(&mut self, msg: &str) -> CloudResult<()> {
         let data = json!({"msg": msg });
-        let msg = OutgoingMessage::ok(OutgoingMessageType::Shutdown, data);
+        let msg = OutgoingMessage::ok(Some(Uuid::new_v4()), OutgoingMessageType::Shutdown, data);
 
         if self.send(&msg).await {
             log_info!(6, "Stop command sent to [{}]", self.service.get_name());

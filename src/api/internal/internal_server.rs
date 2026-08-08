@@ -1,16 +1,19 @@
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{App, HttpRequest, HttpResponse, HttpServer, web};
 use actix_ws::{Message, Session};
+use futures_util::StreamExt;
 use serde_json::json;
 use std::sync::Arc;
-use futures_util::StreamExt;
 use tokio::sync::RwLock;
 
-use crate::api::internal::{APIInternalHandler, IncomingMessage, IncomingMessageType, OutgoingMessage, OutgoingMessageType, PlayerActionResponse, ServiceIdRequest};
+use crate::api::internal::{
+    APIInternalHandler, IncomingMessage, IncomingMessageType, OutgoingMessage, OutgoingMessageType,
+    PlayerActionResponse, ServiceIdRequest,
+};
 use crate::cloud::Cloud;
+use crate::types::{EntityId, ServiceProcessRef};
+use crate::utils::error::*;
 use crate::utils::error::{CantBindAddress, CloudResult, IntoCloudError};
 use crate::{error, log_error, log_info, log_warning};
-use crate::utils::error::*;
-use crate::types::{ServiceProcessRef};
 
 async fn ws_handler(
     req: HttpRequest,
@@ -50,12 +53,20 @@ async fn handle_connection(
                     sm.read().await.find_from_id(&incoming.get_service_id())
                 };
 
+                bound_service = service_process_ref.clone();
+
                 if bound_service.is_none() {
-                    let _ = session.text(format!("Cant find Service: {}", incoming.get_service_id())).await;
+                    let _ = session
+                        .text(
+                            OutgoingMessage::err(incoming.get_request_id(), format!(
+                                "Cant find Service: {}",
+                                incoming.get_service_id()
+                            ))
+                            .to_string(),
+                        )
+                        .await;
                     continue;
                 }
-
-                bound_service = service_process_ref.clone();
 
                 if incoming.get_msg_typ() == IncomingMessageType::Auth {
                     match service_process_ref {
@@ -63,19 +74,44 @@ async fn handle_connection(
                             spr.write().await.attach_session(session.clone());
 
                             log_info!(4, "[API] Server '{}' Auth", incoming.get_service_id());
-                            let _ = session.text(String::from("status: ok")).await;
+
+                            let response = OutgoingMessage::ok(
+                                incoming.get_request_id(),
+                                OutgoingMessageType::Response,
+                                json!({
+                                    "success": true
+                                }),
+                            );
+
+                            if session.text(response.to_string()).await.is_err() {
+                                log_warning!(
+                                    6,
+                                    "Cant send Auth response to '{}'",
+                                    incoming.get_service_id()
+                                );
+                            }
                         }
+
                         None => {
-                            let _ = session.text(format!("Unknown service: '{}'", incoming.get_service_id())).await;
+                            let response = OutgoingMessage::err(
+                                incoming.get_request_id(),
+                                format!("Unknown service: '{}'", incoming.get_service_id()),
+                            );
+
+                            let _ = session.text(response.to_string()).await;
                             let _ = session.close(None).await;
+
                             return;
                         }
                     }
+
                     continue;
                 }
 
                 // Normales Message-Routing
-               let msg = handle_text_message(incoming, cloud.clone()).await.to_string();
+                let msg = handle_text_message(incoming, cloud.clone())
+                    .await
+                    .to_string();
 
                 if session.text(msg).await.is_err() {
                     log_warning!(6, "Cant send WS Answer");
@@ -83,7 +119,9 @@ async fn handle_connection(
                 }
             }
 
-            Message::Ping(b) => { let _ = session.pong(&b).await; }
+            Message::Ping(b) => {
+                let _ = session.pong(&b).await;
+            }
 
             Message::Close(reason) => {
                 if let Some(svc) = &bound_service {
@@ -105,29 +143,30 @@ async fn handle_connection(
 }
 
 async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) -> OutgoingMessage {
-    match msg.get_msg_typ() {
+    let mut result = match msg.get_msg_typ() {
         IncomingMessageType::GetOnlineBackendServices => {
             APIInternalHandler::get_online_backend_services(cloud).await
         }
 
         IncomingMessageType::ServiceOnline => {
-            let data: ServiceIdRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
+            let data: ServiceIdRequest = serde_json::from_value(msg.get_data().clone()).unwrap();
             APIInternalHandler::service_notify_started(cloud, data).await
         }
 
         IncomingMessageType::Shutdown => {
-            let data: ServiceIdRequest  = serde_json::from_value(msg.get_data().clone()).unwrap();
-            APIInternalHandler::service_notify_shutdown(cloud, data).await
+            APIInternalHandler::service_notify_shutdown(cloud, EntityId::from(msg.get_service_id())).await
         }
 
         IncomingMessageType::PlayerAction => {
-            let data: PlayerActionResponse = serde_json::from_value(msg.get_data().clone()).unwrap();
+            let data: PlayerActionResponse =
+                serde_json::from_value(msg.get_data().clone()).unwrap();
             APIInternalHandler::player_action(cloud, data).await
         }
-        _ => {
-            OutgoingMessage::err("Unknown message type".to_string())
-        }
-    }
+        _ => OutgoingMessage::err(None, "Unknown message type".to_string()),
+    };
+
+    result.set_request_id(msg.get_request_id());
+    result
 }
 
 pub struct APIInternal;
@@ -177,4 +216,3 @@ impl APIInternal {
         Ok(())
     }
 }
-
