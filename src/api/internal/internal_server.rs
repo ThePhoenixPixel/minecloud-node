@@ -149,8 +149,7 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
         }
 
         IncomingMessageType::ServiceOnline => {
-            let data: ServiceIdRequest = serde_json::from_value(msg.get_data().clone()).unwrap();
-            APIInternalHandler::service_notify_started(cloud, data).await
+            APIInternalHandler::service_notify_started(cloud, EntityId::from(msg.get_service_id())).await
         }
 
         IncomingMessageType::Shutdown => {

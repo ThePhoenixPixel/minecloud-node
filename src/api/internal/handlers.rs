@@ -38,7 +38,7 @@ impl APIInternalHandler {
     /// Called by the Minecraft Process (Minecraft Plugin) as soon as the service has been fully started
     pub async fn service_notify_started(
         cloud: Arc<RwLock<Cloud>>,
-        request: ServiceIdRequest,
+        service_id: EntityId,
     ) -> OutgoingMessage {
         let node_manager = {
             let cloud_guard = cloud.read().await;
@@ -46,7 +46,7 @@ impl APIInternalHandler {
         };
 
         match node_manager
-            .on_local_service_registered(EntityId::from(&request))
+            .on_local_service_registered(service_id)
             .await
         {
             Ok(()) => OutgoingMessage::null(None),
