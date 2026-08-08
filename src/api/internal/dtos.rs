@@ -71,10 +71,7 @@ impl OutgoingMessage {
         }
     }
 
-    pub fn err(
-        request_id: Option<Uuid>,
-        error: String,
-    ) -> OutgoingMessage {
+    pub fn err(request_id: Option<Uuid>, error: String) -> OutgoingMessage {
         OutgoingMessage {
             msg_type: OutgoingMessageType::Error,
             request_id,
@@ -84,9 +81,7 @@ impl OutgoingMessage {
         }
     }
 
-    pub fn null(
-        request_id: Option<Uuid>,
-    ) -> OutgoingMessage {
+    pub fn null(request_id: Option<Uuid>) -> OutgoingMessage {
         OutgoingMessage {
             msg_type: OutgoingMessageType::ResponseNull,
             request_id,
@@ -132,7 +127,6 @@ impl PartialEq<IncomingMessageType> for &IncomingMessageType {
     }
 }
 
-
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum OutgoingMessageType {
     #[serde(rename = "Error")]
@@ -155,7 +149,6 @@ pub enum OutgoingMessageType {
 
     #[serde(rename = "ConnectPlayerToServer")]
     ConnectPlayerToServer,
-
 }
 
 impl PartialEq<OutgoingMessageType> for &OutgoingMessageType {
@@ -163,7 +156,6 @@ impl PartialEq<OutgoingMessageType> for &OutgoingMessageType {
         **self == *other
     }
 }
-
 
 #[derive(Deserialize)]
 pub struct ServiceIdRequest {
@@ -178,9 +170,7 @@ impl From<&ServiceIdRequest> for EntityId {
 
 impl From<&Uuid> for ServiceIdRequest {
     fn from(value: &Uuid) -> Self {
-        ServiceIdRequest {
-            id: value.clone()
-        }
+        ServiceIdRequest { id: value.clone() }
     }
 }
 
@@ -257,7 +247,6 @@ impl PlayerActionRequest {
         self.player_uuid
     }
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PlayerActionResponse {

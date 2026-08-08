@@ -1,15 +1,16 @@
 use database_manager::DatabaseManager;
 use std::sync::Arc;
-use tokio::fs::symlink_metadata;
 use uuid::Uuid;
 
-use crate::api::internal::{OutgoingMessage, OutgoingMessageType, PlayerActionResponse, ServiceInfoResponse};
+use crate::api::internal::{
+    OutgoingMessage, OutgoingMessageType, PlayerActionResponse, ServiceInfoResponse,
+};
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
 use crate::manager::{ServiceManagerRef, TaskManagerRef};
 use crate::types::{Player, PlayerAction, PlayerSession, ServiceProcessRef};
 use crate::utils::error::*;
-use crate::{error, log_info, log_warning};
 use crate::utils::utils::Utils;
+use crate::{error, log_info, log_warning};
 
 pub struct PlayerManager {
     db_manager: Arc<DatabaseManager>,
@@ -60,17 +61,27 @@ impl PlayerManager {
 
             // join on proxy
             if service_ref.is_proxy().await {
-
                 let service_manager = self.service_manager.read().await;
                 match service_manager.find_next_default_connect_server().await {
                     Some(s) => {
-                        match Utils::convert_to_json(&ServiceInfoResponse::new(s.read().await.get_service())) {
-                            Some(data) => out_msg = OutgoingMessage::ok(None, OutgoingMessageType::Response, data),
-                            None => out_msg = OutgoingMessage::err(None, "Cant parse the ServerInfo".to_string()),
+                        match Utils::convert_to_json(&ServiceInfoResponse::new(
+                            s.read().await.get_service(),
+                        )) {
+                            Some(data) => {
+                                out_msg =
+                                    OutgoingMessage::ok(None, OutgoingMessageType::Response, data)
+                            }
+                            None => {
+                                out_msg = OutgoingMessage::err(
+                                    None,
+                                    "Cant parse the ServerInfo".to_string(),
+                                )
+                            }
                         };
                     }
                     None => {
-                        out_msg = OutgoingMessage::err(None, "Cant find a Default Server".to_string())
+                        out_msg =
+                            OutgoingMessage::err(None, "Cant find a Default Server".to_string())
                     }
                 };
 
@@ -88,7 +99,7 @@ impl PlayerManager {
             self.add_event(&player, &service_ref, &req.get_action(), session_id)
                 .await?;
             // todo: beim leaver eine zeit setezn der nächste der delteing würde gucjt nacj zeit ja dann delte wenn nicht zeit setzene ...
-            /// leave proxy
+            // leave proxy
             if service_ref.is_proxy().await {
                 let player_id = player.get_id();
                 match self.delete_session(&mut player).await {

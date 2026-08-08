@@ -32,9 +32,12 @@ impl TablePlayerEvents {
         event_type: String,
         session_id_override: Option<u64>,
     ) -> Self {
-        let session_id = session_id_override
-            .map(|id| DBUInt::from(id))
-            .or_else(|| player.get_session().clone().map(|s| DBUInt::from(s.get_id())));
+        let session_id = session_id_override.map(|id| DBUInt::from(id)).or_else(|| {
+            player
+                .get_session()
+                .clone()
+                .map(|s| DBUInt::from(s.get_id()))
+        });
 
         TablePlayerEvents {
             id: Default::default(),

@@ -7,11 +7,10 @@ use tokio::sync::RwLock;
 
 use crate::api::internal::{
     APIInternalHandler, IncomingMessage, IncomingMessageType, OutgoingMessage, OutgoingMessageType,
-    PlayerActionResponse, ServiceIdRequest,
+    PlayerActionResponse,
 };
 use crate::cloud::Cloud;
 use crate::types::{EntityId, ServiceProcessRef};
-use crate::utils::error::*;
 use crate::utils::error::{CantBindAddress, CloudResult, IntoCloudError};
 use crate::{error, log_error, log_info, log_warning};
 
@@ -58,10 +57,10 @@ async fn handle_connection(
                 if bound_service.is_none() {
                     let _ = session
                         .text(
-                            OutgoingMessage::err(incoming.get_request_id(), format!(
-                                "Cant find Service: {}",
-                                incoming.get_service_id()
-                            ))
+                            OutgoingMessage::err(
+                                incoming.get_request_id(),
+                                format!("Cant find Service: {}", incoming.get_service_id()),
+                            )
                             .to_string(),
                         )
                         .await;
@@ -149,11 +148,13 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
         }
 
         IncomingMessageType::ServiceOnline => {
-            APIInternalHandler::service_notify_started(cloud, EntityId::from(msg.get_service_id())).await
+            APIInternalHandler::service_notify_started(cloud, EntityId::from(msg.get_service_id()))
+                .await
         }
 
         IncomingMessageType::Shutdown => {
-            APIInternalHandler::service_notify_shutdown(cloud, EntityId::from(msg.get_service_id())).await
+            APIInternalHandler::service_notify_shutdown(cloud, EntityId::from(msg.get_service_id()))
+                .await
         }
 
         IncomingMessageType::PlayerAction => {

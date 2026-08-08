@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use crate::api::cluster::{ClusterClient, RestClusterClient};
 use crate::config::CloudConfig;
-use crate::{error, log_warning};
 use crate::manager::{ServiceManagerRef, TaskManagerRef};
 use crate::types::{EntityId, Service, ServiceProcessRef, ServiceStatus, Task};
 use crate::utils::error::*;
+use crate::{error, log_warning};
 
 pub struct NodeManager {
     service_manager: ServiceManagerRef,
@@ -29,7 +29,12 @@ impl NodeManager {
     }
 
     pub async fn stop_all_local_services(&self, msg: &str) {
-        let services = self.service_manager.read().await.filter_services(|s | s.is_start()).await;
+        let services = self
+            .service_manager
+            .read()
+            .await
+            .filter_services(|s| s.is_start())
+            .await;
         for s in services {
             self.stop_service(s.get_id().await, msg).await;
         }
@@ -42,7 +47,8 @@ impl NodeManager {
             // service is local
             {
                 let sm = self.service_manager.read().await;
-                sm.update_status(&service_ref, ServiceStatus::Stopping).await;
+                sm.update_status(&service_ref, ServiceStatus::Stopping)
+                    .await;
             }
 
             match self.unregistered_local_service(&service_ref).await {
@@ -55,7 +61,6 @@ impl NodeManager {
                 .await
                 .stop_service(&service_ref, msg)
                 .await;
-
         } else {
             // service is remote
             todo!("Send stop command to Other Node");
@@ -70,7 +75,7 @@ impl NodeManager {
             .service_manager
             .read()
             .await
-            .filter_services(|s | s.get_name() == task_name)
+            .filter_services(|s| s.get_name() == task_name)
             .await;
         let mut services = Vec::new();
 

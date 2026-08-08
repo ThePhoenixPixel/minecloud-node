@@ -72,7 +72,7 @@ impl Cmd {
     ) -> Result<(), Error> {
         match command {
             "help" => CmdHelp::execute(cloud, args).await,
-            "task" => todo!(),//CmdTask::execute(cloud, args).await,
+            "task" => todo!(), //CmdTask::execute(cloud, args).await,
             "service" => CmdService::execute(cloud, args).await,
             "template" => CmdTemplate::execute(cloud, args).await,
             "me" => CmdMe::execute(cloud, args).await,
@@ -85,7 +85,7 @@ impl Cmd {
                 scheduler.check_service().await;
 
                 Ok(())
-            },
+            }
             "" => Ok(()),
             _ => Err(Error::new(
                 ErrorKind::Other,

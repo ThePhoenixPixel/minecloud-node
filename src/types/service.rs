@@ -47,47 +47,94 @@ impl Service {
         }
     }
 
-    pub fn get_id(&self) -> &EntityId { &self.id }
-    pub fn get_name(&self) -> &str { &self.name }
+    pub fn get_id(&self) -> &EntityId {
+        &self.id
+    }
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
 
-    pub fn get_status(&self) -> ServiceStatus { self.status }
-    pub fn set_status(&mut self, status: ServiceStatus) { self.status = status; }
+    pub fn get_status(&self) -> ServiceStatus {
+        self.status
+    }
+    pub fn set_status(&mut self, status: ServiceStatus) {
+        self.status = status;
+    }
 
-    pub fn get_parent_node(&self) -> &str { &self.parent_node }
-    pub fn is_local_node(&self, node_name: &str) -> bool { self.parent_node == node_name }
+    pub fn get_parent_node(&self) -> &str {
+        &self.parent_node
+    }
+    pub fn is_local_node(&self, node_name: &str) -> bool {
+        self.parent_node == node_name
+    }
 
-    pub fn get_current_players(&self) -> u32 { self.current_players }
-    pub fn set_current_player(&mut self, count: u32) { self.current_players = count; }
+    pub fn get_current_players(&self) -> u32 {
+        self.current_players
+    }
+    pub fn set_current_player(&mut self, count: u32) {
+        self.current_players = count;
+    }
 
-    pub fn get_started_at(&self) -> Option<NaiveDateTime> { self.started_at }
-    pub fn get_stopped_at(&self) -> Option<NaiveDateTime> { self.stopped_at }
-    pub fn get_idle_since(&self) -> Option<NaiveDateTime> { self.idle_since }
+    pub fn get_started_at(&self) -> Option<NaiveDateTime> {
+        self.started_at
+    }
+    pub fn get_stopped_at(&self) -> Option<NaiveDateTime> {
+        self.stopped_at
+    }
+    pub fn get_idle_since(&self) -> Option<NaiveDateTime> {
+        self.idle_since
+    }
 
-    pub fn start_idle_timer(&mut self) { self.idle_since = Some(Utc::now().naive_utc()); }
+    pub fn start_idle_timer(&mut self) {
+        self.idle_since = Some(Utc::now().naive_utc());
+    }
 
-    pub fn get_server_listener(&self) -> &Address { &self.server_listener }
-    pub fn set_server_listener(&mut self, address: Address) { self.server_listener = address; }
+    pub fn get_server_listener(&self) -> &Address {
+        &self.server_listener
+    }
+    pub fn set_server_listener(&mut self, address: Address) {
+        self.server_listener = address;
+    }
 
-    pub fn get_plugin_listener(&self) -> &Address { &self.plugin_listener }
-    pub fn set_plugin_listener(&mut self, address: Address) { self.plugin_listener = address; }
+    pub fn get_plugin_listener(&self) -> &Address {
+        &self.plugin_listener
+    }
+    pub fn set_plugin_listener(&mut self, address: Address) {
+        self.plugin_listener = address;
+    }
 
-    pub fn get_cloud_listener(&self) -> &Address { &self.cloud_listener }
-    pub fn set_cloud_listener(&mut self, address: Address) { self.cloud_listener = address; }
+    pub fn get_cloud_listener(&self) -> &Address {
+        &self.cloud_listener
+    }
+    pub fn set_cloud_listener(&mut self, address: Address) {
+        self.cloud_listener = address;
+    }
 
-    pub fn get_task_name(&self) -> &str { &self.task_name }
+    pub fn get_task_name(&self) -> &str {
+        &self.task_name
+    }
 
-    pub fn default_connect(&self) -> bool { self.default_connect }
+    pub fn default_connect(&self) -> bool {
+        self.default_connect
+    }
 
-    pub fn get_join_permission(&self) -> &str { &self.join_permission }
+    pub fn get_join_permission(&self) -> &str {
+        &self.join_permission
+    }
 
-    pub fn get_config(&self) -> &ServiceConfig { &self.config }
+    pub fn get_config(&self) -> &ServiceConfig {
+        &self.config
+    }
 
     pub fn is_proxy(&self) -> bool {
         self.config.get_software().get_software_type().is_proxy()
     }
 
     pub fn is_backend_server(&self) -> bool {
-        self.config.get_software().get_software_type().is_backend_server()
+        self.config
+            .get_software()
+            .get_software_type()
+            .is_backend_server()
     }
 
     pub fn is_start(&self) -> bool {
@@ -99,8 +146,13 @@ impl Service {
     }
 
     pub fn is_stop(&self) -> bool {
-        matches!(self.status, ServiceStatus::Stopped | ServiceStatus::Stopping | ServiceStatus::Failed)
+        matches!(
+            self.status,
+            ServiceStatus::Stopped | ServiceStatus::Stopping | ServiceStatus::Failed
+        )
     }
 
-    pub fn is_failed(&self) -> bool { self.status == ServiceStatus::Failed }
+    pub fn is_failed(&self) -> bool {
+        self.status == ServiceStatus::Failed
+    }
 }

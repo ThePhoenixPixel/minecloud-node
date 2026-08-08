@@ -1,13 +1,13 @@
+use bx::path::Directory;
+use database_manager::DatabaseManager;
+use rand::RngExt;
+use rand::prelude::IteratorRandom;
 use std::collections::HashMap;
-use std::{fs, io};
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
-use bx::path::Directory;
-use database_manager::DatabaseManager;
-use rand::prelude::IteratorRandom;
-use rand::RngExt;
+use std::{fs, io};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::config::CloudConfig;
@@ -23,7 +23,6 @@ pub struct GroupManager {
 }
 
 pub struct GroupManagerRef(Arc<RwLock<GroupManager>>);
-
 
 impl GroupManager {
     pub fn get_all(&self) -> Vec<GroupRef> {
@@ -67,7 +66,10 @@ impl GroupManager {
         templates
     }
 
-    pub async fn get_templates_sorted_by_priority_desc(&self, group_ref: &GroupRef) -> Vec<Template> {
+    pub async fn get_templates_sorted_by_priority_desc(
+        &self,
+        group_ref: &GroupRef,
+    ) -> Vec<Template> {
         let mut templates = group_ref.read().await.get_templates().clone();
         templates.sort_by(|a, b| b.priority.cmp(&a.priority));
         templates
@@ -75,14 +77,21 @@ impl GroupManager {
 
     pub async fn get_template_rng(&self, group_ref: &GroupRef) -> Option<Template> {
         let mut rng = rand::rng();
-        group_ref.read().await.get_templates().clone().into_iter().choose(&mut rng)
+        group_ref
+            .read()
+            .await
+            .get_templates()
+            .clone()
+            .into_iter()
+            .choose(&mut rng)
     }
 
     // Select Template based on Priority (higher priority = higher chance)
-    pub async fn get_template_rng_based_on_priority(&self, group_ref: &GroupRef) -> Option<Template> {
-        let templates = {
-            group_ref.read().await.get_templates().clone()
-        };
+    pub async fn get_template_rng_based_on_priority(
+        &self,
+        group_ref: &GroupRef,
+    ) -> Option<Template> {
+        let templates = { group_ref.read().await.get_templates().clone() };
 
         if templates.is_empty() {
             return None;
@@ -108,7 +117,11 @@ impl GroupManager {
         templates.last().cloned()
     }
 
-    pub async fn install_in_path(&self, group_ref: &GroupRef, target_path: &PathBuf) -> CloudResult<()> {
+    pub async fn install_in_path(
+        &self,
+        group_ref: &GroupRef,
+        target_path: &PathBuf,
+    ) -> CloudResult<()> {
         let mut templates: Vec<Template> = Vec::new();
         let group = {
             let g_ref = group_ref.read().await;
@@ -116,8 +129,12 @@ impl GroupManager {
         };
 
         match group.get_installer() {
-            Installer::InstallAll => templates = self.get_templates_sorted_by_priority(group_ref).await,
-            Installer::InstallAllDesc => templates = self.get_templates_sorted_by_priority_desc(group_ref).await,
+            Installer::InstallAll => {
+                templates = self.get_templates_sorted_by_priority(group_ref).await
+            }
+            Installer::InstallAllDesc => {
+                templates = self.get_templates_sorted_by_priority_desc(group_ref).await
+            }
             Installer::InstallRandom => match self.get_template_rng(group_ref).await {
                 Some(template) => templates.push(template),
                 None => return Err(error!(GroupTemplateNotFound)),
@@ -136,14 +153,10 @@ impl GroupManager {
         }
         Ok(())
     }
-
 }
 
 impl GroupManagerRef {
-    pub fn new(
-        _db: Arc<DatabaseManager>,
-        cloud_config: Arc<CloudConfig>,
-    ) -> GroupManagerRef {
+    pub fn new(_db: Arc<DatabaseManager>, cloud_config: Arc<CloudConfig>) -> GroupManagerRef {
         let groups = get_all_groups_from_file(&cloud_config);
         let gm = GroupManager {
             _db,
@@ -165,7 +178,6 @@ impl GroupManagerRef {
     pub async fn get_group_ref_from_name(&self, name: &str) -> CloudResult<GroupRef> {
         self.0.read().await.get_from_name(name)
     }
-
 }
 
 impl Clone for GroupManagerRef {
@@ -173,7 +185,6 @@ impl Clone for GroupManagerRef {
         Self(self.0.clone())
     }
 }
-
 
 fn get_all_groups_from_file(config: &Arc<CloudConfig>) -> HashMap<String, GroupRef> {
     let group_path = config.get_cloud_path().get_group_folder_path();

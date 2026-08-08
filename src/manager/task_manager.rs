@@ -1,12 +1,12 @@
+use bx::path::Directory;
+use database_manager::DatabaseManager;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
-use database_manager::DatabaseManager;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use bx::path::Directory;
 
 use crate::config::{CloudConfig, SoftwareConfigRef};
 use crate::manager::GroupManagerRef;
@@ -25,7 +25,11 @@ pub struct TaskManager {
 pub struct TaskManagerRef(Arc<RwLock<TaskManager>>);
 
 impl TaskManager {
-    pub async fn create_task(&mut self, name: String, software_link: SoftwareLink) -> CloudResult<TaskRef> {
+    pub async fn create_task(
+        &mut self,
+        name: String,
+        software_link: SoftwareLink,
+    ) -> CloudResult<TaskRef> {
         if self.is_task_exists(&name) {
             return Err(error!(TaskAlreadyExists));
         }
@@ -49,7 +53,8 @@ impl TaskManager {
 
         self.save_task(&new_task)?;
 
-        let task_ref = self.tasks
+        let task_ref = self
+            .tasks
             .entry(new_task.get_name())
             .or_insert_with(|| TaskRef::new(new_task.clone()));
 
@@ -72,11 +77,10 @@ impl TaskManager {
             Template::create_by_task(task);
         }
 
-        let serialized = serde_json::to_string_pretty(task)
-            .map_err(|e| error!(CantSerializeTask, e))?;
+        let serialized =
+            serde_json::to_string_pretty(task).map_err(|e| error!(CantSerializeTask, e))?;
 
-        let mut file = File::create(&path)
-            .map_err(|e| error!(CantCreateTaskFile, e))?;
+        let mut file = File::create(&path).map_err(|e| error!(CantCreateTaskFile, e))?;
 
         file.write_all(serialized.as_bytes())
             .map_err(|e| error!(CantWriteTaskFile, e))?;
@@ -93,7 +97,10 @@ impl TaskManager {
     }
 
     pub fn get_from_name(&self, name: &str) -> CloudResult<TaskRef> {
-        self.tasks.get(name).cloned().ok_or(error!(CantFindTaskFromName))
+        self.tasks
+            .get(name)
+            .cloned()
+            .ok_or(error!(CantFindTaskFromName))
     }
 
     pub async fn filter_tasks<F>(&self, mut filter: F) -> Vec<TaskRef>
@@ -112,16 +119,24 @@ impl TaskManager {
 
     pub async fn get_service_path(&self, task_ref: &TaskRef) -> PathBuf {
         if task_ref.read().await.is_static_service() {
-            self.config.get_cloud_path().get_service_folder().get_static_folder_path()
+            self.config
+                .get_cloud_path()
+                .get_service_folder()
+                .get_static_folder_path()
         } else {
-            self.config.get_cloud_path().get_service_folder().get_temp_folder_path()
+            self.config
+                .get_cloud_path()
+                .get_service_folder()
+                .get_temp_folder_path()
         }
     }
 
     pub async fn prepared_to_service(&self, service_ref: &ServiceProcessRef) -> CloudResult<()> {
         let task = {
             let s_ref = service_ref.read().await;
-            let tasks = self.filter_tasks(|t| t.get_name() == s_ref.get_task_name()).await;
+            let tasks = self
+                .filter_tasks(|t| t.get_name() == s_ref.get_task_name())
+                .await;
             match tasks.first() {
                 Some(t) => t.read().await.clone(),
                 None => return Err(error!(CantFindTaskFromName)),
@@ -142,12 +157,20 @@ impl TaskManager {
                 let group_ref = match gm.get_from_name(group_name) {
                     Ok(g) => g,
                     Err(e) => {
-                        log_warning!(3, "Group |{}| not found in Task |{}|: {}", group_name, task.get_name(), e);
+                        log_warning!(
+                            3,
+                            "Group |{}| not found in Task |{}|: {}",
+                            group_name,
+                            task.get_name(),
+                            e
+                        );
                         continue;
                     }
                 };
                 match gm.install_in_path(&group_ref, &target_path).await {
-                    Ok(_) => log_info!(7, "Group |{}| installed in |{:?}|", group_name, target_path),
+                    Ok(_) => {
+                        log_info!(7, "Group |{}| installed in |{:?}|", group_name, target_path)
+                    }
                     Err(e) => log_warning!(3, "Group |{}| cant install: {}", group_name, e),
                 }
             }
@@ -163,7 +186,10 @@ impl TaskManager {
     }
 
     fn get_task_path(&self, name: &str) -> PathBuf {
-        self.config.get_cloud_path().get_task_folder_path().join(format!("{}.json", name))
+        self.config
+            .get_cloud_path()
+            .get_task_folder_path()
+            .join(format!("{}.json", name))
     }
 
     fn delete_task_file(&self, name: &str) {
@@ -183,12 +209,22 @@ impl TaskManagerRef {
         group_manager: GroupManagerRef,
     ) -> TaskManagerRef {
         let tasks = load_tasks_from_file(&cloud_config);
-        let tm = TaskManager { db, tasks, config: cloud_config, software_config, group_manager };
+        let tm = TaskManager {
+            db,
+            tasks,
+            config: cloud_config,
+            software_config,
+            group_manager,
+        };
         TaskManagerRef(Arc::new(RwLock::new(tm)))
     }
 
-    pub async fn read(&self) -> RwLockReadGuard<'_, TaskManager> { self.0.read().await }
-    pub async fn write(&self) -> RwLockWriteGuard<'_, TaskManager> { self.0.write().await }
+    pub async fn read(&self) -> RwLockReadGuard<'_, TaskManager> {
+        self.0.read().await
+    }
+    pub async fn write(&self) -> RwLockWriteGuard<'_, TaskManager> {
+        self.0.write().await
+    }
 
     pub async fn get_task_ref_from_name(&self, name: &str) -> CloudResult<TaskRef> {
         self.0.read().await.get_from_name(name)
@@ -196,7 +232,9 @@ impl TaskManagerRef {
 }
 
 impl Clone for TaskManagerRef {
-    fn clone(&self) -> Self { Self(self.0.clone()) }
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
 }
 
 // --- private Hilfsfunktionen ---
@@ -205,24 +243,36 @@ fn load_tasks_from_file(config: &Arc<CloudConfig>) -> HashMap<String, TaskRef> {
     let task_path = config.get_cloud_path().get_task_folder_path();
     let mut tasks = HashMap::new();
 
-    if !task_path.exists() { return tasks; }
+    if !task_path.exists() {
+        return tasks;
+    }
 
     let entries = match fs::read_dir(&task_path) {
         Ok(e) => e,
-        Err(e) => { log_warning!("Cant read task folder: {}", e); return tasks; }
+        Err(e) => {
+            log_warning!("Cant read task folder: {}", e);
+            return tasks;
+        }
     };
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("json") { continue; }
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
 
         let content = match fs::read_to_string(&path) {
             Ok(c) => c,
-            Err(e) => { log_warning!("Cant read task file {:?}: {}", path, e); continue; }
+            Err(e) => {
+                log_warning!("Cant read task file {:?}: {}", path, e);
+                continue;
+            }
         };
 
         match serde_json::from_str::<Task>(&content) {
-            Ok(task) => { tasks.insert(task.get_name(), TaskRef::new(task)); }
+            Ok(task) => {
+                tasks.insert(task.get_name(), TaskRef::new(task));
+            }
             Err(e) => log_warning!("Cant parse task file {:?}: {}", path, e),
         }
     }

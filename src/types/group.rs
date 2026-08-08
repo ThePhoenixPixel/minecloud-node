@@ -5,11 +5,15 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::types::installer::Installer;
 use crate::types::template::Template;
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Group {
+    #[serde(rename = "name")]
     name: String,
+
+    #[serde(rename = "installer")]
     installer: Installer,
+
+    #[serde(rename = "templates")]
     templates: Vec<Template>,
 }
 
@@ -56,5 +60,3 @@ impl Clone for GroupRef {
         Self(self.0.clone())
     }
 }
-
-

@@ -9,9 +9,9 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::config::cloud_config::CloudConfig;
 use crate::types::{SoftwareLink, SoftwareType};
-use crate::{error, log_info, log_warning};
 use crate::utils::error::*;
 use crate::utils::utils::{Web, WebDownloadResult};
+use crate::{error, log_info, log_warning};
 
 #[derive(Debug)]
 pub struct SoftwareConfig {
@@ -20,7 +20,6 @@ pub struct SoftwareConfig {
 }
 
 impl SoftwareConfig {
-
     /// load the Software from a CloudConfig and return a SoftwareConfig Obj.
     pub fn load(system_config: Arc<CloudConfig>) -> SoftwareConfig {
         let software_path = system_config
@@ -72,18 +71,16 @@ impl SoftwareConfig {
 
         SoftwareConfig {
             system_config,
-            software
+            software,
         }
     }
 
-    fn load_file(
-        path: &PathBuf,
-        map: &mut HashMap<SoftwareLink, Software>,
-    ) {
+    fn load_file(path: &PathBuf, map: &mut HashMap<SoftwareLink, Software>) {
         let content = match fs::read_to_string(path) {
             Ok(c) => c,
             Err(e) => {
-                log_warning!(2, "Failed to read {}: {}", path.display(), e); return;
+                log_warning!(2, "Failed to read {}: {}", path.display(), e);
+                return;
             }
         };
 
@@ -103,7 +100,10 @@ impl SoftwareConfig {
 
     #[deprecated]
     pub fn find_software(link: &SoftwareLink) -> Option<Software> {
-        Self::load(Arc::new(CloudConfig::get())).software.get(link).cloned()
+        Self::load(Arc::new(CloudConfig::get()))
+            .software
+            .get(link)
+            .cloned()
     }
 
     /// return all Software
@@ -112,15 +112,18 @@ impl SoftwareConfig {
     }
 
     // Orchestrator — ruft alles in der richtigen Reihenfolge auf
-    pub async fn check_and_get(system_config: Arc<CloudConfig>, url: &String) -> CloudResult<SoftwareConfig> {
+    pub async fn check_and_get(
+        system_config: Arc<CloudConfig>,
+        url: &String,
+    ) -> CloudResult<SoftwareConfig> {
         let software_path = CloudConfig::get()
             .get_cloud_path()
             .get_system_folder()
             .get_software_config_path();
 
-        let needs_install = !software_path.exists() || SoftwareType::iter().any(|software_type| {
-            !software_path.join(software_type.to_string()).exists()
-        });
+        let needs_install = !software_path.exists()
+            || SoftwareType::iter()
+                .any(|software_type| !software_path.join(software_type.to_string()).exists());
 
         if needs_install {
             SoftwareConfig::install_configs(&system_config, url).await?;
@@ -132,13 +135,15 @@ impl SoftwareConfig {
             software_config.install_server_file(software).await?;
             software_config.install_system_plugin(software).await?;
             software_config.install_libs(software).await?;
-
         }
 
         Ok(software_config)
     }
 
-    pub async fn install_configs(system_config: &Arc<CloudConfig>, start_url: &String) -> CloudResult<()> {
+    pub async fn install_configs(
+        system_config: &Arc<CloudConfig>,
+        start_url: &String,
+    ) -> CloudResult<()> {
         let base_dir = system_config
             .get_cloud_path()
             .get_system_folder()
@@ -172,14 +177,16 @@ impl SoftwareConfig {
             let mut folder_path = base_dir.join(file);
             folder_path.pop();
 
-            fs::create_dir_all(folder_path)
-                .map_err(|e| error!(CantCreateSoftwareConfigPath, e))?;
-
+            fs::create_dir_all(folder_path).map_err(|e| error!(CantCreateSoftwareConfigPath, e))?;
 
             match Web::download_file(url.as_str(), &path, false).await {
-                WebDownloadResult::Downloaded       => log_info!(5, "Successfully downloaded software config: {}", file),
-                WebDownloadResult::Err(e) => log_warning!(3, "Cant download Software Config: {} Error: {}", file, e),
-                WebDownloadResult::Skipped          => (),
+                WebDownloadResult::Downloaded => {
+                    log_info!(5, "Successfully downloaded software config: {}", file)
+                }
+                WebDownloadResult::Err(e) => {
+                    log_warning!(3, "Cant download Software Config: {} Error: {}", file, e)
+                }
+                WebDownloadResult::Skipped => (),
             }
         }
 
@@ -198,8 +205,18 @@ impl SoftwareConfig {
         };
 
         match Web::download_file(&software_file_url, &jar_path, true).await {
-            WebDownloadResult::Downloaded => log_info!(5, "Downloaded {}-{}", software.get_name(), software.get_version()),
-            WebDownloadResult::Err(e) => log_warning!("Failed to download {}-{}: {}", software.get_name(), software.get_version(), e),
+            WebDownloadResult::Downloaded => log_info!(
+                5,
+                "Downloaded {}-{}",
+                software.get_name(),
+                software.get_version()
+            ),
+            WebDownloadResult::Err(e) => log_warning!(
+                "Failed to download {}-{}: {}",
+                software.get_name(),
+                software.get_version(),
+                e
+            ),
             WebDownloadResult::Skipped => (),
         }
 
@@ -209,7 +226,9 @@ impl SoftwareConfig {
     /// install/download the Plugin in the Software Path
     pub async fn install_system_plugin(&self, software: &Software) -> CloudResult<()> {
         let plugin = software.get_system_plugin();
-        if plugin.is_local() { return Ok(()); }
+        if plugin.is_local() {
+            return Ok(());
+        }
 
         let mut plugin_path = self.get_software_plugin_path(&software.create_link());
         fs::create_dir_all(&plugin_path).map_err(|e| error!(CantCreateSoftwareConfigPath, e))?;
@@ -217,8 +236,18 @@ impl SoftwareConfig {
         plugin_path.push(plugin.get_file_name());
 
         match Web::download_file(plugin.get_download(), &plugin_path, true).await {
-            WebDownloadResult::Downloaded => log_info!(5, "Downloaded plugin for {}-{}", software.get_name(), software.get_version()),
-            WebDownloadResult::Err(e) => log_warning!("Failed to download plugin for {}-{}: {}", software.get_name(), software.get_version(), e),
+            WebDownloadResult::Downloaded => log_info!(
+                5,
+                "Downloaded plugin for {}-{}",
+                software.get_name(),
+                software.get_version()
+            ),
+            WebDownloadResult::Err(e) => log_warning!(
+                "Failed to download plugin for {}-{}: {}",
+                software.get_name(),
+                software.get_version(),
+                e
+            ),
             WebDownloadResult::Skipped => (),
         }
 
@@ -234,8 +263,12 @@ impl SoftwareConfig {
             let full_path = lib_path.join(lib_file);
 
             match Web::download_file(url_str, &full_path, false).await {
-                WebDownloadResult::Downloaded => log_info!(5, "Downloaded lib {} to {:?}", url_str, full_path),
-                WebDownloadResult::Err(e) => log_warning!("Failed to download lib {}: {}", url_str, e),
+                WebDownloadResult::Downloaded => {
+                    log_info!(5, "Downloaded lib {} to {:?}", url_str, full_path)
+                }
+                WebDownloadResult::Err(e) => {
+                    log_warning!("Failed to download lib {}: {}", url_str, e)
+                }
                 WebDownloadResult::Skipped => (),
             }
         }
@@ -299,7 +332,6 @@ impl SoftwareConfig {
             })
             .collect()
     }*/
-
 }
 
 // -----------------------------------------------------------
@@ -365,7 +397,6 @@ impl Software {
     pub fn get_software_lib(&self) -> &HashMap<String, String> {
         &self.software_lib
     }
-
 }
 
 // -----------------------------------------------------------
@@ -430,7 +461,6 @@ impl SystemPlugin {
     pub fn get_path(&self) -> &str {
         &self.path
     }
-
 }
 
 pub struct SoftwareConfigRef(Arc<RwLock<SoftwareConfig>>);

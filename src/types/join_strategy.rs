@@ -1,55 +1,29 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum JoinStrategy {
+    #[serde(rename = "fullest")]
     Fullest,
+
+    #[serde(rename = "emptiest")]
     Emptiest,
+
+    #[serde(rename = "round_robin")]
     RoundRobin,
+
+    #[serde(rename = "random")]
     Random,
 }
 
-impl JoinStrategy {
-    pub fn from_string(s: &str) -> Self {
-        match s {
-            "Fullest" => JoinStrategy::Fullest,
-            "Emptiest" => JoinStrategy::Emptiest,
-            "RoundRobin" => JoinStrategy::RoundRobin,
-            "Random" => JoinStrategy::Random,
-            _ => JoinStrategy::Random,
-        }
-    }
-
-    pub fn too_string(value: &JoinStrategy) -> &str {
-        match value {
-            JoinStrategy::Fullest => "Fullest",
-            JoinStrategy::Emptiest => "Emptiest",
-            JoinStrategy::RoundRobin => "RoundRobin",
-            JoinStrategy::Random => "Random",
-        }
+impl fmt::Display for JoinStrategy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            JoinStrategy::Fullest => "fullest",
+            JoinStrategy::Emptiest => "emptiest",
+            JoinStrategy::RoundRobin => "round_robin",
+            JoinStrategy::Random => "random",
+        };
+        write!(f, "{}", value)
     }
 }
-
-impl From<&str> for JoinStrategy {
-    fn from(s: &str) -> Self {
-        JoinStrategy::from_string(s)
-    }
-}
-
-impl From<String> for JoinStrategy {
-    fn from(s: String) -> Self {
-        JoinStrategy::from_string(s.as_str())
-    }
-}
-
-impl From<JoinStrategy> for String {
-    fn from(value: JoinStrategy) -> Self {
-        JoinStrategy::too_string(&value).to_string()
-    }
-}
-
-impl From<&JoinStrategy> for String {
-    fn from(value: &JoinStrategy) -> Self {
-        JoinStrategy::too_string(value).to_string()
-    }
-}
-

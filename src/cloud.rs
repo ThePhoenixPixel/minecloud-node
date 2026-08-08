@@ -10,12 +10,12 @@ use tokio::sync::RwLock;
 use crate::api::internal::APIInternal;
 use crate::config::{CloudConfig, SoftwareConfig, SoftwareConfigRef};
 use crate::database::table::Tables;
+use crate::log_info;
 use crate::manager::{GroupManagerRef, Manager, NodeManager, PlayerManager, TaskManagerRef};
 use crate::node::scheduler::Scheduler;
 use crate::terminal::cmd::Cmd;
 use crate::utils::error::*;
 use crate::utils::log::logger::Logger;
-use crate::log_info;
 
 #[cfg(feature = "rest-api")]
 use crate::api::external::restapi_main::ApiMain;
@@ -34,7 +34,11 @@ pub struct Cloud {
 impl Cloud {
     pub async fn new(cloud_config: CloudConfig, url: String) -> CloudResult<Self> {
         let config = Arc::new(cloud_config);
-        let software_config = SoftwareConfigRef::new(SoftwareConfig::check_and_get(config.clone(), &url).await.expect("Checking Software failed"));
+        let software_config = SoftwareConfigRef::new(
+            SoftwareConfig::check_and_get(config.clone(), &url)
+                .await
+                .expect("Checking Software failed"),
+        );
         let mut db = DatabaseManager::new(config.get_db_config())?;
         db.connect().await?;
         let db = Arc::new(db);
@@ -97,7 +101,9 @@ impl Cloud {
         Cloud::check_folder(&cloud_config).expect("Checking Folder failed");
 
         let cloud = Arc::new(RwLock::new(
-            Cloud::new(cloud_config, url).await.expect("Cant Create Cloud"),
+            Cloud::new(cloud_config, url)
+                .await
+                .expect("Cant Create Cloud"),
         ));
 
         // Internal API
@@ -313,5 +319,4 @@ impl Cloud {
         log_info!(2, "All Folders are safe :=)");
         Ok(())
     }
-
 }

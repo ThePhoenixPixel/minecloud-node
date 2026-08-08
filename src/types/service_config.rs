@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+
 use crate::types::{Installer, SoftwareLink, Task, Template};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -49,4 +50,3 @@ impl From<&Task> for ServiceConfig {
         }
     }
 }
-

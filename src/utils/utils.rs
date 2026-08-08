@@ -1,5 +1,6 @@
 use bx::network::address::Address;
 use chrono::{DateTime, Utc};
+use reqwest::Client;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::error::Error;
@@ -8,11 +9,10 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
-use reqwest::Client;
 
 use crate::cloud::Cloud;
-use crate::{error, log_error};
 use crate::utils::error::*;
+use crate::{error, log_error};
 
 pub struct Utils;
 
@@ -95,7 +95,11 @@ impl Utils {
         port
     }
 
-    pub fn copy_folder_contents(from: &PathBuf, to: &PathBuf, overwrite: bool) -> Result<(), Box<dyn Error>> {
+    pub fn copy_folder_contents(
+        from: &PathBuf,
+        to: &PathBuf,
+        overwrite: bool,
+    ) -> Result<(), Box<dyn Error>> {
         for entry in fs::read_dir(from)? {
             let entry = entry?;
             let entry_path = entry.path();
@@ -120,7 +124,7 @@ pub struct Web;
 pub enum WebDownloadResult {
     Downloaded,
     Skipped,
-    Err(CloudError)
+    Err(CloudError),
 }
 
 impl Web {
@@ -128,7 +132,11 @@ impl Web {
     ///
     /// example: url        = 'http://domain.com/test.txt'
     ///          file_path  = 'folder/file.test'
-    pub async fn download_file(url: &str, file_path: &PathBuf, overwrite: bool) -> WebDownloadResult {
+    pub async fn download_file(
+        url: &str,
+        file_path: &PathBuf,
+        overwrite: bool,
+    ) -> WebDownloadResult {
         if !overwrite && file_path.exists() {
             return WebDownloadResult::Skipped;
         }
@@ -148,7 +156,10 @@ impl Web {
         };
 
         if !response.status().is_success() {
-            return WebDownloadResult::Err(error!(DownloadFailed, format!("Status: {}", response.status())));
+            return WebDownloadResult::Err(error!(
+                DownloadFailed,
+                format!("Status: {}", response.status())
+            ));
         }
 
         let bytes = match response.bytes().await {
@@ -156,13 +167,10 @@ impl Web {
             Err(e) => return WebDownloadResult::Err(error!(DownloadFailed, e)),
         };
 
-        if let Err(e) = File::create(file_path)
-            .and_then(|mut file| file.write_all(&bytes))
-        {
+        if let Err(e) = File::create(file_path).and_then(|mut file| file.write_all(&bytes)) {
             return WebDownloadResult::Err(error!(CantWriteFile, e));
         }
 
         WebDownloadResult::Downloaded
     }
 }
-

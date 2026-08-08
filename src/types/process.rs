@@ -1,3 +1,11 @@
+use crate::api::internal::{OutgoingMessage, OutgoingMessageType};
+use crate::config::Software;
+use crate::types::service::Service;
+use crate::types::{EntityId, ServiceConfig, ServiceStatus};
+use crate::utils::error::*;
+use crate::utils::utils::Utils;
+use crate::{error, log_error, log_info, log_warning};
+use actix_ws::Session;
 use bx::network::address::Address;
 use bx::network::url::{Url, UrlSchema};
 use chrono::NaiveDateTime;
@@ -11,19 +19,11 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
-use actix_ws::Session;
 use tokio::io;
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tokio::time::{Instant, sleep};
 use uuid::Uuid;
-use crate::config::Software;
-use crate::types::service::Service;
-use crate::types::{EntityId, ServiceConfig, ServiceStatus};
-use crate::utils::error::*;
-use crate::utils::utils::Utils;
-use crate::{error, log_error, log_info, log_warning};
-use crate::api::internal::{OutgoingMessage, OutgoingMessageType};
 
 pub struct ServiceProcess {
     service: Service,
@@ -39,7 +39,8 @@ pub struct ServiceProcessRef(Arc<RwLock<ServiceProcess>>);
 impl ServiceProcess {
     // software wird vom ServiceManager übergeben — er hat die SoftwareConfig
     pub fn start(&mut self, software: &Software) -> CloudResult<()> {
-        let server_file_path = self.path
+        let server_file_path = self
+            .path
             .join(software.get_software_file().get_file_name())
             .to_str()
             .ok_or(error!(CantConvertServerFilePathToString))?
@@ -128,7 +129,11 @@ impl ServiceProcess {
             log_info!(6, "Stop command sent to [{}]", self.service.get_name());
             Ok(())
         } else {
-            log_warning!(5, "Shutdown failed for [{}]: no session", self.service.get_name());
+            log_warning!(
+                5,
+                "Shutdown failed for [{}]: no session",
+                self.service.get_name()
+            );
             Err(error!(CantSendShutdownRequest, "No active WS session"))
         }
     }
@@ -137,37 +142,52 @@ impl ServiceProcess {
         let deadline = Instant::now() + timeout;
         loop {
             if let Some(child) = self.process.as_mut() {
-                if let Some(_) = child.try_wait()? { return Ok(false) }
+                if let Some(_) = child.try_wait()? {
+                    return Ok(false);
+                }
             } else {
                 return Ok(false);
             }
 
-            if Instant::now() >= deadline { return Ok(true); }
+            if Instant::now() >= deadline {
+                return Ok(true);
+            }
             sleep(Duration::from_millis(100)).await;
         }
     }
 
-    pub fn get_service(&self) -> &Service { &self.service }
-    pub fn is_shutdown_init(&self) -> bool { self.shutdown_initiated_by_cloud }
+    pub fn get_service(&self) -> &Service {
+        &self.service
+    }
+    pub fn is_shutdown_init(&self) -> bool {
+        self.shutdown_initiated_by_cloud
+    }
 
     pub fn get_service_url(&self) -> Url {
         Url::new(UrlSchema::Http, self.get_plugin_listener(), "cloud/service").join(self.get_name())
     }
 
-    pub fn get_path(&self) -> &PathBuf { &self.path }
+    pub fn get_path(&self) -> &PathBuf {
+        &self.path
+    }
 
-    pub fn get_path_with_service_config(&self) -> PathBuf { self.path.join(".minecloud") }
+    pub fn get_path_with_service_config(&self) -> PathBuf {
+        self.path.join(".minecloud")
+    }
     pub fn get_path_with_service_file(&self) -> PathBuf {
-        self.get_path_with_service_config().join("service_config.json")
+        self.get_path_with_service_config()
+            .join("service_config.json")
     }
     pub fn get_path_stdout_file(&self) -> PathBuf {
-        self.get_path_with_service_config().join("server_stdout.log")
+        self.get_path_with_service_config()
+            .join("server_stdout.log")
     }
     pub fn get_path_stdin_file(&self) -> PathBuf {
         self.get_path_with_service_config().join("server_stdin.log")
     }
     pub fn get_path_stderr_file(&self) -> PathBuf {
-        self.get_path_with_service_config().join("server_stderr.log")
+        self.get_path_with_service_config()
+            .join("server_stderr.log")
     }
 
     pub fn set_status(&mut self, status: ServiceStatus) {
@@ -238,16 +258,32 @@ impl ServiceProcessRef {
         })))
     }
 
-    pub async fn read(&self) -> RwLockReadGuard<'_, ServiceProcess> { self.0.read().await }
-    pub async fn write(&self) -> RwLockWriteGuard<'_, ServiceProcess> { self.0.write().await }
-    pub fn ptr_eq(&self, other: &ServiceProcessRef) -> bool { Arc::ptr_eq(&self.0, &other.0) }
+    pub async fn read(&self) -> RwLockReadGuard<'_, ServiceProcess> {
+        self.0.read().await
+    }
+    pub async fn write(&self) -> RwLockWriteGuard<'_, ServiceProcess> {
+        self.0.write().await
+    }
+    pub fn ptr_eq(&self, other: &ServiceProcessRef) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
 
-    pub async fn get_id(&self) -> EntityId { self.0.read().await.get_id().clone() }
-    pub async fn get_name(&self) -> String { self.0.read().await.get_name().to_string() }
-    pub async fn is_start(&self) -> bool { self.0.read().await.is_start() }
-    pub async fn is_proxy(&self) -> bool { self.0.read().await.is_proxy() }
+    pub async fn get_id(&self) -> EntityId {
+        self.0.read().await.get_id().clone()
+    }
+    pub async fn get_name(&self) -> String {
+        self.0.read().await.get_name().to_string()
+    }
+    pub async fn is_start(&self) -> bool {
+        self.0.read().await.is_start()
+    }
+    pub async fn is_proxy(&self) -> bool {
+        self.0.read().await.is_proxy()
+    }
 }
 
 impl Clone for ServiceProcessRef {
-    fn clone(&self) -> Self { Self(self.0.clone()) }
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
 }

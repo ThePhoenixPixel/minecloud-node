@@ -2,8 +2,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::api::internal::{
-    OutgoingMessage, OutgoingMessageType, PlayerActionResponse, ServiceIdRequest,
-    ServiceInfoResponse,
+    OutgoingMessage, OutgoingMessageType, PlayerActionResponse, ServiceInfoResponse,
 };
 use crate::cloud::Cloud;
 use crate::log_error;
@@ -23,10 +22,7 @@ impl APIInternalHandler {
             cloud_guard.get_node_manager()
         };
 
-        match node_manager
-            .on_local_service_shutdown(service_id)
-            .await
-        {
+        match node_manager.on_local_service_shutdown(service_id).await {
             Ok(()) => OutgoingMessage::null(None),
             Err(e) => {
                 log_error!(3, "[service_notify_shutdown] Error: {}", e);
@@ -45,10 +41,7 @@ impl APIInternalHandler {
             cloud_guard.get_node_manager()
         };
 
-        match node_manager
-            .on_local_service_registered(service_id)
-            .await
-        {
+        match node_manager.on_local_service_registered(service_id).await {
             Ok(()) => OutgoingMessage::null(None),
             Err(e) => {
                 log_error!(3, "[service_notify_started] Error: {}", e);

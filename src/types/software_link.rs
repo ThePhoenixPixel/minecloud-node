@@ -4,8 +4,7 @@ use std::path::PathBuf;
 use crate::config::CloudConfig;
 use crate::types::SoftwareType;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct SoftwareLink {
     typ: SoftwareType,
     name: String,
@@ -13,13 +12,8 @@ pub struct SoftwareLink {
 }
 
 impl SoftwareLink {
-
     pub fn new(typ: SoftwareType, name: String, version: String) -> SoftwareLink {
-        SoftwareLink {
-            typ,
-            name,
-            version,
-        }
+        SoftwareLink { typ, name, version }
     }
 
     pub fn get_name(&self) -> &str {
@@ -34,9 +28,7 @@ impl SoftwareLink {
         &self.version
     }
 
-
-
-   /* pub fn get_software_name(&self) -> Software {
+    /* pub fn get_software_name(&self) -> Software {
         SoftwareConfig::find_software(&self.get_software_type(), &self.get_name()).unwrap()
     }
 

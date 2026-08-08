@@ -39,7 +39,13 @@ impl TableServices {
             created_at: DBDatetime::get_now(),
             uuid: DBTools::uuid_to_varchar(&service.get_id()),
             name: DBText::from(service.get_name()),
-            typ: DBText::from(service.get_config().get_software().get_software_type().to_string()),
+            typ: DBText::from(
+                service
+                    .get_config()
+                    .get_software()
+                    .get_software_type()
+                    .to_string(),
+            ),
             node: DBText::from(service.get_parent_node()),
             task: DBText::from(service.get_task_name()),
             status: DBText::from(service.get_status().to_string()),
@@ -107,7 +113,10 @@ impl TableServices {
         let mut f = QueryFilters::new();
         f.add_filter(Filter::eq("node", Value::from(config.get_name())));
         for s in service_list {
-            f.add_filter(Filter::not_eq("uuid", DBTools::uuid_to_value(&s.get_id().await)));
+            f.add_filter(Filter::not_eq(
+                "uuid",
+                DBTools::uuid_to_value(&s.get_id().await),
+            ));
         }
         db.delete(Self::table_name(), &f).await?;
         Ok(())
@@ -119,14 +128,10 @@ impl TableServices {
     ) -> DbResult<u32> {
         let (name, split) = {
             let t = task.read().await;
-            (
-                t.get_name().to_string(),
-                t.get_split().clone()
-            )
+            (t.get_name().to_string(), t.get_split().clone())
         };
 
-        let filters = QueryFilters::new()
-            .add(Filter::eq("task", Value::from(name)));
+        let filters = QueryFilters::new().add(Filter::eq("task", Value::from(name)));
 
         let services = db.query(Self::table_name(), &filters).await?;
 
@@ -156,5 +161,4 @@ impl TableServices {
 
         Ok(next_num)
     }
-
 }

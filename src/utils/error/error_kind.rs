@@ -10,7 +10,7 @@ pub enum CloudErrorKind {
     CantCreateDownloadClient,
     DownloadFailed,
     CantFindSoftware,
-    
+
     /// 11.xxx Directory
     PathServe,
     CantCreateSoftwareConfigPath,
@@ -23,7 +23,6 @@ pub enum CloudErrorKind {
     /// 13.xxx api internal
     CantSerializeOutgoingMsg,
     CantSendWSAnswer,
-
 
     /// 2x.xxx CloudSystem
     CantFetchSoftwareIndex,

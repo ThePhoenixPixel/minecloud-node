@@ -5,9 +5,16 @@ use crate::api::internal::PlayerActionResponse;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
 pub struct Player {
+    #[serde(rename = "id")]
     id: u64,
+
+    #[serde(rename = "name")]
     name: String,
+
+    #[serde(rename = "uuid")]
     uuid: Uuid,
+
+    #[serde(rename = "session")]
     session: Option<PlayerSession>,
 }
 
@@ -108,7 +115,12 @@ impl PlayerRequest {
 
 impl From<&PlayerActionResponse> for Player {
     fn from(value: &PlayerActionResponse) -> Self {
-        Player::new(0, value.get_player_name().to_string(), value.get_player_uuid(), None)
+        Player::new(
+            0,
+            value.get_player_name().to_string(),
+            value.get_player_uuid(),
+            None,
+        )
     }
 }
 
