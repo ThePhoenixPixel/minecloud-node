@@ -3,7 +3,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::api::internal::{
-    OutgoingMessage, OutgoingMessageType, PlayerActionResponse, ServiceInfoResponse,
+    OutgoingMessage, OutgoingMessageType, PlayerActionMessage, ServiceInfoResponse,
 };
 use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
 use crate::manager::{ServiceManagerRef, TaskManagerRef};
@@ -31,7 +31,7 @@ impl PlayerManager {
         }
     }
 
-    pub async fn handle_action(&self, req: PlayerActionResponse) -> CloudResult<OutgoingMessage> {
+    pub async fn handle_action(&self, req: PlayerActionMessage) -> CloudResult<OutgoingMessage> {
         let mut out_msg: OutgoingMessage = OutgoingMessage::null(None);
 
         let service_ref = {

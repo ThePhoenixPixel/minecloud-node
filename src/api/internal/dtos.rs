@@ -14,9 +14,11 @@ pub struct IncomingMessage {
     #[serde(rename = "type")]
     msg_type: IncomingMessageType,
 
+    #[serde(rename = "service_id")]
     service_id: Uuid,
 
     #[serde(default)]
+    #[serde(rename = "data")]
     data: Value,
 }
 
@@ -50,9 +52,11 @@ pub struct OutgoingMessage {
     success: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "data")]
     data: Option<Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "error")]
     error: Option<String>,
 }
 
@@ -105,19 +109,19 @@ impl OutgoingMessage {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum IncomingMessageType {
-    #[serde(rename = "Auth")]
+    #[serde(rename = "auth")]
     Auth,
 
-    #[serde(rename = "GetOnlineBackendServices")]
+    #[serde(rename = "get_online_backend_service")]
     GetOnlineBackendServices,
 
-    #[serde(rename = "ServiceOnline")]
+    #[serde(rename = "service_notify_online")]
     ServiceOnline,
 
-    #[serde(rename = "Shutdown")]
+    #[serde(rename = "shutdown")]
     Shutdown,
 
-    #[serde(rename = "PlayerAction")]
+    #[serde(rename = "player_action")]
     PlayerAction,
 }
 
@@ -129,25 +133,25 @@ impl PartialEq<IncomingMessageType> for &IncomingMessageType {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum OutgoingMessageType {
-    #[serde(rename = "Error")]
+    #[serde(rename = "error")]
     Error,
 
-    #[serde(rename = "Response")]
+    #[serde(rename = "response")]
     Response,
 
-    #[serde(rename = "ResponseNull")]
+    #[serde(rename = "response_null")]
     ResponseNull,
 
-    #[serde(rename = "Shutdown")]
+    #[serde(rename = "shutdown")]
     Shutdown,
 
-    #[serde(rename = "AddServer")]
+    #[serde(rename = "register_server")]
     AddServer,
 
-    #[serde(rename = "RemoveServer")]
+    #[serde(rename = "remove_server")]
     RemoveServer,
 
-    #[serde(rename = "ConnectPlayerToServer")]
+    #[serde(rename = "connect_player_to_server")]
     ConnectPlayerToServer,
 }
 
@@ -176,9 +180,16 @@ impl From<&Uuid> for ServiceIdRequest {
 
 #[derive(Serialize, Debug)]
 pub struct ServiceInfoResponse {
+    #[serde(rename = "id")]
     id: Uuid,
+
+    #[serde(rename = "name")]
     name: String,
+
+    #[serde(rename = "address")]
     address: Address,
+
+    #[serde(rename = "join_permission")]
     join_permission: String,
 }
 
@@ -218,15 +229,24 @@ impl From<Service> for ServiceInfoResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct PlayerActionRequest {
+pub struct PlayerActionMessage {
+    #[serde(rename = "action")]
     action: PlayerAction,
+
+    #[serde(rename = "service_uuid")]
     service_uuid: Uuid,
+
+    #[serde(rename = "service_name")]
     service_name: String,
+
+    #[serde(rename = "player_uuid")]
     player_uuid: Uuid,
+
+    #[serde(rename = "player_name")]
     player_name: String,
 }
 
-impl PlayerActionRequest {
+impl PlayerActionMessage {
     pub fn get_action(&self) -> &PlayerAction {
         &self.action
     }
@@ -245,31 +265,5 @@ impl PlayerActionRequest {
 
     pub fn get_player_uuid(&self) -> Uuid {
         self.player_uuid
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct PlayerActionResponse {
-    action: PlayerAction,
-    service_uuid: Uuid,
-    player_uuid: Uuid,
-    player_name: String,
-}
-
-impl PlayerActionResponse {
-    pub fn get_action(&self) -> &PlayerAction {
-        &self.action
-    }
-
-    pub fn get_player_name(&self) -> &str {
-        &self.player_name
-    }
-
-    pub fn get_player_uuid(&self) -> Uuid {
-        self.player_uuid
-    }
-
-    pub fn get_service_uuid(&self) -> Uuid {
-        self.service_uuid
     }
 }

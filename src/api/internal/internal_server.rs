@@ -1,4 +1,4 @@
-use actix_web::{App, HttpRequest, HttpResponse, HttpServer, web};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use actix_ws::{Message, Session};
 use futures_util::StreamExt;
 use serde_json::json;
@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use crate::api::internal::{
     APIInternalHandler, IncomingMessage, IncomingMessageType, OutgoingMessage, OutgoingMessageType,
-    PlayerActionResponse,
+    PlayerActionMessage,
 };
 use crate::cloud::Cloud;
 use crate::types::{EntityId, ServiceProcessRef};
@@ -158,7 +158,7 @@ async fn handle_text_message(msg: IncomingMessage, cloud: Arc<RwLock<Cloud>>) ->
         }
 
         IncomingMessageType::PlayerAction => {
-            let data: PlayerActionResponse =
+            let data: PlayerActionMessage =
                 serde_json::from_value(msg.get_data().clone()).unwrap();
             APIInternalHandler::player_action(cloud, data).await
         }

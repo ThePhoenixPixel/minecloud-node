@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::api::internal::PlayerActionResponse;
+use crate::api::internal::PlayerActionMessage;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
 pub struct Player {
@@ -33,8 +33,13 @@ pub struct PlayerRequest {
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
 pub enum PlayerAction {
     #[default]
+    #[serde(rename = "join")]
     Join,
+
+    #[serde(rename = "leave")]
     Leave,
+
+    #[serde(rename = "switch_server")]
     SwitchServer,
 }
 
@@ -113,8 +118,8 @@ impl PlayerRequest {
     }
 }
 
-impl From<&PlayerActionResponse> for Player {
-    fn from(value: &PlayerActionResponse) -> Self {
+impl From<&PlayerActionMessage> for Player {
+    fn from(value: &PlayerActionMessage) -> Self {
         Player::new(
             0,
             value.get_player_name().to_string(),
