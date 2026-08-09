@@ -84,6 +84,24 @@ impl TablePlayers {
         }
     }
 
+    pub async fn find_by_name<M: DatabaseController>(
+        manager: &M,
+        name: &String,
+    ) -> DbResult<Option<Self>> {
+        let row = manager
+            .query_one(
+                Self::table_name(),
+                &QueryFilters::new().add(Filter::eq("name", name.into())),
+            )
+            .await?;
+
+        if let Some(row) = row {
+            Ok(Some(Self::from_row(&row)?))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub async fn create<M: DatabaseController>(&self, manager: &M) -> DbResult<()> {
         self.insert(manager).await?;
         Ok(())

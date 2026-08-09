@@ -199,6 +199,13 @@ impl PlayerManager {
             .map(Player::from))
     }
 
+    pub async fn find_player_by_name(&self, name: &String) -> CloudResult<Option<Player>> {
+        Ok(TablePlayers::find_by_name(self.db_manager.as_ref(), name)
+            .await?
+            .map(Player::from))
+    }
+
+
     async fn create_session(&self, player: &mut Player, service_uuid: &Uuid) -> CloudResult<()> {
         let _ = TablePlayerSessions::delete_by_player_id(self.get_db(), player.get_id()).await;
         let session = TablePlayerSessions::new(player.get_id(), service_uuid);
