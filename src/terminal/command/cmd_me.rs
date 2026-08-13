@@ -28,7 +28,7 @@ impl CmdMe {
         };
 
         let player = {
-            match cloud.read().await.get_player_manager().find_player_by_name(player_name).await? {
+            match cloud.read().await.get_player_manager().read().await.find_player_by_name(player_name).await? {
                 Some(p) => p,
                 None => {
                     log_info!("Player nicht gefunden!");

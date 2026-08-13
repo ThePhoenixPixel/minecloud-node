@@ -1,33 +1,44 @@
 use database_manager::DatabaseManager;
+use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use uuid::Uuid;
 
 use crate::api::internal::{
     OutgoingMessage, OutgoingMessageType, PlayerActionMessage, ServiceInfoResponse,
 };
-use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers};
-use crate::manager::{ServiceManagerRef, TaskManagerRef};
-use crate::types::{Player, PlayerAction, PlayerSession, ServiceProcessRef};
+use crate::cloud::Cloud;
+use crate::config::{CloudConfig, SoftwareConfigRef};
+use crate::database::table::{TablePlayerEvents, TablePlayerSessions, TablePlayers, TableServices};
+use crate::manager::service_manager::ServiceManager;
+use crate::manager::{ServiceManagerRef, TaskManager, TaskManagerRef};
+use crate::types::{EntityId, Player, PlayerAction, PlayerSession, ServiceProcessRef, ServiceStatus};
 use crate::utils::error::*;
 use crate::utils::utils::Utils;
 use crate::{error, log_info, log_warning};
 
 pub struct PlayerManager {
-    db_manager: Arc<DatabaseManager>,
+    db: Arc<DatabaseManager>,
     service_manager: ServiceManagerRef,
     task_manager: TaskManagerRef,
+
+    players: HashMap<u64, Player>,
 }
+
+pub struct PlayerManagerRef(Arc<RwLock<PlayerManager>>);
 
 impl PlayerManager {
     pub fn new(
-        db_manager: Arc<DatabaseManager>,
+        db: Arc<DatabaseManager>,
         service_manager: ServiceManagerRef,
         task_manager: TaskManagerRef,
     ) -> PlayerManager {
         PlayerManager {
-            db_manager,
+            db,
             service_manager,
             task_manager,
+
+            players: HashMap::new(),
         }
     }
 
@@ -151,7 +162,7 @@ impl PlayerManager {
 
     async fn register_player(&self, player: &Player) -> CloudResult<Player> {
         let db_player = TablePlayers::new(&player.get_uuid(), &player.get_name())?;
-        db_player.create(self.db_manager.as_ref()).await?;
+        db_player.create(self.get_db()).await?;
         log_info!(
             7,
             "[DB t_players] Register new Player: [{}] [{}]",
@@ -174,7 +185,7 @@ impl PlayerManager {
     }
 
     async fn update_last_seen(&self, player: &Player) -> CloudResult<()> {
-        TablePlayers::update_last_seen(self.db_manager.as_ref(), player.get_id()).await?;
+        TablePlayers::update_last_seen(self.get_db(), player.get_id()).await?;
         log_info!(
             8,
             "[DB t_players] Update 'last_seen' for Player: [{}]",
@@ -184,7 +195,7 @@ impl PlayerManager {
     }
 
     async fn update_last_login(&self, player: &Player) -> CloudResult<()> {
-        TablePlayers::update_last_login(self.db_manager.as_ref(), player.get_id()).await?;
+        TablePlayers::update_last_login(self.get_db(), player.get_id()).await?;
         log_info!(
             8,
             "[DB t_players] Update 'last_login' for Player: [{}]",
@@ -194,13 +205,13 @@ impl PlayerManager {
     }
 
     async fn get_player_by_uuid(&self, uuid: &Uuid) -> CloudResult<Option<Player>> {
-        Ok(TablePlayers::find_by_uuid(self.db_manager.as_ref(), uuid)
+        Ok(TablePlayers::find_by_uuid(self.get_db(), uuid)
             .await?
             .map(Player::from))
     }
 
     pub async fn find_player_by_name(&self, name: &str) -> CloudResult<Option<Player>> {
-        Ok(TablePlayers::find_by_name(self.db_manager.as_ref(), name)
+        Ok(TablePlayers::find_by_name(self.get_db(), name)
             .await?
             .map(Player::from))
     }
@@ -209,7 +220,7 @@ impl PlayerManager {
     async fn create_session(&self, player: &mut Player, service_uuid: &Uuid) -> CloudResult<()> {
         let _ = TablePlayerSessions::delete_by_player_id(self.get_db(), player.get_id()).await;
         let session = TablePlayerSessions::new(player.get_id(), service_uuid);
-        session.create(self.db_manager.as_ref()).await?;
+        session.create(self.get_db()).await?;
         self.set_session_for_player(player).await?;
         log_info!(
             7,
@@ -262,6 +273,31 @@ impl PlayerManager {
     }
 
     fn get_db(&self) -> &DatabaseManager {
-        self.db_manager.as_ref()
+        self.db.as_ref()
     }
 }
+
+impl PlayerManagerRef {
+    pub async fn new(
+        db: Arc<DatabaseManager>,
+        service_manager: ServiceManagerRef,
+        task_manager: TaskManagerRef,
+    ) -> PlayerManagerRef {
+        PlayerManagerRef(Arc::new(RwLock::new(PlayerManager::new(db, service_manager, task_manager))))
+    }
+
+    pub async fn read(&self) -> RwLockReadGuard<'_, PlayerManager> {
+        self.0.read().await
+    }
+    pub async fn write(&self) -> RwLockWriteGuard<'_, PlayerManager> {
+        self.0.write().await
+    }
+
+}
+
+impl Clone for PlayerManagerRef {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+

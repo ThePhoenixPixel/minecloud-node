@@ -80,7 +80,7 @@ impl APIInternalHandler {
             cloud_guard.get_player_manager()
         };
 
-        player_manager
+        player_manager.read().await
             .handle_action(request)
             .await
             .unwrap_or_else(|e| {

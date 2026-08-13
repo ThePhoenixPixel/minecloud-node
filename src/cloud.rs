@@ -11,7 +11,7 @@ use crate::api::internal::APIInternal;
 use crate::config::{CloudConfig, SoftwareConfig, SoftwareConfigRef};
 use crate::database::table::Tables;
 use crate::log_info;
-use crate::manager::{GroupManagerRef, Manager, NodeManager, PlayerManager, TaskManagerRef};
+use crate::manager::{GroupManagerRef, Manager, NodeManager, PlayerManagerRef, TaskManagerRef};
 use crate::node::scheduler::Scheduler;
 use crate::terminal::cmd::Cmd;
 use crate::utils::error::*;
@@ -27,7 +27,7 @@ pub struct Cloud {
     scheduler: Arc<Scheduler>,
     task_manager: TaskManagerRef,
     node_manager: Arc<NodeManager>,
-    player_manager: Arc<PlayerManager>,
+    player_manager: PlayerManagerRef,
     group_manager: GroupManagerRef,
 }
 
@@ -79,7 +79,10 @@ impl Cloud {
     pub fn get_scheduler(&self) -> &Arc<Scheduler> {
         &self.scheduler
     }
-    pub fn get_player_manager(&self) -> Arc<PlayerManager> {
+    pub fn get_task_manager(self) -> TaskManagerRef {
+        self.task_manager.clone()
+    }
+    pub fn get_player_manager(&self) -> PlayerManagerRef {
         self.player_manager.clone()
     }
 

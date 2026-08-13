@@ -24,7 +24,7 @@ impl Manager {
         cloud_config: Arc<CloudConfig>,
         software_config: SoftwareConfigRef,
     ) -> CloudResult<(
-        Arc<PlayerManager>,
+        PlayerManagerRef,
         TaskManagerRef,
         Arc<NodeManager>,
         GroupManagerRef,
@@ -43,13 +43,13 @@ impl Manager {
             software_config.clone(),
         )
         .await?;
-        let player_manager =
-            PlayerManager::new(db.clone(), service_manager.clone(), task_manager.clone());
+        let player_manager = PlayerManagerRef::new(db.clone(), service_manager.clone(), task_manager.clone()).await;
+
         let node_manager =
             NodeManager::new(cloud_config.clone(), service_manager, task_manager.clone()).await?;
 
         Ok((
-            Arc::new(player_manager),
+            player_manager,
             task_manager,
             Arc::new(node_manager),
             group_manager,
