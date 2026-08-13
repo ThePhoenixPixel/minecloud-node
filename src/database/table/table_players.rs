@@ -86,12 +86,12 @@ impl TablePlayers {
 
     pub async fn find_by_name<M: DatabaseController>(
         manager: &M,
-        name: &String,
+        name: &str,
     ) -> DbResult<Option<Self>> {
         let row = manager
             .query_one(
                 Self::table_name(),
-                &QueryFilters::new().add(Filter::eq("name", name.into())),
+                &QueryFilters::new().add(Filter::eq("name", Value::from(DBText(name.to_string())))),
             )
             .await?;
 

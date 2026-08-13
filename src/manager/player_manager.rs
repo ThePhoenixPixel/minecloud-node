@@ -199,7 +199,7 @@ impl PlayerManager {
             .map(Player::from))
     }
 
-    pub async fn find_player_by_name(&self, name: &String) -> CloudResult<Option<Player>> {
+    pub async fn find_player_by_name(&self, name: &str) -> CloudResult<Option<Player>> {
         Ok(TablePlayers::find_by_name(self.db_manager.as_ref(), name)
             .await?
             .map(Player::from))

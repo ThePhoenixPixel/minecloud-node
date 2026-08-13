@@ -247,6 +247,15 @@ pub struct PlayerActionMessage {
 }
 
 impl PlayerActionMessage {
+    pub fn new(action: PlayerAction, service_uuid: Uuid, service_name: String, player_uuid: Uuid, player_name: String) -> PlayerActionMessage {
+        PlayerActionMessage {
+            action,
+            service_uuid,
+            service_name,
+            player_uuid,
+            player_name,
+        }
+    }
     pub fn get_action(&self) -> &PlayerAction {
         &self.action
     }

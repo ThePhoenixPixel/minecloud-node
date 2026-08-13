@@ -24,6 +24,7 @@ strum_macros        = "0.28.0"
 database_manager    = { git = "https://github.com/ThePhoenixPixel/database_manager.git", branch = "master" }
 reqwest             = {  version = "0.13.4", features = ["json"] }
 futures-util        = "0.3.33"
+log = "0.4.33"
 
 [features]
 default             = ["mysql"]

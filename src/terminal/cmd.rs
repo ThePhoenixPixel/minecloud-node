@@ -75,7 +75,10 @@ impl Cmd {
             "task" => todo!(), //CmdTask::execute(cloud, args).await,
             "service" => CmdService::execute(cloud, args).await,
             "template" => CmdTemplate::execute(cloud, args).await,
-            "me" => CmdMe::execute(cloud, args).await,
+            "me" => match CmdMe::execute(cloud, args).await {
+                Ok(_) => Ok(()),
+                Err(e) => Ok(()),
+            },
             "reload" => {
                 let scheduler = {
                     let cloud_guard = cloud.read().await;
